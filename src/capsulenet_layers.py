@@ -1,6 +1,6 @@
 '''
 
-Much of this code is adabted from 
+Much of this code is adapted from code written by 
 Xifeng Guo, E-mail: `guoxifeng1990@163.com`, Github: `https://github.com/XifengGuo/CapsNet-Keras`
 '''
 
@@ -162,3 +162,106 @@ def PrimaryCap(inputs, dim_capsule, n_channels, kernel_size, strides, padding):
                            name='primarycap_conv2d')(inputs)
     outputs = layers.Reshape(target_shape=[-1, dim_capsule], name='primarycap_reshape')(output)
     return layers.Lambda(squash, name='primarycap_squash')(outputs)
+
+class GraphConv(layers.Layer):
+    """
+    A layer to perform a convolutional filter on a graph
+
+    :param filters: number of filters
+    :param kernel_size: size of kernel to use
+    """
+    def __init__(self, filters, kernel_size,
+                 kernel_initializer='glorot_uniform',
+                 **kwargs):
+        super(GraphConv, self).__init__(**kwargs)
+        self.filters = filters
+        self.kernel_size = kernel_size
+        self.kernel_initializer = initializers.get(kernel_initializer)
+
+    def build(self, input_shape):
+        # assert len(input_shape) >= 3, "The input Tensor should have shape=[None, input_num_capsule, input_dim_capsule]"
+        # self.input_num_capsule = input_shape[1]
+        # self.input_dim_capsule = input_shape[2]
+
+        # Transform matrix
+        self.W = self.add_weight(shape=[self.num_capsule, self.input_num_capsule,
+                                        self.dim_capsule, self.input_dim_capsule],
+                                 initializer=self.kernel_initializer,
+                                 name='W')
+
+        self.built = True
+
+    def call(self, inputs, training=None):
+        # inputs.shape=[None, input_num_capsule, input_dim_capsule]
+        # inputs_expand.shape=[None, 1, input_num_capsule, input_dim_capsule]
+        inputs_expand = K.expand_dims(inputs, 1)
+
+        # Replicate num_capsule dimension to prepare being multiplied by W
+        # inputs_tiled.shape=[None, num_capsule, input_num_capsule, input_dim_capsule]
+        inputs_tiled = K.tile(inputs_expand, [1, self.num_capsule, 1, 1])
+
+        # Compute `inputs * W` by scanning inputs_tiled on dimension 0.
+        # x.shape=[num_capsule, input_num_capsule, input_dim_capsule]
+        # W.shape=[num_capsule, input_num_capsule, dim_capsule, input_dim_capsule]
+        # Regard the first two dimensions as `batch` dimension,
+        # then matmul: [input_dim_capsule] x [dim_capsule, input_dim_capsule]^T -> [dim_capsule].
+        # inputs_hat.shape = [None, num_capsule, input_num_capsule, dim_capsule]
+        inputs_hat = K.map_fn(lambda x: K.batch_dot(x, self.W, [2, 3]), elems=inputs_tiled)
+
+        """
+        # Begin: routing algorithm V1, dynamic ------------------------------------------------------------#
+        # The prior for coupling coefficient, initialized as zeros.
+        b = K.zeros(shape=[self.batch_size, self.num_capsule, self.input_num_capsule])
+
+        def body(i, b, outputs):
+            c = tf.nn.softmax(b, dim=1)  # dim=2 is the num_capsule dimension
+            outputs = squash(K.batch_dot(c, inputs_hat, [2, 2]))
+            if i != 1:
+                b = b + K.batch_dot(outputs, inputs_hat, [2, 3])
+            return [i-1, b, outputs]
+
+        cond = lambda i, b, inputs_hat: i > 0
+        loop_vars = [K.constant(self.num_routing), b, K.sum(inputs_hat, 2, keepdims=False)]
+        shape_invariants = [tf.TensorShape([]),
+                            tf.TensorShape([None, self.num_capsule, self.input_num_capsule]),
+                            tf.TensorShape([None, self.num_capsule, self.dim_capsule])]
+        _, _, outputs = tf.while_loop(cond, body, loop_vars, shape_invariants)
+        # End: routing algorithm V1, dynamic ------------------------------------------------------------#
+        """
+        # Begin: Routing algorithm ---------------------------------------------------------------------#
+        # In forward pass, `inputs_hat_stopped` = `inputs_hat`;
+        # In backward, no gradient can flow from `inputs_hat_stopped` back to `inputs_hat`.
+        inputs_hat_stopped = K.stop_gradient(inputs_hat)
+        
+        # The prior for coupling coefficient, initialized as zeros.
+        # b.shape = [None, self.num_capsule, self.input_num_capsule].
+        b = tf.zeros(shape=[K.shape(inputs_hat)[0], self.num_capsule, self.input_num_capsule])
+
+        assert self.num_routing > 0, 'The num_routing should be > 0.'
+        for i in range(self.num_routing):
+            # c.shape=[batch_size, num_capsule, input_num_capsule]
+            c = tf.nn.softmax(b, dim=1)
+
+            # At last iteration, use `inputs_hat` to compute `outputs` in order to backpropagate gradient
+            if i == self.num_routing - 1:
+                # c.shape =  [batch_size, num_capsule, input_num_capsule]
+                # inputs_hat.shape=[None, num_capsule, input_num_capsule, dim_capsule]
+                # The first two dimensions as `batch` dimension,
+                # then matmal: [input_num_capsule] x [input_num_capsule, dim_capsule] -> [dim_capsule].
+                # outputs.shape=[None, num_capsule, dim_capsule]
+                outputs = squash(K.batch_dot(c, inputs_hat, [2, 2]))  # [None, 10, 16]
+            else:  # Otherwise, use `inputs_hat_stopped` to update `b`. No gradients flow on this path.
+                outputs = squash(K.batch_dot(c, inputs_hat_stopped, [2, 2]))
+
+                # outputs.shape =  [None, num_capsule, dim_capsule]
+                # inputs_hat.shape=[None, num_capsule, input_num_capsule, dim_capsule]
+                # The first two dimensions as `batch` dimension,
+                # then matmal: [dim_capsule] x [input_num_capsule, dim_capsule]^T -> [input_num_capsule].
+                # b.shape=[batch_size, num_capsule, input_num_capsule]
+                b += K.batch_dot(outputs, inputs_hat_stopped, [2, 3])
+        # End: Routing algorithm -----------------------------------------------------------------------#
+
+        return outputs
+
+    def compute_output_shape(self, input_shape):
+        return tuple([None, self.num_capsule, self.dim_capsule])
