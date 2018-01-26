@@ -1,0 +1,55 @@
+This is BibTeX, Version 0.99d (TeX Live 2015/Debian)
+Capacity: max_strings=35307, hash_size=35307, hash_prime=30011
+The top-level auxiliary file: write_up.aux
+The style file: unsrt.bst
+Database file #1: references.bib
+Repeated entry---line 76 of file references.bib
+ : @inproceedings{mikolov2013distributed
+ :                                      ,
+I'm skipping whatever remains of this entry
+Repeated entry---line 95 of file references.bib
+ : @article{krioukov2010hyperbolic
+ :                                ,
+I'm skipping whatever remains of this entry
+You've used 27 entries,
+            1791 wiz_defined-function locations,
+            594 strings with 8682 characters,
+and the built_in function-call counts, 7750 in all, are:
+= -- 715
+> -- 330
+< -- 12
++ -- 119
+- -- 92
+* -- 479
+:= -- 1131
+add.period$ -- 86
+call.type$ -- 27
+change.case$ -- 27
+chr.to.int$ -- 0
+cite$ -- 27
+duplicate$ -- 385
+empty$ -- 740
+format.name$ -- 92
+if$ -- 1813
+int.to.chr$ -- 0
+int.to.str$ -- 27
+missing$ -- 27
+newline$ -- 138
+num.names$ -- 27
+pop$ -- 101
+preamble$ -- 1
+purify$ -- 0
+quote$ -- 0
+skip$ -- 241
+stack$ -- 0
+substring$ -- 549
+swap$ -- 153
+text.length$ -- 12
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 0
+warning$ -- 0
+while$ -- 73
+width$ -- 29
+write$ -- 297
+(There were 2 error messages)

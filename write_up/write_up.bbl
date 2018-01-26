@@ -1,0 +1,165 @@
+\begin{thebibliography}{10}
+
+\bibitem{krioukov2010hyperbolic}
+Dmitri Krioukov, Fragkiskos Papadopoulos, Maksim Kitsak, Amin Vahdat, and
+  Mari{\'a}n Bogun{\'a}.
+\newblock Hyperbolic geometry of complex networks.
+\newblock {\em Physical Review E}, 82(3):036106, 2010.
+
+\bibitem{tenenbaum2000global}
+Joshua~B Tenenbaum, Vin De~Silva, and John~C Langford.
+\newblock A global geometric framework for nonlinear dimensionality reduction.
+\newblock {\em science}, 290(5500):2319--2323, 2000.
+
+\bibitem{belkin2002laplacian}
+Mikhail Belkin and Partha Niyogi.
+\newblock Laplacian eigenmaps and spectral techniques for embedding and
+  clustering.
+\newblock In {\em Advances in neural information processing systems}, pages
+  585--591, 2002.
+
+\bibitem{mikolov2013distributed}
+Tomas Mikolov, Ilya Sutskever, Kai Chen, Greg~S Corrado, and Jeff Dean.
+\newblock Distributed representations of words and phrases and their
+  compositionality.
+\newblock In {\em Advances in neural information processing systems}, pages
+  3111--3119, 2013.
+
+\bibitem{mikolov2013efficient}
+Tomas Mikolov, Kai Chen, Greg Corrado, and Jeffrey Dean.
+\newblock Efficient estimation of word representations in vector space.
+\newblock {\em arXiv preprint arXiv:1301.3781}, 2013.
+
+\bibitem{perozzi2014deepwalk}
+Bryan Perozzi, Rami Al-Rfou, and Steven Skiena.
+\newblock Deepwalk: Online learning of social representations.
+\newblock In {\em Proceedings of the 20th ACM SIGKDD international conference
+  on Knowledge discovery and data mining}, pages 701--710. ACM, 2014.
+
+\bibitem{tang2015line}
+Jian Tang, Meng Qu, Mingzhe Wang, Ming Zhang, Jun Yan, and Qiaozhu Mei.
+\newblock Line: Large-scale information network embedding.
+\newblock In {\em Proceedings of the 24th International Conference on World
+  Wide Web}, pages 1067--1077. International World Wide Web Conferences
+  Steering Committee, 2015.
+
+\bibitem{grover2016node2vec}
+Aditya Grover and Jure Leskovec.
+\newblock node2vec: Scalable feature learning for networks.
+\newblock In {\em Proceedings of the 22nd ACM SIGKDD international conference
+  on Knowledge discovery and data mining}, pages 855--864. ACM, 2016.
+
+\bibitem{papadopoulos2011popularity}
+Fragkiskos Papadopoulos, Maksim Kitsak, M~Serrano, Mari{\'a}n Bogun{\'a}, and
+  Dmitri Krioukov.
+\newblock Popularity versus similarity in growing networks.
+\newblock {\em arXiv preprint arXiv:1106.0286}, 2011.
+
+\bibitem{krioukov2009curvature}
+Dmitri Krioukov, Fragkiskos Papadopoulos, Amin Vahdat, and Mari{\'a}n
+  Bogu{\~n}{\'a}.
+\newblock Curvature and temperature of complex networks.
+\newblock {\em Physical Review E}, 80(3):035101, 2009.
+
+\bibitem{papadopoulos2010greedy}
+Fragkiskos Papadopoulos, Dmitri Krioukov, Mari{\'a}n Bogu{\~n}{\'a}, and Amin
+  Vahdat.
+\newblock Greedy forwarding in dynamic scale-free networks embedded in
+  hyperbolic metric spaces.
+\newblock In {\em INFOCOM, 2010 Proceedings IEEE}, pages 1--9. IEEE, 2010.
+
+\bibitem{barabasi1999emergence}
+Albert-L{\'a}szl{\'o} Barab{\'a}si and R{\'e}ka Albert.
+\newblock Emergence of scaling in random networks.
+\newblock {\em science}, 286(5439):509--512, 1999.
+
+\bibitem{alanis2016efficient}
+Gregorio Alanis-Lobato, Pablo Mier, and Miguel~A Andrade-Navarro.
+\newblock Efficient embedding of complex networks to hyperbolic space via their
+  laplacian.
+\newblock {\em Scientific Reports}, 6, 2016.
+
+\bibitem{papadopoulos2015network}
+Fragkiskos Papadopoulos, Constantinos Psomas, and Dmitri Krioukov.
+\newblock Network mapping by replaying hyperbolic growth.
+\newblock {\em IEEE/ACM Transactions on Networking (TON)}, 23(1):198--211,
+  2015.
+
+\bibitem{papadopoulos2015networkgeo}
+Fragkiskos Papadopoulos, Rodrigo Aldecoa, and Dmitri Krioukov.
+\newblock Network geometry inference using common neighbors.
+\newblock {\em Physical Review E}, 92(2):022807, 2015.
+
+\bibitem{alanis2016manifold}
+Gregorio Alanis-Lobato, Pablo Mier, and Miguel~A Andrade-Navarro.
+\newblock Manifold learning and maximum likelihood estimation for hyperbolic
+  network embedding.
+\newblock {\em Applied Network Science}, 1(1):10, 2016.
+
+\bibitem{thomas2016machine}
+Josephine~Maria Thomas, Alessandro Muscoloni, Sara Ciucci, Ginestra Bianconi,
+  and Carlo~Vittorio Cannistraci.
+\newblock Machine learning meets network science: dimensionality reduction for
+  fast and efficient embedding of networks in the hyperbolic space.
+\newblock {\em arXiv preprint arXiv:1602.06522}, 2016.
+
+\bibitem{nickel2017poincar}
+Maximilian Nickel and Douwe Kiela.
+\newblock Poincar$\backslash$'e embeddings for learning hierarchical
+  representations.
+\newblock {\em arXiv preprint arXiv:1705.08039}, 2017.
+
+\bibitem{krizhevsky2012imagenet}
+Alex Krizhevsky, Ilya Sutskever, and Geoffrey~E Hinton.
+\newblock Imagenet classification with deep convolutional neural networks.
+\newblock In {\em Advances in neural information processing systems}, pages
+  1097--1105, 2012.
+
+\bibitem{defferrard2016convolutional}
+Micha{\"e}l Defferrard, Xavier Bresson, and Pierre Vandergheynst.
+\newblock Convolutional neural networks on graphs with fast localized spectral
+  filtering.
+\newblock In {\em Advances in Neural Information Processing Systems}, pages
+  3844--3852, 2016.
+
+\bibitem{niepert2016learning}
+Mathias Niepert, Mohamed Ahmed, and Konstantin Kutzkov.
+\newblock Learning convolutional neural networks for graphs.
+\newblock In {\em International Conference on Machine Learning}, pages
+  2014--2023, 2016.
+
+\bibitem{susnjara2015accelerated}
+Ana Susnjara, Nathana{\"e}l Perraudin, Daniel Kressner, and Pierre
+  Vandergheynst.
+\newblock Accelerated filtering on graphs using lanczos method.
+\newblock {\em arXiv preprint arXiv:1509.04537}, 2015.
+
+\bibitem{kipf2016semi}
+Thomas~N Kipf and Max Welling.
+\newblock Semi-supervised classification with graph convolutional networks.
+\newblock {\em arXiv preprint arXiv:1609.02907}, 2016.
+
+\bibitem{he2016deep}
+Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun.
+\newblock Deep residual learning for image recognition.
+\newblock In {\em Proceedings of the IEEE conference on computer vision and
+  pattern recognition}, pages 770--778, 2016.
+
+\bibitem{hamilton2017inductive}
+William~L Hamilton, Rex Ying, and Jure Leskovec.
+\newblock Inductive representation learning on large graphs.
+\newblock {\em arXiv preprint arXiv:1706.02216}, 2017.
+
+\bibitem{hinton2011transforming}
+Geoffrey~E Hinton, Alex Krizhevsky, and Sida~D Wang.
+\newblock Transforming auto-encoders.
+\newblock In {\em International Conference on Artificial Neural Networks},
+  pages 44--51. Springer, 2011.
+
+\bibitem{sabour2017dynamic}
+Sara Sabour, Nicholas Frosst, and Geoffrey~E Hinton.
+\newblock Dynamic routing between capsules.
+\newblock In {\em Advances in Neural Information Processing Systems}, pages
+  3859--3869, 2017.
+
+\end{thebibliography}
