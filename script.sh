@@ -12,4 +12,4 @@ module load apps/keras/2.0.8-python-2.7.11
 
 cd src/
 
-python src/graph_caps.py
+python graph_caps.py
