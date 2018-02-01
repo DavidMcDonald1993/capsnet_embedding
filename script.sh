@@ -5,8 +5,8 @@
 set -e
 
 module purge;
-module load apps/python2/2.7.11;
-module load apps/tensorflow/1.3.1-python-2.7.11;
+module load apps/python2/2.7.11
+module load apps/tensorflow/1.3.1-python-2.7.11
 module load apps/keras/2.0.8-python-2.7.11
 
 python src/graph_caps.py
