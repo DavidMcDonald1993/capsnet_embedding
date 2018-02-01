@@ -2,7 +2,7 @@ import numpy as np
 
 from keras.callbacks import TerminateOnNaN
 
-from utils import load_cora, neighbourhood_sample_generator, draw_embedding
+from utils import load_karate, load_cora, neighbourhood_sample_generator, draw_embedding
 from models import build_graphcaps
 
 
@@ -13,7 +13,7 @@ def main():
 	data_dim = X.shape[1]
 	num_classes = Y.shape[1]
 
-	batch_size = 100
+	batch_size = 10
 	num_positive_samples = 1
 	num_negative_samples = 5
 
@@ -40,7 +40,7 @@ def main():
 	print model.summary()
 	# raise SystemExit
 
-	model.fit_generator(generator, steps_per_epoch=100, epochs=100, verbose=1, callbacks=[TerminateOnNaN()])
+	model.fit_generator(generator, steps_per_epoch=10, epochs=100, verbose=1, callbacks=[TerminateOnNaN()])
 
 	draw_embedding(embedder, generator, dim=embedding_dim)
 

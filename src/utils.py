@@ -18,8 +18,8 @@ def load_karate():
 	map_ = {"Mr. Hi" : 0, "Officer" : 1}
 
 	Y = np.zeros((len(G), 2))
-	assignments = np.array(dict(nx.get_node_attributes(G, "club")).values())
-	assignments = map_(assignments)
+	assignments = dict(nx.get_node_attributes(G, "club")).values()
+	assignments =[map_[x] for x in assignments]
 	Y[np.arange(len(G)), assignments] = 1
 	Y = sp.sparse.csr_matrix(Y)
 
@@ -147,8 +147,8 @@ def neighbourhood_sample_generator(G, X, Y, sample_sizes, num_positive_samples, 
 
 			negative_sample_targets = [Y[nl].argmax(axis=-1) for nl in neighbour_list[-2::-1]]
 
-			# yield x, [y_label] + negative_sample_targets
-			yield x, negative_sample_targets
+			yield x, [y_label] + negative_sample_targets
+			# yield x, negative_sample_targets
 
 def draw_embedding(embedder, generator, dim=2):
 
