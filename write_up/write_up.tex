@@ -9,6 +9,7 @@
 
 
 \DeclareMathOperator*{\argmin}{argmin}
+\DeclareMathOperator{\arccosh}{arccosh}
 
 \title{Capsules for Embedding of Attributed Complex Networks to a Hyperbolic Feature Space}
 \author{David McDonald dxm237@cs.bham.ac.uk \and Shan He s.he@cs.bham.ac.uk}
@@ -116,9 +117,26 @@
 	
 	
 	
-	\section{Present Work: Capsules On Complex Networks}
+	\section{Capsules On Complex Networks}
 	
-	% what is my idea?!!!
+	\subsection{Problem Setting}
+	We consider the problem of learning a representation of a matrix $\textbf{X} \in \mathbb{R}^{N\times D}$ of $N$ samples of features of dimension $D$. Sample inter-relations are given by the graph $\mathbb{G} = (V, E)$, where $V$ is the set of vertices such that $|V|=N$ and $E$ is the set of edges representing the relations between vertices. 
+	
+	\subsection{GraphCap Layer}
+	
+	\subsection{Unsupervised Loss Function}
+	\begin{align*}
+	L(\Theta) = \frac{1}{|D|} \sum_{(\textbf{u}, \textbf{v}) \in D} \log \bigg(\frac{\exp(-d(\textbf{u}, \textbf{v}))}{\sum_{\textbf{v}' \in N(\textbf{u})} \exp(-d(\textbf{u}, \textbf{v}'))} \bigg)
+	\end{align*}
+	Hyperbolic distance computed as 
+	\begin{align*}
+	d(\textbf{u}, \textbf{v}) = \arccosh \bigg[1 + 2\frac{||\textbf{u}-\textbf{v}||^2}{(1 - ||\textbf{u}||^2)(1-||\textbf{v}||^2)}\bigg]
+	\end{align*}
+	where $||.||$ is the usual Euclidean norm.
+	
+	\section{Results}
+	
+	\section{Discussion}
 	
 	
 	\bibliographystyle{unsrt}

@@ -13,11 +13,11 @@ def main():
 	data_dim = X.shape[1]
 	num_classes = Y.shape[1]
 
-	batch_size = 10
+	batch_size = 50
 	num_positive_samples = 1
 	num_negative_samples = 5
 
-	sample_sizes = np.array([5, 5])
+	sample_sizes = np.array([3, 3, 3])
 
 	embedding_dim = 2
 
@@ -37,10 +37,10 @@ def main():
 	model, embedder = build_graphcaps(data_dim, num_classes, embedding_dim,
 		num_positive_samples, num_negative_samples, sample_sizes)
 
-	print model.summary()
+	model.summary()
 	# raise SystemExit
 
-	model.fit_generator(generator, steps_per_epoch=10, epochs=100, verbose=1, callbacks=[TerminateOnNaN()])
+	model.fit_generator(generator, steps_per_epoch=1, epochs=1000, verbose=1, callbacks=[TerminateOnNaN()])
 
 	draw_embedding(embedder, generator, dim=embedding_dim)
 

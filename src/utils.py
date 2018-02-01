@@ -143,11 +143,13 @@ def neighbourhood_sample_generator(G, X, Y, sample_sizes, num_positive_samples, 
 
 		y_label_mask = label_mask[neighbour_list[1]]
 		if (y_label_mask>0).any():
-			y_label = np.append(y_label_mask, Y[neighbour_list[1]], axis=-1)
+			y = Y[neighbour_list[1]]
+			y_label_true = np.append(np.ones(y.shape), y, axis=-1)
+			y_label_mask = np.append(y_label_mask, y, axis=-1)
 
 			negative_sample_targets = [Y[nl].argmax(axis=-1) for nl in neighbour_list[-2::-1]]
 
-			yield x, [y_label] + negative_sample_targets
+			yield x, [y_label_true] + [y_label_mask] + negative_sample_targets
 			# yield x, negative_sample_targets
 
 def draw_embedding(embedder, generator, dim=2):
@@ -169,6 +171,7 @@ def draw_embedding(embedder, generator, dim=2):
 		ax.scatter(embedding[:,0], embedding[:,1], embedding[:,2], c=y.flatten())
 	else:
 		plt.scatter(embedding[:,0], embedding[:,1], c=y.flatten())
-	plt.show()
+	# plt.show()
+	plt.savefig("../plots/embedding.png")
 	
 
