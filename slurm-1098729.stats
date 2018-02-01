@@ -1,0 +1,10 @@
++--------------------------------------------------------------------------+
+| Job on the BlueBEAR cluster:
+| Starting at Thu Feb  1 17:36:44 2018 for dxm237(356284)
+| Identity jobid 1098729 jobname script.sh
+| Running against project hesz01 and in partition broadwell-shared
+| Requested cpu=1,mem=5000M,node=1 - 01:00:00 walltime
+| Assigned to nodes bber0501u37b
+| Command /gpfs/bb/dxm237/capsnet_embedding/script.sh
+| WorkDir /gpfs/bb/dxm237/capsnet_embedding
++--------------------------------------------------------------------------+
