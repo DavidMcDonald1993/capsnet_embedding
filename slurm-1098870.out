@@ -1,406 +1,0 @@
-GCCcore/5.4.0
-binutils/2.26-GCCcore-5.4.0
-GCC/5.4.0-2.26
-numactl/2.0.11-GCC-5.4.0-2.26
-hwloc/1.11.5-GCC-5.4.0-2.26
-OpenMPI/1.10.2-GCC-5.4.0-2.26
-gompi/2016.10
-OpenBLAS/0.2.18-gompi-2016.10-LAPACK-3.6.1
-FFTW/3.3.4-gompi-2016.10
-ScaLAPACK/2.0.2-gompi-2016.10-OpenBLAS-0.2.18-LAPACK-3.6.1
-foss/2016.10
-bzip2/1.0.6-foss-2016.10
-zlib/1.2.8-foss-2016.10
-ncurses/6.0-foss-2016.10
-libreadline/6.3-foss-2016.10
-Tcl/8.6.4-foss-2016.10
-SQLite/3.9.2-foss-2016.10
-GMP/6.1.1-foss-2016.10
-Tk/8.6.4-foss-2016.10
-OpenSSL/1.0.2h-foss-2016.10
-Python/2.7.11-foss-2016.10-minimal
-numpy/1.13.0-foss-2016.10-Python-2.7.11
-libpng/1.6.23-foss-2016.10
-freetype/2.7-foss-2016.10
-matplotlib/2.0.0-foss-2016.10-Python-2.7.11
-libffi/3.2.1-foss-2016.10
-libxml2/2.9.4-foss-2016.10
-gettext/0.19.8-foss-2016.10
-PCRE/8.38-foss-2016.10
-GLib/2.47.5-foss-2016.10
-GObject-Introspection/1.47.1-foss-2016.10-Python-2.7.11
-pixman/0.34.0-foss-2016.10
-expat/2.2.0-foss-2016.10
-fontconfig/2.11.1-foss-2016.10
-X11/20160819-foss-2016.10
-cairo/1.14.6-foss-2016.10
-PyCairo/1.10.0-foss-2016.10-Python-2.7.11
-PyGObject/2.28.6-foss-2016.10-Python-2.7.11
-ATK/2.18.0-foss-2016.10
-NASM/2.12.02-foss-2016.10
-libjpeg-turbo/1.5.0-foss-2016.10
-LibTIFF/4.0.6-foss-2016.10
-Gdk-Pixbuf/2.32.3-foss-2016.10
-HarfBuzz/1.1.3-foss-2016.10
-Pango/1.39.0-foss-2016.10
-GTK+/2.24.28-foss-2016.10
-libglade/2.6.4-foss-2016.10
-PyGTK/2.24.0-foss-2016.10-Python-2.7.11
-ASE/3.7.1.3184-foss-2016.10-Python-2.7.11
-Boost/1.58.0-foss-2016.10-Python-2.7.11
-Cython/0.24.1-foss-2016.10-Python-2.7.11
-Szip/2.1-foss-2016.10
-HDF5/1.8.18-foss-2016.10
-pkg-config/0.29.1-foss-2016.10
-pkgconfig/1.1.0-foss-2016.10-Python-2.7.11
-h5py/2.7.0-foss-2016.10-Python-2.7.11-HDF5-1.8.18
-MPFR/3.1.4-foss-2016.10
-nettle/3.2-foss-2016.10
-libdrm/2.4.70-foss-2016.10
-LLVM/3.8.1-foss-2016.10
-Mesa/12.0.2-foss-2016.10
-libGLU/9.0.0-foss-2016.10
-Qt/4.8.7-foss-2016.10
-CGAL/4.8.1-foss-2016.10-Python-2.7.11
-sparsehash/2.0.2-foss-2016.10
-scipy/0.19.0-foss-2016.10-Python-2.7.11
-graph-tool/2.2.42-foss-2016.10-Python-2.7.11
-cURL/7.46.0-foss-2016.10
-Pysam/0.9.0-foss-2016.10-Python-2.7.11
-HTSeq/0.9.1-foss-2016.10-Python-2.7.11
-OpenPGM/5.2.122-foss-2016.10
-util-linux/2.29-foss-2016.10
-libsodium/1.0.11-foss-2016.10
-ZeroMQ/4.2.0-foss-2016.10
-PyZMQ/16.0.2-foss-2016.10-Python-2.7.11-zmq4
-IPython/5.1.0-foss-2016.10-Python-2.7.11
-libxslt/1.1.29-foss-2016.10
-mysql-connector/2.1.3-foss-2016.10-Python-2.7.11
-networkx/1.9-foss-2016.10-Python-2.7.11
-NucleoATAC/master-foss-2016.10-Python-2.7.11
-pandas/0.20.3-foss-2016.10-Python-2.7.11
-PIL/1.1.7-foss-2016.10-Python-2.7.11
-SIP/4.19-foss-2016.10-Python-2.7.11
-PyQt/4.12-foss-2016.10-Python-2.7.11
-healpy/1.10.3-foss-2016.10-Python-2.7.11
-requests/2.13.0-foss-2016.10-Python-2.7.11
-Python-Bundle-Science/2.7.11-foss-2016.10
-libyaml/0.1.6-foss-2016.10
-PyYAML/3.12-foss-2016.10-Python-2.7.11
-RDKit/2015_03_1-foss-2016.10-Python-2.7.11
-Qhull/2015.2-foss-2016.10
-Pillow/3.2.0-foss-2016.10-Python-2.7.11-freetype-2.7
-scikit-image/0.12.3-foss-2016.10-Python-2.7.11
-scikit-learn/0.19.0-foss-2016.10-Python-2.7.11
-apps/python2/2.7.11
-protobuf/3.3.0-foss-2016.10
-protobuf-python/3.3.0-foss-2016.10-Python-2.7.11
-apps/tensorflow/1.3.1-python-2.7.11
-Tensorflow/1.3.1-foss-2016.10-Python-2.7.11
-apps/keras/2.0.8-python-2.7.11
-Using TensorFlow backend.
-/rds/bear-apps/2017a/EL7-haswell/software/Keras/2.0.8-foss-2016.10-Python-2.7.11/lib/python2.7/site-packages/Keras-2.0.8-py2.7.egg/keras/engine/topology.py:1520: UserWarning: The list of outputs passed to the model is redundant. All outputs should only appear once. Found: [<tf.Tensor 'label_predictions/Sqrt:0' shape=(?, ?, 7) dtype=float32>, <tf.Tensor 'label_predictions/Sqrt:0' shape=(?, ?, 7) dtype=float32>, <tf.Tensor 'hyperbolic_distance_first_layer/Acosh:0' shape=(?, 6) dtype=float32>, <tf.Tensor 'hyperbolic_distance_second_layer/Acosh:0' shape=(?, 6) dtype=float32>, <tf.Tensor 'hyperbolic_distance_third_layer/Acosh:0' shape=(?, 6) dtype=float32>]
-2018-02-01 19:41:31.980886: W tensorflow/core/platform/cpu_feature_guard.cc:45] The TensorFlow library wasn't compiled to use SSE4.1 instructions, but these are available on your machine and could speed up CPU computations.
-2018-02-01 19:41:32.015450: W tensorflow/core/platform/cpu_feature_guard.cc:45] The TensorFlow library wasn't compiled to use SSE4.2 instructions, but these are available on your machine and could speed up CPU computations.
-2018-02-01 19:41:32.015486: W tensorflow/core/platform/cpu_feature_guard.cc:45] The TensorFlow library wasn't compiled to use AVX instructions, but these are available on your machine and could speed up CPU computations.
-2018-02-01 19:41:32.015498: W tensorflow/core/platform/cpu_feature_guard.cc:45] The TensorFlow library wasn't compiled to use AVX2 instructions, but these are available on your machine and could speed up CPU computations.
-2018-02-01 19:41:32.015509: W tensorflow/core/platform/cpu_feature_guard.cc:45] The TensorFlow library wasn't compiled to use FMA instructions, but these are available on your machine and could speed up CPU computations.
-____________________________________________________________________________________________________
-Layer (type)                     Output Shape          Param #     Connected to                     
-====================================================================================================
-input_signal (InputLayer)        (None, 448, 1, 1433)  0                                            
-____________________________________________________________________________________________________
-agg1 (AggregateLayer)            (None, 112, 16, 128)  2987008     input_signal[0][0]               
-____________________________________________________________________________________________________
-cap1 (GraphCapsuleLayer)         (None, 112, 16, 8)    262144      agg1[0][0]                       
-____________________________________________________________________________________________________
-cap1_squash (Lambda)             (None, 112, 16, 8)    0           cap1[0][0]                       
-____________________________________________________________________________________________________
-agg2 (AggregateLayer)            (None, 28, 16, 32)    69184       cap1_squash[0][0]                
-____________________________________________________________________________________________________
-cap2 (GraphCapsuleLayer)         (None, 28, 7, 4)      14336       agg2[0][0]                       
-____________________________________________________________________________________________________
-lambda_1 (Lambda)                (None, 28, 7, 4)      0           cap2[0][0]                       
-____________________________________________________________________________________________________
-agg3 (AggregateLayer)            (None, 7, 8, 16)      3908        lambda_1[0][0]                   
-____________________________________________________________________________________________________
-cap3 (GraphCapsuleLayer)         (None, 7, 1, 2)       256         agg3[0][0]                       
-____________________________________________________________________________________________________
-reshape_first_layer (Reshape)    (None, 112, 128)      0           cap1[0][0]                       
-____________________________________________________________________________________________________
-reshape_second_layer (Reshape)   (None, 28, 28)        0           cap2[0][0]                       
-____________________________________________________________________________________________________
-reshape_third_layer (Reshape)    (None, 7, 2)          0           cap3[0][0]                       
-____________________________________________________________________________________________________
-embedding_first_layer (Lambda)   (None, 112, 128)      0           reshape_first_layer[0][0]        
-____________________________________________________________________________________________________
-embedding_second_layer (Lambda)  (None, 28, 28)        0           reshape_second_layer[0][0]       
-____________________________________________________________________________________________________
-embedding_third_layer (Lambda)   (None, 7, 2)          0           reshape_third_layer[0][0]        
-____________________________________________________________________________________________________
-label_predictions (Length)       (None, 28, 7)         0           lambda_1[0][0]                   
-____________________________________________________________________________________________________
-hyperbolic_distance_first_layer  (None, 6)             0           embedding_first_layer[0][0]      
-____________________________________________________________________________________________________
-hyperbolic_distance_second_layer (None, 6)             0           embedding_second_layer[0][0]     
-____________________________________________________________________________________________________
-hyperbolic_distance_third_layer  (None, 6)             0           embedding_third_layer[0][0]      
-====================================================================================================
-Total params: 3,336,836
-Trainable params: 3,283,328
-Non-trainable params: 53,508
-____________________________________________________________________________________________________
-Epoch 1/1000
-1/1 [==============================] - 32s - loss: 1.9859 - label_predictions_loss_1: 8.0457 - label_predictions_loss_2: 8.0451 - hyperbolic_distance_first_layer_loss: 1.7863 - hyperbolic_distance_second_layer_loss: 1.7918 - hyperbolic_distance_third_layer_loss: 1.7918
-Epoch 2/1000
-1/1 [==============================] - 27s - loss: 1.9780 - label_predictions_loss_1: 8.0479 - label_predictions_loss_2: 8.0474 - hyperbolic_distance_first_layer_loss: 1.7931 - hyperbolic_distance_second_layer_loss: 1.7918 - hyperbolic_distance_third_layer_loss: 1.7918
-Epoch 3/1000
-1/1 [==============================] - 26s - loss: 1.9653 - label_predictions_loss_1: 8.0500 - label_predictions_loss_2: 8.0506 - hyperbolic_distance_first_layer_loss: 1.7805 - hyperbolic_distance_second_layer_loss: 1.7918 - hyperbolic_distance_third_layer_loss: 1.7918
-Epoch 4/1000
-1/1 [==============================] - 27s - loss: 1.9502 - label_predictions_loss_1: 8.0511 - label_predictions_loss_2: 8.0511 - hyperbolic_distance_first_layer_loss: 1.7566 - hyperbolic_distance_second_layer_loss: 1.7918 - hyperbolic_distance_third_layer_loss: 1.7918
-Epoch 5/1000
-1/1 [==============================] - 26s - loss: 1.9458 - label_predictions_loss_1: 8.0533 - label_predictions_loss_2: 8.0533 - hyperbolic_distance_first_layer_loss: 1.7625 - hyperbolic_distance_second_layer_loss: 1.7918 - hyperbolic_distance_third_layer_loss: 1.7918
-Epoch 6/1000
-1/1 [==============================] - 27s - loss: 1.9373 - label_predictions_loss_1: 8.0537 - label_predictions_loss_2: 8.0540 - hyperbolic_distance_first_layer_loss: 1.7528 - hyperbolic_distance_second_layer_loss: 1.7918 - hyperbolic_distance_third_layer_loss: 1.7918
-Epoch 7/1000
-1/1 [==============================] - 27s - loss: 1.9345 - label_predictions_loss_1: 8.0550 - label_predictions_loss_2: 8.0558 - hyperbolic_distance_first_layer_loss: 1.7580 - hyperbolic_distance_second_layer_loss: 1.7918 - hyperbolic_distance_third_layer_loss: 1.7918
-Epoch 8/1000
-1/1 [==============================] - 27s - loss: 1.9432 - label_predictions_loss_1: 8.0554 - label_predictions_loss_2: 8.0556 - hyperbolic_distance_first_layer_loss: 1.7963 - hyperbolic_distance_second_layer_loss: 1.7918 - hyperbolic_distance_third_layer_loss: 1.7918
-Epoch 9/1000
-1/1 [==============================] - 27s - loss: 1.9197 - label_predictions_loss_1: 8.0563 - label_predictions_loss_2: 8.0567 - hyperbolic_distance_first_layer_loss: 1.7360 - hyperbolic_distance_second_layer_loss: 1.7918 - hyperbolic_distance_third_layer_loss: 1.7918
-Epoch 10/1000
-1/1 [==============================] - 27s - loss: 1.8941 - label_predictions_loss_1: 8.0569 - label_predictions_loss_2: 8.0571 - hyperbolic_distance_first_layer_loss: 1.6683 - hyperbolic_distance_second_layer_loss: 1.7918 - hyperbolic_distance_third_layer_loss: 1.7918
-Epoch 11/1000
-1/1 [==============================] - 27s - loss: 1.9241 - label_predictions_loss_1: 8.0572 - label_predictions_loss_2: 8.0572 - hyperbolic_distance_first_layer_loss: 1.7668 - hyperbolic_distance_second_layer_loss: 1.7918 - hyperbolic_distance_third_layer_loss: 1.7918
-Epoch 12/1000
-1/1 [==============================] - 27s - loss: 1.9073 - label_predictions_loss_1: 8.0577 - label_predictions_loss_2: 8.0577 - hyperbolic_distance_first_layer_loss: 1.7238 - hyperbolic_distance_second_layer_loss: 1.7918 - hyperbolic_distance_third_layer_loss: 1.7918
-Epoch 13/1000
-1/1 [==============================] - 27s - loss: 1.9051 - label_predictions_loss_1: 8.0576 - label_predictions_loss_2: 8.0579 - hyperbolic_distance_first_layer_loss: 1.7240 - hyperbolic_distance_second_layer_loss: 1.7918 - hyperbolic_distance_third_layer_loss: 1.7918
-Epoch 14/1000
-1/1 [==============================] - 27s - loss: 1.9106 - label_predictions_loss_1: 8.0579 - label_predictions_loss_2: 8.0578 - hyperbolic_distance_first_layer_loss: 1.7466 - hyperbolic_distance_second_layer_loss: 1.7918 - hyperbolic_distance_third_layer_loss: 1.7918
-Epoch 15/1000
-1/1 [==============================] - 27s - loss: 1.9023 - label_predictions_loss_1: 8.0580 - label_predictions_loss_2: 8.0580 - hyperbolic_distance_first_layer_loss: 1.7275 - hyperbolic_distance_second_layer_loss: 1.7918 - hyperbolic_distance_third_layer_loss: 1.7918
-Epoch 16/1000
-1/1 [==============================] - 27s - loss: 1.8674 - label_predictions_loss_1: 8.0580 - label_predictions_loss_2: 8.0580 - hyperbolic_distance_first_layer_loss: 1.6276 - hyperbolic_distance_second_layer_loss: 1.7918 - hyperbolic_distance_third_layer_loss: 1.7918
-Epoch 17/1000
-1/1 [==============================] - 27s - loss: 1.8969 - label_predictions_loss_1: 8.0584 - label_predictions_loss_2: 8.0583 - hyperbolic_distance_first_layer_loss: 1.7212 - hyperbolic_distance_second_layer_loss: 1.7918 - hyperbolic_distance_third_layer_loss: 1.7918
-Epoch 18/1000
-1/1 [==============================] - 27s - loss: 1.8989 - label_predictions_loss_1: 8.0584 - label_predictions_loss_2: 8.0582 - hyperbolic_distance_first_layer_loss: 1.7314 - hyperbolic_distance_second_layer_loss: 1.7918 - hyperbolic_distance_third_layer_loss: 1.7918
-Epoch 19/1000
-1/1 [==============================] - 27s - loss: 1.8533 - label_predictions_loss_1: 8.0584 - label_predictions_loss_2: 8.0580 - hyperbolic_distance_first_layer_loss: 1.5985 - hyperbolic_distance_second_layer_loss: 1.7918 - hyperbolic_distance_third_layer_loss: 1.7918
-Epoch 20/1000
-1/1 [==============================] - 27s - loss: 1.8600 - label_predictions_loss_1: 8.0586 - label_predictions_loss_2: 8.0584 - hyperbolic_distance_first_layer_loss: 1.6226 - hyperbolic_distance_second_layer_loss: 1.7918 - hyperbolic_distance_third_layer_loss: 1.7918
-Epoch 21/1000
-1/1 [==============================] - 27s - loss: 1.8040 - label_predictions_loss_1: 8.0586 - label_predictions_loss_2: 8.0584 - hyperbolic_distance_first_layer_loss: 1.4577 - hyperbolic_distance_second_layer_loss: 1.7918 - hyperbolic_distance_third_layer_loss: 1.7918
-Epoch 22/1000
-1/1 [==============================] - 27s - loss: 1.8461 - label_predictions_loss_1: 8.0585 - label_predictions_loss_2: 8.0584 - hyperbolic_distance_first_layer_loss: 1.5876 - hyperbolic_distance_second_layer_loss: 1.7918 - hyperbolic_distance_third_layer_loss: 1.7918
-Epoch 23/1000
-1/1 [==============================] - 27s - loss: 1.9029 - label_predictions_loss_1: 8.0585 - label_predictions_loss_2: 8.0580 - hyperbolic_distance_first_layer_loss: 1.7611 - hyperbolic_distance_second_layer_loss: 1.7918 - hyperbolic_distance_third_layer_loss: 1.7918
-Epoch 24/1000
-1/1 [==============================] - 27s - loss: 1.8157 - label_predictions_loss_1: 8.0585 - label_predictions_loss_2: 8.0586 - hyperbolic_distance_first_layer_loss: 1.5019 - hyperbolic_distance_second_layer_loss: 1.7918 - hyperbolic_distance_third_layer_loss: 1.7918
-Epoch 25/1000
-1/1 [==============================] - 27s - loss: 1.8290 - label_predictions_loss_1: 8.0581 - label_predictions_loss_2: 8.0584 - hyperbolic_distance_first_layer_loss: 1.5444 - hyperbolic_distance_second_layer_loss: 1.7918 - hyperbolic_distance_third_layer_loss: 1.7918
-Epoch 26/1000
-1/1 [==============================] - 27s - loss: 1.8033 - label_predictions_loss_1: 8.0580 - label_predictions_loss_2: 8.0579 - hyperbolic_distance_first_layer_loss: 1.4697 - hyperbolic_distance_second_layer_loss: 1.7918 - hyperbolic_distance_third_layer_loss: 1.7918
-Epoch 27/1000
-1/1 [==============================] - 27s - loss: 1.8620 - label_predictions_loss_1: 8.0569 - label_predictions_loss_2: 8.0572 - hyperbolic_distance_first_layer_loss: 1.6480 - hyperbolic_distance_second_layer_loss: 1.7918 - hyperbolic_distance_third_layer_loss: 1.7918
-Epoch 28/1000
-1/1 [==============================] - 27s - loss: 1.7694 - label_predictions_loss_1: 8.0560 - label_predictions_loss_2: 8.0565 - hyperbolic_distance_first_layer_loss: 1.3720 - hyperbolic_distance_second_layer_loss: 1.7917 - hyperbolic_distance_third_layer_loss: 1.7918
-Epoch 29/1000
-1/1 [==============================] - 27s - loss: 1.8189 - label_predictions_loss_1: 8.0541 - label_predictions_loss_2: 8.0516 - hyperbolic_distance_first_layer_loss: 1.5223 - hyperbolic_distance_second_layer_loss: 1.7918 - hyperbolic_distance_third_layer_loss: 1.7918
-Epoch 30/1000
-1/1 [==============================] - 27s - loss: 1.7732 - label_predictions_loss_1: 8.0494 - label_predictions_loss_2: 8.0501 - hyperbolic_distance_first_layer_loss: 1.3867 - hyperbolic_distance_second_layer_loss: 1.7917 - hyperbolic_distance_third_layer_loss: 1.7918
-Epoch 31/1000
-1/1 [==============================] - 27s - loss: 1.7944 - label_predictions_loss_1: 8.0414 - label_predictions_loss_2: 8.0424 - hyperbolic_distance_first_layer_loss: 1.4519 - hyperbolic_distance_second_layer_loss: 1.7916 - hyperbolic_distance_third_layer_loss: 1.7918
-Epoch 32/1000
-1/1 [==============================] - 27s - loss: 1.7570 - label_predictions_loss_1: 8.0194 - label_predictions_loss_2: 8.0159 - hyperbolic_distance_first_layer_loss: 1.3410 - hyperbolic_distance_second_layer_loss: 1.7916 - hyperbolic_distance_third_layer_loss: 1.7918
-Epoch 33/1000
-1/1 [==============================] - 27s - loss: 1.8150 - label_predictions_loss_1: 7.9774 - label_predictions_loss_2: 7.9750 - hyperbolic_distance_first_layer_loss: 1.5169 - hyperbolic_distance_second_layer_loss: 1.7911 - hyperbolic_distance_third_layer_loss: 1.7918
-Epoch 34/1000
-1/1 [==============================] - 27s - loss: 1.8089 - label_predictions_loss_1: 7.9088 - label_predictions_loss_2: 7.8666 - hyperbolic_distance_first_layer_loss: 1.4996 - hyperbolic_distance_second_layer_loss: 1.7911 - hyperbolic_distance_third_layer_loss: 1.7918
-Epoch 35/1000
-1/1 [==============================] - 27s - loss: 1.7534 - label_predictions_loss_1: 7.8009 - label_predictions_loss_2: 7.7763 - hyperbolic_distance_first_layer_loss: 1.3347 - hyperbolic_distance_second_layer_loss: 1.7905 - hyperbolic_distance_third_layer_loss: 1.7918
-Epoch 36/1000
-1/1 [==============================] - 27s - loss: 1.7941 - label_predictions_loss_1: 7.5778 - label_predictions_loss_2: 7.5120 - hyperbolic_distance_first_layer_loss: 1.4585 - hyperbolic_distance_second_layer_loss: 1.7897 - hyperbolic_distance_third_layer_loss: 1.7918
-Epoch 37/1000
-1/1 [==============================] - 27s - loss: 1.7271 - label_predictions_loss_1: 7.3411 - label_predictions_loss_2: 7.3267 - hyperbolic_distance_first_layer_loss: 1.2606 - hyperbolic_distance_second_layer_loss: 1.7873 - hyperbolic_distance_third_layer_loss: 1.7918
-Epoch 38/1000
-1/1 [==============================] - 27s - loss: 1.7954 - label_predictions_loss_1: 6.9621 - label_predictions_loss_2: 6.8477 - hyperbolic_distance_first_layer_loss: 1.4673 - hyperbolic_distance_second_layer_loss: 1.7863 - hyperbolic_distance_third_layer_loss: 1.7918
-Epoch 39/1000
-1/1 [==============================] - 27s - loss: 1.7188 - label_predictions_loss_1: 6.5878 - label_predictions_loss_2: 6.4489 - hyperbolic_distance_first_layer_loss: 1.2453 - hyperbolic_distance_second_layer_loss: 1.7790 - hyperbolic_distance_third_layer_loss: 1.7917
-Epoch 40/1000
-1/1 [==============================] - 26s - loss: 1.7417 - label_predictions_loss_1: 6.1900 - label_predictions_loss_2: 6.2094 - hyperbolic_distance_first_layer_loss: 1.3213 - hyperbolic_distance_second_layer_loss: 1.7725 - hyperbolic_distance_third_layer_loss: 1.7916
-Epoch 41/1000
-1/1 [==============================] - 26s - loss: 1.6706 - label_predictions_loss_1: 5.7413 - label_predictions_loss_2: 5.7129 - hyperbolic_distance_first_layer_loss: 1.1199 - hyperbolic_distance_second_layer_loss: 1.7608 - hyperbolic_distance_third_layer_loss: 1.7915
-Epoch 42/1000
-1/1 [==============================] - 27s - loss: 1.7161 - label_predictions_loss_1: 5.4212 - label_predictions_loss_2: 5.5779 - hyperbolic_distance_first_layer_loss: 1.2632 - hyperbolic_distance_second_layer_loss: 1.7544 - hyperbolic_distance_third_layer_loss: 1.7913
-Epoch 43/1000
-1/1 [==============================] - 27s - loss: 1.6584 - label_predictions_loss_1: 4.9193 - label_predictions_loss_2: 4.7190 - hyperbolic_distance_first_layer_loss: 1.1204 - hyperbolic_distance_second_layer_loss: 1.7249 - hyperbolic_distance_third_layer_loss: 1.7906
-Epoch 44/1000
-1/1 [==============================] - 27s - loss: 1.6969 - label_predictions_loss_1: 4.7492 - label_predictions_loss_2: 4.6231 - hyperbolic_distance_first_layer_loss: 1.2656 - hyperbolic_distance_second_layer_loss: 1.6960 - hyperbolic_distance_third_layer_loss: 1.7898
-Epoch 45/1000
-1/1 [==============================] - 27s - loss: 1.6658 - label_predictions_loss_1: 4.2420 - label_predictions_loss_2: 4.3003 - hyperbolic_distance_first_layer_loss: 1.2066 - hyperbolic_distance_second_layer_loss: 1.6631 - hyperbolic_distance_third_layer_loss: 1.7883
-Epoch 46/1000
-1/1 [==============================] - 27s - loss: 1.6179 - label_predictions_loss_1: 3.9916 - label_predictions_loss_2: 3.8704 - hyperbolic_distance_first_layer_loss: 1.1577 - hyperbolic_distance_second_layer_loss: 1.5731 - hyperbolic_distance_third_layer_loss: 1.7831
-Epoch 47/1000
-1/1 [==============================] - 27s - loss: 1.6397 - label_predictions_loss_1: 3.7417 - label_predictions_loss_2: 3.8360 - hyperbolic_distance_first_layer_loss: 1.2045 - hyperbolic_distance_second_layer_loss: 1.5955 - hyperbolic_distance_third_layer_loss: 1.7789
-Epoch 48/1000
-1/1 [==============================] - 27s - loss: 1.6279 - label_predictions_loss_1: 3.4567 - label_predictions_loss_2: 3.3745 - hyperbolic_distance_first_layer_loss: 1.2049 - hyperbolic_distance_second_layer_loss: 1.5718 - hyperbolic_distance_third_layer_loss: 1.7662
-Epoch 49/1000
-1/1 [==============================] - 27s - loss: 1.5373 - label_predictions_loss_1: 3.2198 - label_predictions_loss_2: 3.2267 - hyperbolic_distance_first_layer_loss: 1.0616 - hyperbolic_distance_second_layer_loss: 1.4652 - hyperbolic_distance_third_layer_loss: 1.7436
-Epoch 50/1000
-1/1 [==============================] - 27s - loss: 1.6295 - label_predictions_loss_1: 2.9359 - label_predictions_loss_2: 2.7744 - hyperbolic_distance_first_layer_loss: 1.2970 - hyperbolic_distance_second_layer_loss: 1.5132 - hyperbolic_distance_third_layer_loss: 1.7360
-Epoch 51/1000
-1/1 [==============================] - 27s - loss: 1.5989 - label_predictions_loss_1: 2.7816 - label_predictions_loss_2: 2.7888 - hyperbolic_distance_first_layer_loss: 1.2955 - hyperbolic_distance_second_layer_loss: 1.4425 - hyperbolic_distance_third_layer_loss: 1.7157
-Epoch 52/1000
-1/1 [==============================] - 26s - loss: 1.5285 - label_predictions_loss_1: 2.5682 - label_predictions_loss_2: 2.5783 - hyperbolic_distance_first_layer_loss: 1.1344 - hyperbolic_distance_second_layer_loss: 1.4259 - hyperbolic_distance_third_layer_loss: 1.6812
-Epoch 53/1000
-1/1 [==============================] - 27s - loss: 1.5086 - label_predictions_loss_1: 2.4381 - label_predictions_loss_2: 2.3783 - hyperbolic_distance_first_layer_loss: 1.1878 - hyperbolic_distance_second_layer_loss: 1.3700 - hyperbolic_distance_third_layer_loss: 1.6227
-Epoch 54/1000
-1/1 [==============================] - 27s - loss: 1.5946 - label_predictions_loss_1: 2.3173 - label_predictions_loss_2: 2.1599 - hyperbolic_distance_first_layer_loss: 1.2741 - hyperbolic_distance_second_layer_loss: 1.5232 - hyperbolic_distance_third_layer_loss: 1.6404
-Epoch 55/1000
-1/1 [==============================] - 27s - loss: 1.4315 - label_predictions_loss_1: 2.1962 - label_predictions_loss_2: 2.1037 - hyperbolic_distance_first_layer_loss: 1.1439 - hyperbolic_distance_second_layer_loss: 1.2570 - hyperbolic_distance_third_layer_loss: 1.5464
-Epoch 56/1000
-1/1 [==============================] - 27s - loss: 1.5140 - label_predictions_loss_1: 2.1503 - label_predictions_loss_2: 2.1142 - hyperbolic_distance_first_layer_loss: 1.1348 - hyperbolic_distance_second_layer_loss: 1.4722 - hyperbolic_distance_third_layer_loss: 1.5863
-Epoch 57/1000
-1/1 [==============================] - 27s - loss: 1.4948 - label_predictions_loss_1: 2.0992 - label_predictions_loss_2: 2.1450 - hyperbolic_distance_first_layer_loss: 1.1096 - hyperbolic_distance_second_layer_loss: 1.4472 - hyperbolic_distance_third_layer_loss: 1.5779
-Epoch 58/1000
-1/1 [==============================] - 27s - loss: 1.6255 - label_predictions_loss_1: 2.0156 - label_predictions_loss_2: 1.8593 - hyperbolic_distance_first_layer_loss: 1.5459 - hyperbolic_distance_second_layer_loss: 1.4635 - hyperbolic_distance_third_layer_loss: 1.5168
-Epoch 59/1000
-1/1 [==============================] - 27s - loss: 1.5626 - label_predictions_loss_1: 1.8802 - label_predictions_loss_2: 1.6133 - hyperbolic_distance_first_layer_loss: 1.3048 - hyperbolic_distance_second_layer_loss: 1.4836 - hyperbolic_distance_third_layer_loss: 1.5479
-Epoch 60/1000
-1/1 [==============================] - 27s - loss: 1.1747 - label_predictions_loss_1: 1.9090 - label_predictions_loss_2: 2.0435 - hyperbolic_distance_first_layer_loss: 0.6806 - hyperbolic_distance_second_layer_loss: 1.1359 - hyperbolic_distance_third_layer_loss: 1.3546
-Epoch 61/1000
-1/1 [==============================] - 27s - loss: 1.5045 - label_predictions_loss_1: 1.7028 - label_predictions_loss_2: 1.6693 - hyperbolic_distance_first_layer_loss: 1.0874 - hyperbolic_distance_second_layer_loss: 1.5198 - hyperbolic_distance_third_layer_loss: 1.5526
-Epoch 62/1000
-1/1 [==============================] - 27s - loss: 1.3588 - label_predictions_loss_1: 1.6467 - label_predictions_loss_2: 1.7407 - hyperbolic_distance_first_layer_loss: 1.0631 - hyperbolic_distance_second_layer_loss: 1.2632 - hyperbolic_distance_third_layer_loss: 1.3957
-Epoch 63/1000
-1/1 [==============================] - 27s - loss: 1.4127 - label_predictions_loss_1: 1.9565 - label_predictions_loss_2: 2.3947 - hyperbolic_distance_first_layer_loss: 1.1986 - hyperbolic_distance_second_layer_loss: 1.2476 - hyperbolic_distance_third_layer_loss: 1.4369
-Epoch 64/1000
-1/1 [==============================] - 27s - loss: 1.3796 - label_predictions_loss_1: 1.8655 - label_predictions_loss_2: 2.0475 - hyperbolic_distance_first_layer_loss: 1.0726 - hyperbolic_distance_second_layer_loss: 1.3026 - hyperbolic_distance_third_layer_loss: 1.4081
-Epoch 65/1000
-1/1 [==============================] - 26s - loss: 1.5231 - label_predictions_loss_1: 1.6505 - label_predictions_loss_2: 1.7050 - hyperbolic_distance_first_layer_loss: 1.2783 - hyperbolic_distance_second_layer_loss: 1.4752 - hyperbolic_distance_third_layer_loss: 1.4597
-Epoch 66/1000
-1/1 [==============================] - 27s - loss: 1.4959 - label_predictions_loss_1: 1.6100 - label_predictions_loss_2: 1.7159 - hyperbolic_distance_first_layer_loss: 1.2535 - hyperbolic_distance_second_layer_loss: 1.4571 - hyperbolic_distance_third_layer_loss: 1.4204
-Epoch 67/1000
-1/1 [==============================] - 26s - loss: 1.5039 - label_predictions_loss_1: 1.6473 - label_predictions_loss_2: 1.7679 - hyperbolic_distance_first_layer_loss: 1.3101 - hyperbolic_distance_second_layer_loss: 1.3774 - hyperbolic_distance_third_layer_loss: 1.4669
-Epoch 68/1000
-1/1 [==============================] - 27s - loss: 1.5243 - label_predictions_loss_1: 1.6790 - label_predictions_loss_2: 1.4941 - hyperbolic_distance_first_layer_loss: 1.4281 - hyperbolic_distance_second_layer_loss: 1.3518 - hyperbolic_distance_third_layer_loss: 1.4356
-Epoch 69/1000
-1/1 [==============================] - 26s - loss: 1.3143 - label_predictions_loss_1: 1.5279 - label_predictions_loss_2: 1.7518 - hyperbolic_distance_first_layer_loss: 1.0647 - hyperbolic_distance_second_layer_loss: 1.1286 - hyperbolic_distance_third_layer_loss: 1.3914
-Epoch 70/1000
-1/1 [==============================] - 27s - loss: 1.3444 - label_predictions_loss_1: 1.7460 - label_predictions_loss_2: 2.0791 - hyperbolic_distance_first_layer_loss: 1.1255 - hyperbolic_distance_second_layer_loss: 1.1521 - hyperbolic_distance_third_layer_loss: 1.3971
-Epoch 71/1000
-1/1 [==============================] - 27s - loss: 1.4045 - label_predictions_loss_1: 1.5894 - label_predictions_loss_2: 1.5484 - hyperbolic_distance_first_layer_loss: 1.1798 - hyperbolic_distance_second_layer_loss: 1.2606 - hyperbolic_distance_third_layer_loss: 1.4146
-Epoch 72/1000
-1/1 [==============================] - 27s - loss: 1.3587 - label_predictions_loss_1: 1.6438 - label_predictions_loss_2: 1.7193 - hyperbolic_distance_first_layer_loss: 1.0890 - hyperbolic_distance_second_layer_loss: 1.2267 - hyperbolic_distance_third_layer_loss: 1.4013
-Epoch 73/1000
-1/1 [==============================] - 27s - loss: 1.3202 - label_predictions_loss_1: 1.6213 - label_predictions_loss_2: 1.6152 - hyperbolic_distance_first_layer_loss: 0.9980 - hyperbolic_distance_second_layer_loss: 1.1772 - hyperbolic_distance_third_layer_loss: 1.4258
-Epoch 74/1000
-1/1 [==============================] - 27s - loss: 1.1736 - label_predictions_loss_1: 1.6780 - label_predictions_loss_2: 2.4629 - hyperbolic_distance_first_layer_loss: 0.9359 - hyperbolic_distance_second_layer_loss: 0.9809 - hyperbolic_distance_third_layer_loss: 1.2440
-Epoch 75/1000
-1/1 [==============================] - 27s - loss: 1.3090 - label_predictions_loss_1: 1.5394 - label_predictions_loss_2: 1.5869 - hyperbolic_distance_first_layer_loss: 1.0723 - hyperbolic_distance_second_layer_loss: 1.1662 - hyperbolic_distance_third_layer_loss: 1.3280
-Epoch 76/1000
-1/1 [==============================] - 27s - loss: 1.2695 - label_predictions_loss_1: 1.7496 - label_predictions_loss_2: 2.2926 - hyperbolic_distance_first_layer_loss: 1.1041 - hyperbolic_distance_second_layer_loss: 1.0673 - hyperbolic_distance_third_layer_loss: 1.2761
-Epoch 77/1000
-1/1 [==============================] - 27s - loss: 1.3158 - label_predictions_loss_1: 1.6159 - label_predictions_loss_2: 1.6596 - hyperbolic_distance_first_layer_loss: 0.9994 - hyperbolic_distance_second_layer_loss: 1.1767 - hyperbolic_distance_third_layer_loss: 1.4099
-Epoch 78/1000
-1/1 [==============================] - 27s - loss: 1.2491 - label_predictions_loss_1: 1.6165 - label_predictions_loss_2: 1.8876 - hyperbolic_distance_first_layer_loss: 0.9571 - hyperbolic_distance_second_layer_loss: 1.0870 - hyperbolic_distance_third_layer_loss: 1.3413
-Epoch 79/1000
-1/1 [==============================] - 27s - loss: 1.3400 - label_predictions_loss_1: 1.6877 - label_predictions_loss_2: 1.8965 - hyperbolic_distance_first_layer_loss: 1.1646 - hyperbolic_distance_second_layer_loss: 1.1100 - hyperbolic_distance_third_layer_loss: 1.3831
-Epoch 80/1000
-1/1 [==============================] - 27s - loss: 1.0014 - label_predictions_loss_1: 1.4580 - label_predictions_loss_2: 1.6022 - hyperbolic_distance_first_layer_loss: 0.6401 - hyperbolic_distance_second_layer_loss: 0.8152 - hyperbolic_distance_third_layer_loss: 1.1855
-Epoch 81/1000
-1/1 [==============================] - 26s - loss: 1.2854 - label_predictions_loss_1: 1.4054 - label_predictions_loss_2: 1.5354 - hyperbolic_distance_first_layer_loss: 1.0697 - hyperbolic_distance_second_layer_loss: 1.1209 - hyperbolic_distance_third_layer_loss: 1.3021
-Epoch 82/1000
-1/1 [==============================] - 27s - loss: 1.4191 - label_predictions_loss_1: 1.3060 - label_predictions_loss_2: 1.3257 - hyperbolic_distance_first_layer_loss: 1.0953 - hyperbolic_distance_second_layer_loss: 1.3996 - hyperbolic_distance_third_layer_loss: 1.3985
-Epoch 83/1000
-1/1 [==============================] - 27s - loss: 1.3812 - label_predictions_loss_1: 1.4438 - label_predictions_loss_2: 1.7899 - hyperbolic_distance_first_layer_loss: 1.1708 - hyperbolic_distance_second_layer_loss: 1.2050 - hyperbolic_distance_third_layer_loss: 1.4040
-Epoch 84/1000
-1/1 [==============================] - 27s - loss: 1.2264 - label_predictions_loss_1: 1.3936 - label_predictions_loss_2: 1.5152 - hyperbolic_distance_first_layer_loss: 1.0533 - hyperbolic_distance_second_layer_loss: 1.0513 - hyperbolic_distance_third_layer_loss: 1.2105
-Epoch 85/1000
-1/1 [==============================] - 26s - loss: 1.3295 - label_predictions_loss_1: 1.3973 - label_predictions_loss_2: 1.3787 - hyperbolic_distance_first_layer_loss: 1.0670 - hyperbolic_distance_second_layer_loss: 1.1676 - hyperbolic_distance_third_layer_loss: 1.3896
-Epoch 86/1000
-1/1 [==============================] - 26s - loss: 1.0841 - label_predictions_loss_1: 1.4899 - label_predictions_loss_2: 2.0162 - hyperbolic_distance_first_layer_loss: 0.8376 - hyperbolic_distance_second_layer_loss: 0.8514 - hyperbolic_distance_third_layer_loss: 1.1987
-Epoch 87/1000
-1/1 [==============================] - 26s - loss: 1.3831 - label_predictions_loss_1: 1.3250 - label_predictions_loss_2: 1.4642 - hyperbolic_distance_first_layer_loss: 1.1459 - hyperbolic_distance_second_layer_loss: 1.2803 - hyperbolic_distance_third_layer_loss: 1.3585
-Epoch 88/1000
-1/1 [==============================] - 27s - loss: 1.5472 - label_predictions_loss_1: 1.5230 - label_predictions_loss_2: 1.8774 - hyperbolic_distance_first_layer_loss: 1.3059 - hyperbolic_distance_second_layer_loss: 1.3459 - hyperbolic_distance_third_layer_loss: 1.6253
-Epoch 89/1000
-1/1 [==============================] - 26s - loss: 1.3379 - label_predictions_loss_1: 1.4829 - label_predictions_loss_2: 2.1393 - hyperbolic_distance_first_layer_loss: 1.0281 - hyperbolic_distance_second_layer_loss: 1.1810 - hyperbolic_distance_third_layer_loss: 1.4401
-Epoch 90/1000
-1/1 [==============================] - 26s - loss: 1.1478 - label_predictions_loss_1: 1.5337 - label_predictions_loss_2: 2.1372 - hyperbolic_distance_first_layer_loss: 0.8162 - hyperbolic_distance_second_layer_loss: 1.0090 - hyperbolic_distance_third_layer_loss: 1.2538
-Epoch 91/1000
-1/1 [==============================] - 27s - loss: 1.2487 - label_predictions_loss_1: 1.3863 - label_predictions_loss_2: 2.0894 - hyperbolic_distance_first_layer_loss: 0.9921 - hyperbolic_distance_second_layer_loss: 1.1204 - hyperbolic_distance_third_layer_loss: 1.2694
-Epoch 92/1000
-1/1 [==============================] - 27s - loss: 1.2965 - label_predictions_loss_1: 1.6933 - label_predictions_loss_2: 2.6052 - hyperbolic_distance_first_layer_loss: 1.0199 - hyperbolic_distance_second_layer_loss: 1.0983 - hyperbolic_distance_third_layer_loss: 1.4072
-Epoch 93/1000
-1/1 [==============================] - 27s - loss: 1.2350 - label_predictions_loss_1: 1.7353 - label_predictions_loss_2: 2.1682 - hyperbolic_distance_first_layer_loss: 0.9920 - hyperbolic_distance_second_layer_loss: 1.0903 - hyperbolic_distance_third_layer_loss: 1.2589
-Epoch 94/1000
-1/1 [==============================] - 27s - loss: 1.3293 - label_predictions_loss_1: 1.7446 - label_predictions_loss_2: 2.3067 - hyperbolic_distance_first_layer_loss: 1.0398 - hyperbolic_distance_second_layer_loss: 1.2255 - hyperbolic_distance_third_layer_loss: 1.3590
-Epoch 95/1000
-1/1 [==============================] - 27s - loss: 1.3301 - label_predictions_loss_1: 1.5938 - label_predictions_loss_2: 2.0661 - hyperbolic_distance_first_layer_loss: 1.1487 - hyperbolic_distance_second_layer_loss: 1.1611 - hyperbolic_distance_third_layer_loss: 1.3172
-Epoch 96/1000
-1/1 [==============================] - 27s - loss: 1.0828 - label_predictions_loss_1: 1.5137 - label_predictions_loss_2: 2.0822 - hyperbolic_distance_first_layer_loss: 0.7507 - hyperbolic_distance_second_layer_loss: 0.9369 - hyperbolic_distance_third_layer_loss: 1.1970
-Epoch 97/1000
-1/1 [==============================] - 27s - loss: 1.1226 - label_predictions_loss_1: 1.5116 - label_predictions_loss_2: 1.9719 - hyperbolic_distance_first_layer_loss: 0.9982 - hyperbolic_distance_second_layer_loss: 0.8900 - hyperbolic_distance_third_layer_loss: 1.1158
-Epoch 98/1000
-1/1 [==============================] - 27s - loss: 1.2746 - label_predictions_loss_1: 1.6400 - label_predictions_loss_2: 2.0425 - hyperbolic_distance_first_layer_loss: 1.0350 - hyperbolic_distance_second_layer_loss: 1.1613 - hyperbolic_distance_third_layer_loss: 1.2639
-Epoch 99/1000
-1/1 [==============================] - 27s - loss: 1.1400 - label_predictions_loss_1: 1.5428 - label_predictions_loss_2: 2.2125 - hyperbolic_distance_first_layer_loss: 1.0197 - hyperbolic_distance_second_layer_loss: 0.9104 - hyperbolic_distance_third_layer_loss: 1.1262
-Epoch 100/1000
-1/1 [==============================] - 27s - loss: 1.1724 - label_predictions_loss_1: 1.6499 - label_predictions_loss_2: 2.1517 - hyperbolic_distance_first_layer_loss: 0.9317 - hyperbolic_distance_second_layer_loss: 1.0257 - hyperbolic_distance_third_layer_loss: 1.1959
-Epoch 101/1000
-1/1 [==============================] - 27s - loss: 1.1149 - label_predictions_loss_1: 1.5077 - label_predictions_loss_2: 1.6688 - hyperbolic_distance_first_layer_loss: 0.9157 - hyperbolic_distance_second_layer_loss: 0.9616 - hyperbolic_distance_third_layer_loss: 1.1033
-Epoch 102/1000
-1/1 [==============================] - 27s - loss: 1.3056 - label_predictions_loss_1: 1.6568 - label_predictions_loss_2: 2.4262 - hyperbolic_distance_first_layer_loss: 1.1947 - hyperbolic_distance_second_layer_loss: 1.1295 - hyperbolic_distance_third_layer_loss: 1.2287
-Epoch 103/1000
-1/1 [==============================] - 27s - loss: 1.1992 - label_predictions_loss_1: 1.6374 - label_predictions_loss_2: 1.9727 - hyperbolic_distance_first_layer_loss: 1.0211 - hyperbolic_distance_second_layer_loss: 0.9907 - hyperbolic_distance_third_layer_loss: 1.2218
-Epoch 104/1000
-1/1 [==============================] - 27s - loss: 1.3727 - label_predictions_loss_1: 1.6029 - label_predictions_loss_2: 2.2536 - hyperbolic_distance_first_layer_loss: 1.0925 - hyperbolic_distance_second_layer_loss: 1.2404 - hyperbolic_distance_third_layer_loss: 1.4214
-Epoch 105/1000
-1/1 [==============================] - 27s - loss: 1.1763 - label_predictions_loss_1: 1.6318 - label_predictions_loss_2: 2.0914 - hyperbolic_distance_first_layer_loss: 1.0546 - hyperbolic_distance_second_layer_loss: 0.9619 - hyperbolic_distance_third_layer_loss: 1.1484
-Epoch 106/1000
-1/1 [==============================] - 27s - loss: 1.0938 - label_predictions_loss_1: 1.8276 - label_predictions_loss_2: 2.6351 - hyperbolic_distance_first_layer_loss: 0.9332 - hyperbolic_distance_second_layer_loss: 0.8410 - hyperbolic_distance_third_layer_loss: 1.1429
-Epoch 107/1000
-1/1 [==============================] - 27s - loss: 1.3103 - label_predictions_loss_1: 1.5991 - label_predictions_loss_2: 2.2122 - hyperbolic_distance_first_layer_loss: 1.1021 - hyperbolic_distance_second_layer_loss: 1.1964 - hyperbolic_distance_third_layer_loss: 1.2685
-Epoch 108/1000
-1/1 [==============================] - 27s - loss: 1.1720 - label_predictions_loss_1: 1.5582 - label_predictions_loss_2: 2.1075 - hyperbolic_distance_first_layer_loss: 1.0045 - hyperbolic_distance_second_layer_loss: 0.9521 - hyperbolic_distance_third_layer_loss: 1.1952
-Epoch 109/1000
-1/1 [==============================] - 27s - loss: 1.1555 - label_predictions_loss_1: 1.5864 - label_predictions_loss_2: 2.3563 - hyperbolic_distance_first_layer_loss: 0.9263 - hyperbolic_distance_second_layer_loss: 1.0282 - hyperbolic_distance_third_layer_loss: 1.1480
-Epoch 110/1000
-1/1 [==============================] - 27s - loss: 1.1351 - label_predictions_loss_1: 1.6411 - label_predictions_loss_2: 2.2518 - hyperbolic_distance_first_layer_loss: 0.9977 - hyperbolic_distance_second_layer_loss: 0.9503 - hyperbolic_distance_third_layer_loss: 1.0934
-Epoch 111/1000
-1/1 [==============================] - 27s - loss: 1.1052 - label_predictions_loss_1: 1.5846 - label_predictions_loss_2: 2.0089 - hyperbolic_distance_first_layer_loss: 1.0474 - hyperbolic_distance_second_layer_loss: 0.8783 - hyperbolic_distance_third_layer_loss: 1.0260
-Epoch 112/1000
-1/1 [==============================] - 27s - loss: 1.1069 - label_predictions_loss_1: 1.6277 - label_predictions_loss_2: 1.8936 - hyperbolic_distance_first_layer_loss: 0.9749 - hyperbolic_distance_second_layer_loss: 0.9192 - hyperbolic_distance_third_layer_loss: 1.0625
-Epoch 113/1000
-1/1 [==============================] - 27s - loss: 1.2255 - label_predictions_loss_1: 1.8159 - label_predictions_loss_2: 2.3918 - hyperbolic_distance_first_layer_loss: 0.9598 - hyperbolic_distance_second_layer_loss: 1.1285 - hyperbolic_distance_third_layer_loss: 1.2239
-Epoch 114/1000
-1/1 [==============================] - 27s - loss: 1.3512 - label_predictions_loss_1: 1.7901 - label_predictions_loss_2: 2.0957 - hyperbolic_distance_first_layer_loss: 1.1991 - hyperbolic_distance_second_layer_loss: 1.1800 - hyperbolic_distance_third_layer_loss: 1.3105
-Epoch 115/1000
-1/1 [==============================] - 27s - loss: 1.1755 - label_predictions_loss_1: 1.7804 - label_predictions_loss_2: 2.2630 - hyperbolic_distance_first_layer_loss: 1.0226 - hyperbolic_distance_second_layer_loss: 0.9966 - hyperbolic_distance_third_layer_loss: 1.1429
-Epoch 116/1000
-1/1 [==============================] - 27s - loss: 1.0388 - label_predictions_loss_1: 1.7848 - label_predictions_loss_2: 2.4608 - hyperbolic_distance_first_layer_loss: 0.9395 - hyperbolic_distance_second_layer_loss: 0.8877 - hyperbolic_distance_third_layer_loss: 0.9249
-Epoch 117/1000
-1/1 [==============================] - 27s - loss: 1.2277 - label_predictions_loss_1: 1.9618 - label_predictions_loss_2: 2.5143 - hyperbolic_distance_first_layer_loss: 1.1283 - hyperbolic_distance_second_layer_loss: 1.0462 - hyperbolic_distance_third_layer_loss: 1.1444
-Epoch 118/1000
-1/1 [==============================] - 26s - loss: 0.9881 - label_predictions_loss_1: 1.8159 - label_predictions_loss_2: 2.1465 - hyperbolic_distance_first_layer_loss: 0.8749 - hyperbolic_distance_second_layer_loss: 0.8320 - hyperbolic_distance_third_layer_loss: 0.8929
-Epoch 119/1000
-1/1 [==============================] - 27s - loss: 0.9679 - label_predictions_loss_1: 1.8634 - label_predictions_loss_2: 2.2003 - hyperbolic_distance_first_layer_loss: 0.7258 - hyperbolic_distance_second_layer_loss: 0.8649 - hyperbolic_distance_third_layer_loss: 0.9477
-Epoch 120/1000
-1/1 [==============================] - 26s - loss: 1.0492 - label_predictions_loss_1: 1.8328 - label_predictions_loss_2: 2.2911 - hyperbolic_distance_first_layer_loss: 0.9189 - hyperbolic_distance_second_layer_loss: 0.8780 - hyperbolic_distance_third_layer_loss: 0.9854
-Epoch 121/1000
-1/1 [==============================] - 27s - loss: 0.9410 - label_predictions_loss_1: 1.7614 - label_predictions_loss_2: 2.0222 - hyperbolic_distance_first_layer_loss: 0.8393 - hyperbolic_distance_second_layer_loss: 0.7586 - hyperbolic_distance_third_layer_loss: 0.8592
-Epoch 122/1000
-1/1 [==============================] - 27s - loss: 1.0646 - label_predictions_loss_1: 1.7405 - label_predictions_loss_2: 1.7689 - hyperbolic_distance_first_layer_loss: 0.9823 - hyperbolic_distance_second_layer_loss: 0.8331 - hyperbolic_distance_third_layer_loss: 1.0120
-Epoch 123/1000
-1/1 [==============================] - 26s - loss: 1.1985 - label_predictions_loss_1: 1.8410 - label_predictions_loss_2: 2.2782 - hyperbolic_distance_first_layer_loss: 0.9416 - hyperbolic_distance_second_layer_loss: 1.1334 - hyperbolic_distance_third_layer_loss: 1.1536
-Epoch 124/1000
-1/1 [==============================] - 26s - loss: 1.1350 - label_predictions_loss_1: 1.8533 - label_predictions_loss_2: 2.1294 - hyperbolic_distance_first_layer_loss: 0.9872 - hyperbolic_distance_second_layer_loss: 0.9854 - hyperbolic_distance_third_layer_loss: 1.0651
-Epoch 125/1000
-1/1 [==============================] - 27s - loss: 1.1671 - label_predictions_loss_1: 1.5965 - label_predictions_loss_2: 2.3847 - hyperbolic_distance_first_layer_loss: 0.9562 - hyperbolic_distance_second_layer_loss: 1.2318 - hyperbolic_distance_third_layer_loss: 0.9458
-Epoch 126/1000
-1/1 [==============================] - 26s - loss: 1.0744 - label_predictions_loss_1: 1.7408 - label_predictions_loss_2: 2.1954 - hyperbolic_distance_first_layer_loss: 1.0143 - hyperbolic_distance_second_layer_loss: 0.9270 - hyperbolic_distance_third_layer_loss: 0.9145
-Epoch 127/1000
-1/1 [==============================] - 26s - loss: 1.0472 - label_predictions_loss_1: 1.7955 - label_predictions_loss_2: 2.8544 - hyperbolic_distance_first_layer_loss: 0.8136 - hyperbolic_distance_second_layer_loss: 0.9162 - hyperbolic_distance_third_layer_loss: 1.0440slurmstepd: error: *** JOB 1098870 ON bber0503u28a CANCELLED AT 2018-02-01T20:39:29 DUE TO TIME LIMIT ***
