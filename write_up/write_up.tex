@@ -10,7 +10,7 @@
 
 \DeclareMathOperator*{\argmin}{argmin}
 \DeclareMathOperator{\arccosh}{arccosh}
-
+{\tiny }
 \title{Capsules for Hierarchical Embedding of Attributed Complex Networks to a Hyperbolic Feature Space}
 \author{David McDonald dxm237@cs.bham.ac.uk \and Shan He s.he@cs.bham.ac.uk}
 \date{}
@@ -123,16 +123,26 @@
 	We consider the problem of learning a representation of a matrix $\textbf{X} \in \mathbb{R}^{N\times D}$ of $N$ samples of features of dimension $D$. Sample inter-relations are given by the graph $\mathbb{G} = (V, E)$, where $V$ is the set of vertices such that $|V|=N$ and $E$ is the set of edges representing the relations between vertices. 
 	
 	\subsection{GraphCap Layer}
-	
+	\cite{hamilton2017inductive}:
+	\begin{align*}
+	\textbf{h}^k_v = \sigma(\textbf{W}\cdot \mathrm{MEAN}(\{\textbf{h}^{k-1}_v\}\cup\{\textbf{h}^{k-1}_u, \forall u\in \mathcal{N}(v)\}))
+	\end{align*}
+	squash function \cite{sabour2017dynamic}:
+	\begin{align*}
+	\textbf{v}_j = \frac{||\textbf{s}_j||^2}{1 + ||\textbf{s}_j||^2}
+	\frac{\textbf{s}_j}{||\textbf{s}_j||}
+	\end{align*}
+	dynamic routing algorithm: \cite{sabour2017dynamic}
+	TODO
 	\subsection{Unsupervised Loss Function}
 	\begin{align*}
-	L(\Theta) = \frac{1}{|D|} \sum_{(\textbf{u}, \textbf{v}) \in D} \log \bigg(\frac{\exp(-d(\textbf{u}, \textbf{v}))}{\sum_{\textbf{v}' \in N(\textbf{u})} \exp(-d(\textbf{u}, \textbf{v}'))} \bigg)
+	L(\Theta) = -\frac{1}{|D|} \sum_{(u, v) \in D} \log \bigg[\frac{\exp(-d(\textbf{h}_u, \textbf{h}_v))}{\sum_{v' \in \mathcal{N}(u)} \exp(-d(\textbf{h}_u, \textbf{h}_{v'}))} \bigg]
 	\end{align*}
 	Hyperbolic distance computed as 
 	\begin{align*}
 	d(\textbf{u}, \textbf{v}) = \arccosh \bigg[1 + 2\frac{||\textbf{u}-\textbf{v}||^2}{(1 - ||\textbf{u}||^2)(1-||\textbf{v}||^2)}\bigg]
 	\end{align*}
-	where $||.||$ is the usual Euclidean norm.
+	where $||.||$ is the usual Euclidean norm \cite{nickel2017poincar}.
 	
 	\section{Results}
 	
