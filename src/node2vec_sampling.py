@@ -42,10 +42,15 @@ class Graph():
 		G = self.G
 		walks = []
 		nodes = list(G.nodes())
-		for walk_iter in range(num_walks):
+		for node in nodes:
+		# for walk_iter in range(num_walks):
 # 			random.shuffle(nodes)
-			for node in nodes:
-				walks.append(self.node2vec_walk(walk_length=walk_length, start_node=node))
+			# for node in nodes:
+			for walk_iter in range(num_walks):
+				if walk_iter == 0:
+					walks.append(self.node2vec_walk(walk_length=walk_length, start_node=node))
+				else:
+					walks[-1].extend(self.node2vec_walk(walk_length=walk_length, start_node=node))
 
 		return walks
 

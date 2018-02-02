@@ -12,29 +12,39 @@ def parse_args():
 	parser = argparse.ArgumentParser(description="GraphCaps for feature learning of complex networks")
 
 	parser.add_argument("-e", "--num_epochs", dest="num_epochs", type=int, default=100,
-		help="the number of epochs to train for (default is 1000).")
+		help="The number of epochs to train for (default is 1000).")
 	parser.add_argument("-b", "--batch_size", dest="batch_size", type=int, default=50, 
-		help="batch size for training (default is 50).")
+		help="Batch size for training (default is 50).")
 	parser.add_argument("--npos", dest="num_pos", type=int, default=1, 
-		help="number of positive samples for training (default is 1).")
+		help="Number of positive samples for training (default is 1).")
 	parser.add_argument("--nneg", dest="num_neg", type=int, default=5, 
-		help="number of negative samples for training (default is 5).")
+		help="Number of negative samples for training (default is 5).")
 
 	parser.add_argument("-s", "--sample_sizes", dest="neighbourhood_sample_sizes", type=int, nargs="+",
-		help="number of neighbourhood node samples for each layer separated by a space (default is [5,5,5]).", default=[5,5,5])
+		help="Number of neighbourhood node samples for each layer separated by a space (default is [5,5,5]).", default=[5,5,5])
 	parser.add_argument("-f", "--num_filters", dest="num_filters_per_layer", type=int, nargs="+",
-		help="number of capsules for each layer separated by space (default is [16, 16, 8]).", default=[16, 16, 8])
+		help="Number of capsules for each layer separated by space (default is [16, 16, 8]).", default=[16, 16, 8])
 	parser.add_argument("-a", "--agg_dim", dest="agg_dim_per_layer", type=int, nargs="+",
-		help="dimension of agg output for each layer separated by a space (default is [128, 32, 16]).", default=[128,32,16])
+		help="Dimension of agg output for each layer separated by a space (default is [128, 32, 16]).", default=[128,32,16])
 	parser.add_argument("-n", "--num_caps", dest="num_capsules_per_layer", type=int, nargs="+",
-		help="number of capsules for each layer separated by space (default is [16, 7, 1]).", default=[16, 7, 1])
+		help="Number of capsules for each layer separated by space (default is [16, 7, 1]).", default=[16, 7, 1])
 	parser.add_argument("-d", "--capsule_dim", dest="capsule_dim_per_layer", type=int, nargs="+",
-		help="dimension of capule output for each layer separated by a space (default is [8, 4, 1]).", default=[8,4,2])
+		help="Dimension of capule output for each layer separated by a space (default is [8, 4, 1]).", default=[8,4,2])
+
+
+	parser.add_argument("-p", dest="p", type=float, default=1.,
+		help="node2vec return parameter (default is 1.).")
+	parser.add_argument("-q", dest="q", type=float, default=1.,
+		self="node2vec in-out parameter (default is 1.).")
+	parser.add_argument('--num-walks', dest="num_walks", type=int, default=10, 
+		help="Number of walks per source (default is 10).")
+	parser.add_argument('--walk_length', dest="walk_length", type=int, default=15, 
+		help="Length of random walk from source (default is 15).")
 
 	
 
-	# parser.add_argument("-dim", "--embedding_dim", dest="embedding_dim", type=int, default=2, 
-	# 	help="embedding dimension of hyperbolic space (default is 2).")
+	parser.add_argument("--plot", dest="plot_path", default="../plots/embedding.png", 
+		help="path to save plot (default is '../plots/embedding.png.'")
 
 
 	args = parser.parse_args()
@@ -78,12 +88,12 @@ def main():
 	num_capsules_per_layer, capsule_dim_per_layer)
 
 	capsnet.summary()
-	raise SystemExit
+	# raise SystemExit
 
 	capsnet.fit_generator(generator, steps_per_epoch=1, epochs=args.num_epochs, 
 		verbose=1, callbacks=[TerminateOnNaN()])
 
-	draw_embedding(embedder, generator, dim=embedding_dim)
+	draw_embedding(embedder, generator, dim=embedding_dim, path=args.plot_path)
 
 if __name__  == "__main__":
 	main()

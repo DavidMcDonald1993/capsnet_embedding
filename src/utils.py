@@ -41,17 +41,18 @@ def compute_negative_sampling_mask(batch_size, n, spacing):
 	mask[:, np.arange(n) * spacing] = 1. / n
 	return mask
 
-def compute_label_mask(Y, p=20):
+def compute_label_mask(Y, num_patterns_to_keep=20):
 
 	assignments = Y.argmax(axis=1)
-	patterns_to_remove = np.concatenate([np.random.permutation(np.where(assignments==i)[0])[:-p] 
+	patterns_to_keep = np.concatenate([np.random.choice(np.where(assignments==i)[0], replace=False, size=num_patterns_to_keep)  
 										 for i in range(Y.shape[1])])
-	mask = np.ones(Y.shape, dtype=np.float32)
-	mask[patterns_to_remove] = 0
+	mask = np.zeros(Y.shape, dtype=np.float32)
+	mask[patterns_to_keep] = 1
 
 	return mask
 
-def neighbourhood_sample_generator(G, X, Y, sample_sizes, num_positive_samples, num_negative_samples, batch_size):
+def neighbourhood_sample_generator(G, X, Y, neighbourhood_sample_sizes, num_capsules_per_layer,
+	num_positive_samples, num_negative_samples, batch_size, p, q, num_walks, walk_length):
 	
 	'''
 	performs node2vec style neighbourhood sampling for positive samples.
@@ -67,27 +68,24 @@ def neighbourhood_sample_generator(G, X, Y, sample_sizes, num_positive_samples, 
 	X = X.toarray()
 	Y = Y.toarray()
 
-	# print X.shape, X.mean(axis=0).shape, X.std(axis=0).shape, X.std(axis=0).min()
+	num_classes = Y.shape[1]
+	label_mask = compute_label_mask(Y)
 
-	X = (X - X.mean(axis=0)) / (X.std(axis=0) + 1e-8)
-	# print X.mean(axis=0)
-	# print X.std(axis=0)
-	# print X[0]
-	# raise SystemExit
+	label_prediction_layers = np.where(num_capsules_per_layer==num_classes)[0] + 1
 
 	G = nx.convert_node_labels_to_integers(G)
 	
 	N = len(G)
 	
-	node2vec_graph = Graph(nx_G=G, is_directed=False, p=1, q=1)
+	node2vec_graph = Graph(nx_G=G, is_directed=False, p=p, q=q)
 	node2vec_graph.preprocess_transition_probs()
-	walks = node2vec_graph.simulate_walks(num_walks=1, walk_length=15)
+	walks = node2vec_graph.simulate_walks(num_walks=num_walks, walk_length=walk_length)
 	
 	neighbours = [list(G.neighbors(n)) for n in list(G.nodes())]
 	
 	frequencies = np.array(dict(G.degree()).values()) ** 0.75
 
-	num_aggregation_layers = sample_sizes.shape[0]
+	num_layers = neighbourhood_sample_sizes.shape[0]
 	
 	'''
 	END OF PRECOMPUTATION
@@ -96,15 +94,10 @@ def neighbourhood_sample_generator(G, X, Y, sample_sizes, num_positive_samples, 
 	i = 0
 	nodes = np.random.permutation(N)
 	output_dimension = 1 + num_positive_samples + num_negative_samples
-
-	# negative_sample_target = np.empty((batch_size, num_positive_samples+num_negative_samples))
-
-	label_mask = compute_label_mask(Y)
+	batch_nodes = np.zeros((batch_size, output_dimension), dtype=int)
 	
 	while True:
-		
-		batch_nodes = np.zeros((batch_size, output_dimension), dtype=int)
-		
+
 		for j in range(batch_size):
 			
 			if i == N:
@@ -126,33 +119,45 @@ def neighbourhood_sample_generator(G, X, Y, sample_sizes, num_positive_samples, 
 			i += 1
 	
 		neighbour_list = [batch_nodes]
-		for sample_size in sample_sizes[::-1]:
+		for neighbourhood_sample_size in neighbourhood_sample_sizes[::-1]:
 			neighbour_list.append(np.array([
-				np.concatenate([ np.append(n, np.random.choice(neighbours[n], replace=True, size=sample_size)) 
+				np.concatenate([ np.append(n, np.random.choice(neighbours[n], replace=True, size=neighbourhood_sample_size)) 
 								for n in batch]) for batch in neighbour_list[-1]]))
 
-		# for nl in neighbour_list:
-		# 	print nl.shape
-
-		# raise SystemExit
+		# flip neighbour list
+		neighbour_list = neighbour_list[::-1]
 
 		# shape is [batch_size, output_shape*prod(sample_sizes), D]
-		x = X[neighbour_list[-1]]
+		x = X[neighbour_list[0]]
 		x = np.expand_dims(x, 2)
 		# shape is now [batch_nodes, output_shape*prod(sample_sizes), 1, D]
 
-		y_label_mask = label_mask[neighbour_list[1]]
-		if (y_label_mask>0).any():
-			y = Y[neighbour_list[1]]
-			y_label_true = np.append(np.ones(y.shape), y, axis=-1)
-			y_label_mask = np.append(y_label_mask, y, axis=-1)
 
-			negative_sample_targets = [Y[nl].argmax(axis=-1) for nl in neighbour_list[-2::-1]]
+		negative_sample_targets = [Y[nl].argmax(axis=-1) for nl in neighbour_list[1:]]
 
-			yield x, [y_label_true] + [y_label_mask] + negative_sample_targets
+
+		labels = []
+		for layer in label_prediction_layers:
+			y = Y[neighbour_list[layer]]
+			mask = label_mask[neighbour_list[layer]]
+			y_masked = np.append(mask, y, axis=-1)
+			labels.append(y_masked)
+
+		if all([(y_masked > 0).any() for y_masked in labels]):
+			yield x, labels + negative_sample_targets
+
+		# y_label_mask = label_mask[neighbour_list[1]]
+		# if (y_label_mask>0).any():
+		# 	y = Y[neighbour_list[1]]
+		# 	y_label_true = np.append(np.ones(y.shape), y, axis=-1)
+		# 	y_label_mask = np.append(y_label_mask, y, axis=-1)
+
+			
+
+		# 	yield x, [y_label_true] + [y_label_mask] + negative_sample_targets
 			# yield x, negative_sample_targets
 
-def draw_embedding(embedder, generator, dim=2):
+def draw_embedding(embedder, generator, dim=2, path=None):
 
 	x, yl = generator.next()
 	# x, [_, y, _, _] = generator.next()
@@ -172,6 +177,7 @@ def draw_embedding(embedder, generator, dim=2):
 	else:
 		plt.scatter(embedding[:,0], embedding[:,1], c=y.flatten())
 	# plt.show()
-	plt.savefig("../plots/embedding.png")
+	if path is not None:
+		plt.savefig(path)
 	
 
