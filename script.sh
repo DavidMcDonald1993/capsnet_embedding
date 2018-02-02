@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --ntasks 1
-#SBATCH --time 1:00:00
+#SBATCH --time 10:00:00
 #SBATCH --mem 16gb
 
 set -e
