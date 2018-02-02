@@ -35,7 +35,7 @@ def parse_args():
 	parser.add_argument("-p", dest="p", type=float, default=1.,
 		help="node2vec return parameter (default is 1.).")
 	parser.add_argument("-q", dest="q", type=float, default=1.,
-		self="node2vec in-out parameter (default is 1.).")
+		help="node2vec in-out parameter (default is 1.).")
 	parser.add_argument('--num-walks', dest="num_walks", type=int, default=10, 
 		help="Number of walks per source (default is 10).")
 	parser.add_argument('--walk_length', dest="walk_length", type=int, default=15, 
@@ -63,23 +63,30 @@ def main():
 	num_positive_samples = args.num_pos
 	num_negative_samples = args.num_neg
 
-	neighbourhood_sample_sizes = args.neighbourhood_sample_sizes
-	num_filters_per_layer = args.num_filters_per_layer
-	agg_dim_per_layer = args.agg_dim_per_layer
-	num_capsules_per_layer = args.num_capsules_per_layer
-	capsule_dim_per_layer = args.capsule_dim_per_layer
+	neighbourhood_sample_sizes = np.array(args.neighbourhood_sample_sizes[::-1])
+	num_filters_per_layer = np.array(args.num_filters_per_layer)
+	agg_dim_per_layer = np.array(args.agg_dim_per_layer)
+	num_capsules_per_layer = np.array(args.num_capsules_per_layer)
+	capsule_dim_per_layer = np.array(args.capsule_dim_per_layer)
 
 	assert len(neighbourhood_sample_sizes) == len(num_filters_per_layer) == len(agg_dim_per_layer) == \
 	len(num_capsules_per_layer) == len(capsule_dim_per_layer), "lengths of all input lists must be the same"
 
-	# reverse sample sizes
-	neighbourhood_sample_sizes = np.array(neighbourhood_sample_sizes[::-1])
+
+	p = args.p
+	q = args.q
+	num_walks = args.num_walks
+	walk_length = args.walk_length
 
 	generator = neighbourhood_sample_generator(G, X, Y,
-		neighbourhood_sample_sizes, num_positive_samples, num_negative_samples, batch_size)
+		neighbourhood_sample_sizes, num_capsules_per_layer, 
+		num_positive_samples, num_negative_samples, batch_size,
+		p, q, num_walks, walk_length)
 
 
 	embedding_dim = num_capsules_per_layer[-1] * capsule_dim_per_layer[-1]
+	# print embedding_dim
+	# raise SystemExit
 
 	# capsnet, embedder = build_graphcaps(data_dim, num_classes, embedding_dim,
 	# 	num_positive_samples, num_negative_samples, neighbourhood_sample_sizes)

@@ -71,7 +71,12 @@ def neighbourhood_sample_generator(G, X, Y, neighbourhood_sample_sizes, num_caps
 	num_classes = Y.shape[1]
 	label_mask = compute_label_mask(Y)
 
+	# print num_capsules_per_layer
+	# print num_classes
+
 	label_prediction_layers = np.where(num_capsules_per_layer==num_classes)[0] + 1
+	# print label_prediction_layers
+	# raise SystemExit
 
 	G = nx.convert_node_labels_to_integers(G)
 	
@@ -135,6 +140,7 @@ def neighbourhood_sample_generator(G, X, Y, neighbourhood_sample_sizes, num_caps
 
 		negative_sample_targets = [Y[nl].argmax(axis=-1) for nl in neighbour_list[1:]]
 
+		# print label_prediction_layers
 
 		labels = []
 		for layer in label_prediction_layers:
@@ -143,7 +149,10 @@ def neighbourhood_sample_generator(G, X, Y, neighbourhood_sample_sizes, num_caps
 			y_masked = np.append(mask, y, axis=-1)
 			labels.append(y_masked)
 
-		if all([(y_masked > 0).any() for y_masked in labels]):
+		# print len(labels)
+		# print len(negative_sample_targets)
+
+		if all([(y_masked[:,:,:num_classes] > 0).any() for y_masked in labels]):
 			yield x, labels + negative_sample_targets
 
 		# y_label_mask = label_mask[neighbour_list[1]]
