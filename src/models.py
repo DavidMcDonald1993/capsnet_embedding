@@ -8,6 +8,60 @@ from keras.regularizers import l2
 from graphcaps_layers import AggregateLayer, GraphCapsuleLayer, HyperbolicDistanceLayer, Length, squash
 from losses import masked_crossentropy, masked_margin_loss, hyperbolic_negative_sampling_loss
 
+def generate_graphcaps_model(data_dim, num_classes, num_positive_samples, num_negative_samples,
+	neighbourhood_sample_sizes, num_filters_per_layer, agg_dim_per_layer,
+	number_of_capsules_per_layer, capsule_dim_per_layer):
+
+	output_size = 1 + num_positive_samples + num_negative_samples
+
+	x = layers.Input(shape=(np.prod(neighbourhood_sample_sizes + 1) * output_size, 1, data_dim), name="input_layer")
+
+	y = x
+
+	label_predictions = []
+	embeddings = []
+	hyperbolic_distances = []
+
+	num_layers = len(neighbourhood_sample_sizes)
+
+	for i, neighbourhood_sample_size, num_filters, agg_dim, num_caps, capsule_dim in zip(range(num_layers),
+		neighbourhood_sample_sizes, number_of_capsules_per_layer, agg_dim_per_layer, 
+		number_of_capsules_per_layer, capsule_dim_per_layer):
+
+		if num_caps == 1:
+			num_routing = 1
+		else:
+			num_routing = 3 
+
+		y = AggregateLayer(num_neighbours=neighbourhood_sample_size+1, num_filters=num_filters, new_dim=agg_dim,
+			activation="relu", name="agg_layer_{}".format(i))(y)
+		y = GraphCapsuleLayer(num_capsule=num_caps, dim_capsule=capsule_dim, num_routing=num_routing, 
+			name="cap_layer_{}".format(i))(y)
+
+		layer_embedding = layers.Reshape((-1, num_caps*capsule_dim), name="embedding_reshape_layer_{}".format(i))(y)
+		layer_embedding = layers.Lambda(squash, name="embedding_squash_layer_{}".format(i))(layer_embedding)
+		layer_hyperbolic_distance = HyperbolicDistanceLayer(num_positive_samples=num_positive_samples,
+			num_negative_samples=num_negative_samples, name="hyperbolic_distance_layer_{}".format(i))(layer_embedding)
+
+		embeddings.append(layer_embedding)
+		hyperbolic_distances.append(layer_hyperbolic_distance)
+
+		y = layers.Lambda(squash, name="squash_layer_{}".format(i))(y)
+
+		if num_caps == num_classes:
+			label_prediction = Length(name="label_prediction_layer_{}".format(i))(y)
+			label_predictions.append(label_prediction)
+
+
+	graphcaps = Model(x, label_predictions + hyperbolic_distances)
+	graphcaps.compile(optimizer="adam", 
+		loss=[masked_crossentropy]*len(label_predictions) + [hyperbolic_negative_sampling_loss]*len(embeddings), 
+		loss_weights=[0]*len(label_predictions) + [1./len(hyperbolic_distances)]*len(hyperbolic_distances))
+
+	embedder = Model(x, embeddings[-1])
+
+	return graphcaps, embedder
+
 def build_graphcaps(data_dim, num_classes, embedding_dim, num_positive_samples, num_negative_samples, sample_sizes):
 
 	output_size = 1 + num_positive_samples + num_negative_samples

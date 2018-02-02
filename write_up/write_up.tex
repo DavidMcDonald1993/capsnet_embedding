@@ -138,11 +138,13 @@
 	\begin{align*}
 	L(\Theta) = -\frac{1}{|D|} \sum_{(u, v) \in D} \log \bigg[\frac{\exp(-d(\textbf{h}_u, \textbf{h}_v))}{\sum_{v' \in \mathcal{N}(u)} \exp(-d(\textbf{h}_u, \textbf{h}_{v'}))} \bigg]
 	\end{align*}
+	where $\mathcal{N}(u)$ is the set of positive and negative samples of node $u$. 
+	
 	Hyperbolic distance computed as 
 	\begin{align*}
-	d(\textbf{u}, \textbf{v}) = \arccosh \bigg[1 + 2\frac{||\textbf{u}-\textbf{v}||^2}{(1 - ||\textbf{u}||^2)(1-||\textbf{v}||^2)}\bigg]
+	d(\textbf{h}_u, \textbf{h}_v) = \arccosh \bigg[1 + 2\frac{||\textbf{h}_u -\textbf{h}_v||^2}{(1 - ||\textbf{h}_u||^2)(1-||\textbf{h}_v||^2)}\bigg]
 	\end{align*}
-	where $||.||$ is the usual Euclidean norm \cite{nickel2017poincar}.
+	where $||\cdot||$ is the usual Euclidean norm \cite{nickel2017poincar}.
 	
 	\section{Results}
 	

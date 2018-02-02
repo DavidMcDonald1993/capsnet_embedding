@@ -5,21 +5,36 @@ from keras.callbacks import TerminateOnNaN
 import argparse
 
 from utils import load_karate, load_cora, neighbourhood_sample_generator, draw_embedding
-from models import build_graphcaps
+from models import build_graphcaps, generate_graphcaps_model
 
 
 def parse_args():
 	parser = argparse.ArgumentParser(description="GraphCaps for feature learning of complex networks")
 
-	parser.add_argument("-s", dest="sample_sizes", type=int, nargs="+",
-		help="number of neighbourhood node samples for each layer REQUIRED", required=True)
+	parser.add_argument("-e", "--num_epochs", dest="num_epochs", type=int, default=100,
+		help="the number of epochs to train for (default is 1000).")
+	parser.add_argument("-b", "--batch_size", dest="batch_size", type=int, default=50, 
+		help="batch size for training (default is 50).")
+	parser.add_argument("--npos", dest="num_pos", type=int, default=1, 
+		help="number of positive samples for training (default is 1).")
+	parser.add_argument("--nneg", dest="num_neg", type=int, default=5, 
+		help="number of negative samples for training (default is 5).")
+
+	parser.add_argument("-s", "--sample_sizes", dest="neighbourhood_sample_sizes", type=int, nargs="+",
+		help="number of neighbourhood node samples for each layer separated by a space (default is [5,5,5]).", default=[5,5,5])
+	parser.add_argument("-f", "--num_filters", dest="num_filters_per_layer", type=int, nargs="+",
+		help="number of capsules for each layer separated by space (default is [16, 16, 8]).", default=[16, 16, 8])
+	parser.add_argument("-a", "--agg_dim", dest="agg_dim_per_layer", type=int, nargs="+",
+		help="dimension of agg output for each layer separated by a space (default is [128, 32, 16]).", default=[128,32,16])
+	parser.add_argument("-n", "--num_caps", dest="num_capsules_per_layer", type=int, nargs="+",
+		help="number of capsules for each layer separated by space (default is [16, 7, 1]).", default=[16, 7, 1])
+	parser.add_argument("-d", "--capsule_dim", dest="capsule_dim_per_layer", type=int, nargs="+",
+		help="dimension of capule output for each layer separated by a space (default is [8, 4, 1]).", default=[8,4,2])
 
 	
-	parser.add_argument("-b", dest="batch_size", type=int, default=50, help="batch size for training (default is 50).")
-	parser.add_argument("-npos", dest="num_pos", type=int, default=1, help="number of positive samples for training (default is 1).")
-	parser.add_argument("-nneg", dest="num_neg", type=int, default=5, help="number of negative samples for training (default is 5).")
 
-	parser.add_argument("-d", dest="embedding_dim", type=int, default=2, help="embedding dimension of hyperbolic space (default is 2).")
+	# parser.add_argument("-dim", "--embedding_dim", dest="embedding_dim", type=int, default=2, 
+	# 	help="embedding dimension of hyperbolic space (default is 2).")
 
 
 	args = parser.parse_args()
@@ -38,32 +53,37 @@ def main():
 	num_positive_samples = args.num_pos
 	num_negative_samples = args.num_neg
 
-	sample_sizes = np.array(args.sample_sizes)
+	neighbourhood_sample_sizes = args.neighbourhood_sample_sizes
+	num_filters_per_layer = args.num_filters_per_layer
+	agg_dim_per_layer = args.agg_dim_per_layer
+	num_capsules_per_layer = args.num_capsules_per_layer
+	capsule_dim_per_layer = args.capsule_dim_per_layer
 
-	embedding_dim = args.embedding_dim
+	assert len(neighbourhood_sample_sizes) == len(num_filters_per_layer) == len(agg_dim_per_layer) == \
+	len(num_capsules_per_layer) == len(capsule_dim_per_layer), "lengths of all input lists must be the same"
+
+	# reverse sample sizes
+	neighbourhood_sample_sizes = np.array(neighbourhood_sample_sizes[::-1])
 
 	generator = neighbourhood_sample_generator(G, X, Y,
-		sample_sizes, num_positive_samples, num_negative_samples, batch_size)
-
-	# x, [y, m1, m2] = generator.next()
-
-	# print x.shape, y.shape, m1.shape, m2.shape
-	# print m2
-
-	# raise SystemExit
+		neighbourhood_sample_sizes, num_positive_samples, num_negative_samples, batch_size)
 
 
-	# output_shapes = [[32, 8], [num_classes, 4], [1, embedding_dim]]
+	embedding_dim = num_capsules_per_layer[-1] * capsule_dim_per_layer[-1]
 
-	model, embedder = build_graphcaps(data_dim, num_classes, embedding_dim,
-		num_positive_samples, num_negative_samples, sample_sizes)
+	# capsnet, embedder = build_graphcaps(data_dim, num_classes, embedding_dim,
+	# 	num_positive_samples, num_negative_samples, neighbourhood_sample_sizes)
+	capsnet, embedder = generate_graphcaps_model(data_dim, num_classes, num_positive_samples, num_negative_samples,
+	neighbourhood_sample_sizes, num_filters_per_layer, agg_dim_per_layer,
+	num_capsules_per_layer, capsule_dim_per_layer)
 
-	model.summary()
-	# raise SystemExit
+	capsnet.summary()
+	raise SystemExit
 
-	# model.fit_generator(generator, steps_per_epoch=1, epochs=1000, verbose=1, callbacks=[TerminateOnNaN()])
+	capsnet.fit_generator(generator, steps_per_epoch=1, epochs=args.num_epochs, 
+		verbose=1, callbacks=[TerminateOnNaN()])
 
-	# draw_embedding(embedder, generator, dim=embedding_dim)
+	draw_embedding(embedder, generator, dim=embedding_dim)
 
 if __name__  == "__main__":
 	main()

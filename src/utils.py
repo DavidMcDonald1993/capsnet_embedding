@@ -126,7 +126,7 @@ def neighbourhood_sample_generator(G, X, Y, sample_sizes, num_positive_samples, 
 			i += 1
 	
 		neighbour_list = [batch_nodes]
-		for sample_size in sample_sizes:
+		for sample_size in sample_sizes[::-1]:
 			neighbour_list.append(np.array([
 				np.concatenate([ np.append(n, np.random.choice(neighbours[n], replace=True, size=sample_size)) 
 								for n in batch]) for batch in neighbour_list[-1]]))
