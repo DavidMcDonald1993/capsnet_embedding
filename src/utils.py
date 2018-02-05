@@ -2,6 +2,8 @@ import numpy as np
 import networkx as nx
 import scipy as sp
 
+from itertools import iziplongest
+
 import matplotlib
 matplotlib.use('agg')
 
@@ -39,10 +41,10 @@ def load_cora():
 
 	return G, X, Y
 
-def compute_negative_sampling_mask(batch_size, n, spacing):
-	mask = np.zeros((batch_size, n*spacing))
-	mask[:, np.arange(n) * spacing] = 1. / n
-	return mask
+# def compute_negative_sampling_mask(batch_size, n, spacing):
+# 	mask = np.zeros((batch_size, n*spacing))
+# 	mask[:, np.arange(n) * spacing] = 1. / n
+# 	return mask
 
 def compute_label_mask(Y, num_patterns_to_keep=20):
 
@@ -54,8 +56,45 @@ def compute_label_mask(Y, num_patterns_to_keep=20):
 
 	return mask
 
+def generate_samples_node2vec(G, num_positive_samples, num_negative_samples, context_size,
+	p, q, num_walks, walk_length):
+	
+	G = nx.convert_node_labels_to_integers(G)
+	N = nx.number_of_nodes(G)
+
+	frequencies = np.array(dict(G.degree()).values()) ** 0.75
+
+	node2vec_graph = Graph(nx_G=G, is_directed=False, p=p, q=q)
+	node2vec_graph.preprocess_transition_probs()
+
+	while True:
+		walks = node2vec_graph.simulate_walks(num_walks=num_walks, walk_length=walk_length)
+		for walk in walks:
+
+			possible_negative_samples = np.setdiff1d(np.arange(N), walk)
+			possible_negative_sample_frequencies = frequencies[possible_negative_samples]
+			possible_negative_sample_frequencies /= possible_negative_sample_frequencies.sum()
+			# negative_samples = np.random.choice(possible_negative_samples, replace=True, size=num_negative_samples, 
+			# 				p=possible_negative_sample_frequencies / possible_negative_sample_frequencies.sum())
+
+			for i in range(len(walk)):
+				for j in range(i+1, min(len(walk), i+1+context_size)):
+					pair = np.array([walk[i], walk[j]])
+					for negative_samples in np.random.choice(possible_negative_samples, replace=True, 
+						size=(1+num_positive_samples, num_negative_samples),
+						p=possible_negative_sample_frequencies):
+						yield np.append(np.array(pair, negative_samples))
+						pair = pair[::-1]
+
+def grouper(n, iterable, fillvalue=None):
+    "grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx"
+    args = [iter(iterable)] * n
+    return izip_longest(fillvalue=fillvalue, *args)
+
+
+
 def neighbourhood_sample_generator(G, X, Y, neighbourhood_sample_sizes, num_capsules_per_layer,
-	num_positive_samples, num_negative_samples, batch_size, p, q, num_walks, walk_length):
+	num_positive_samples, num_negative_samples, context_size, batch_size, p, q, num_walks, walk_length):
 	
 	'''
 	performs node2vec style neighbourhood sampling for positive samples.
@@ -74,57 +113,58 @@ def neighbourhood_sample_generator(G, X, Y, neighbourhood_sample_sizes, num_caps
 	num_classes = Y.shape[1]
 	label_mask = compute_label_mask(Y)
 
-	# print num_capsules_per_layer
-	# print num_classes
-
 	label_prediction_layers = np.where(num_capsules_per_layer==num_classes)[0] + 1
-	# print label_prediction_layers
-	# raise SystemExit
 
-	G = nx.convert_node_labels_to_integers(G)
 	
-	N = len(G)
+	# N = len(G)
 	
-	node2vec_graph = Graph(nx_G=G, is_directed=False, p=p, q=q)
-	node2vec_graph.preprocess_transition_probs()
-	walks = node2vec_graph.simulate_walks(num_walks=num_walks, walk_length=walk_length)
+	# node2vec_graph = Graph(nx_G=G, is_directed=False, p=p, q=q)
+	# node2vec_graph.preprocess_transition_probs()
+	# walks = node2vec_graph.simulate_walks(num_walks=num_walks, walk_length=walk_length)
 	
 	neighbours = [list(G.neighbors(n)) for n in list(G.nodes())]
 	
-	frequencies = np.array(dict(G.degree()).values()) ** 0.75
+	# frequencies = np.array(dict(G.degree()).values()) ** 0.75
 
 	num_layers = neighbourhood_sample_sizes.shape[0]
+
+	node2vec_sampler = generate_samples_node2vec(G, num_positive_samples, num_negative_samples, context_size, 
+		p, q, num_walks, walk_length)
+	batch_sampler = grouper(batch_size, node2vec_sampler)
 	
 	'''
 	END OF PRECOMPUTATION
 	'''
 	
-	i = 0
-	nodes = np.random.permutation(N)
-	output_dimension = 1 + num_positive_samples + num_negative_samples
-	batch_nodes = np.zeros((batch_size, output_dimension), dtype=int)
+	# i = 0
+	# nodes = np.random.permutation(N)
+	# output_dimension = 1 + num_positive_samples + num_negative_samples
+	# batch_nodes = np.zeros((batch_size, output_dimension), dtype=int)
 	
 	while True:
 
-		for j in range(batch_size):
+		batch_nodes = batch_sampler.next()
+		batch_nodes = np.array(batch_nodes)
+
+		# for j in range(batch_size):
 			
-			if i == N:
-				nodes = np.random.permutation(N)
-				i = 0
+		# 	if i == N:
+		# 		nodes = np.random.permutation(N)
+		# 		i = 0
 				
-			n = nodes[i]
+		# 	n = nodes[i]
 			
-			positive_samples = np.random.choice(walks[n], replace=True, size=num_positive_samples)
-			possible_negative_samples = np.setdiff1d(range(N), walks[n])
-			possible_negative_sample_frequencies = frequencies[possible_negative_samples]
-			negative_samples = np.random.choice(possible_negative_samples, replace=True, size=num_negative_samples, 
-							p=possible_negative_sample_frequencies / possible_negative_sample_frequencies.sum())
+		# 	positive_samples = np.random.choice(walks[n], replace=True, size=num_positive_samples)
+		# 	possible_negative_samples = np.setdiff1d(range(N), walks[n])
+		# 	possible_negative_sample_frequencies = frequencies[possible_negative_samples]
+		# 	negative_samples = np.random.choice(possible_negative_samples, replace=True, size=num_negative_samples, 
+		# 					p=possible_negative_sample_frequencies / possible_negative_sample_frequencies.sum())
 													 
-			batch_nodes[j, 0] = n
-			batch_nodes[j, 1 : 1 + num_positive_samples] = positive_samples
-			batch_nodes[j, 1 + num_positive_samples : ] = negative_samples
+		# 	batch_nodes[j, 0] = n
+		# 	batch_nodes[j, 1 : 1 + num_positive_samples] = positive_samples
+		# 	batch_nodes[j, 1 + num_positive_samples : ] = negative_samples
 		
-			i += 1
+		# 	i += 1
 	
 		neighbour_list = [batch_nodes]
 		for neighbourhood_sample_size in neighbourhood_sample_sizes[::-1]:

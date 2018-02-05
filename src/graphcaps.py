@@ -19,6 +19,8 @@ def parse_args():
 		help="Number of positive samples for training (default is 1).")
 	parser.add_argument("--nneg", dest="num_neg", type=int, default=5, 
 		help="Number of negative samples for training (default is 5).")
+	parser.add_argument("--context_size", dest="context_size", type=int, default=5,
+		help="Context size for generating positive samples (default is 5).")
 
 	parser.add_argument("-s", "--sample_sizes", dest="neighbourhood_sample_sizes", type=int, nargs="+",
 		help="Number of neighbourhood node samples for each layer separated by a space (default is [5,5,5]).", default=[5,5,5])
@@ -73,6 +75,7 @@ def main():
 	len(num_capsules_per_layer) == len(capsule_dim_per_layer), "lengths of all input lists must be the same"
 
 
+	context_size = args.context_size
 	p = args.p
 	q = args.q
 	num_walks = args.num_walks
@@ -80,7 +83,7 @@ def main():
 
 	generator = neighbourhood_sample_generator(G, X, Y,
 		neighbourhood_sample_sizes, num_capsules_per_layer, 
-		num_positive_samples, num_negative_samples, batch_size,
+		num_positive_samples, num_negative_samples, context_size, batch_size,
 		p, q, num_walks, walk_length)
 
 
