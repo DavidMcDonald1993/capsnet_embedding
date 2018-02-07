@@ -20,7 +20,7 @@ def generate_graphcaps_model(X, Y, batch_size, num_positive_samples, num_negativ
 	output_size = 1 + num_positive_samples + num_negative_samples
 
 	# x = layers.Input(shape=(np.prod(neighbourhood_sample_sizes + 1) * output_size, 1, data_dim), name="input_layer")
-	training_input = layers.Input(batch_shape=(batch_size, np.prod(neighbourhood_sample_sizes + 1) * output_size, 1, data_dim), 
+	training_input = layers.Input(shape=(np.prod(neighbourhood_sample_sizes + 1) * output_size, 1, data_dim), 
 		name="input_layer")
 
 
@@ -85,33 +85,74 @@ def generate_graphcaps_model(X, Y, batch_size, num_positive_samples, num_negativ
 
 
 	## lambda functions of input layer
-	label_prediction_lambdas = [lambda x : 
+	label_prediction_lambdas = [lambda x, i=i, l=l: 
 	connect_layers(zip(agg_layers[:l], capsule_layers[:l], capsule_outputs[:l]) +
-		[(label_predictions[l])], x) for l in np.where(number_of_capsules_per_layer == num_classes)[0]]
-	embedder_lambdas = [lambda x : 
-	connect_layers(zip(agg_layers[:max(0, l-1)], capsule_layers[:max(0, l-1)], capsule_outputs[:max(0, l-1)]) + 
-		[(agg_layers[l], capsule_layers[l]) + (reshape_layers[l], embeddings[l], hyperbolic_distances[l])], x) for l in range(num_layers)]
+		[(label_predictions[i], )], x) for i, l in enumerate(np.where(number_of_capsules_per_layer == num_classes)[0]+1)]
+	
+	# layer_lists = [zip(agg_layers[:l], capsule_layers[:l], capsule_outputs[:l]) + 
+	# 	[(agg_layers[l], capsule_layers[l]), (reshape_layers[l], embeddings[l])] for l in range(num_layers)]
+
+	# for tuple_list in layer_lists:
+	# 	for tuple_ in tuple_list:
+	# 		for layer in tuple_:
+	# 			print layer.name
+	# 	print
+	# print "-------------------------------------------------------------------------------------------"
+
+	embedder_lambdas = [lambda x, l=l: connect_layers(zip(agg_layers[:l], capsule_layers[:l], capsule_outputs[:l]) + 
+		[(agg_layers[l], capsule_layers[l]), (reshape_layers[l], embeddings[l])], x) for l in range(num_layers)]
+	# embedder_lambdas = [lambda x : connect_layers(layer_list, x) for layer_list in layer_lists]
+
+	# for embedder_lambda in embedder_lambdas:
+	# 	print embedder_lambda
+	# 	print
+	# print "_________________________________________________________________________________"
 
 	capsnet_label_prediction_outputs = [label_prediction_lambda(training_input) for 
 		label_prediction_lambda in label_prediction_lambdas]
-	capsnet_embedding_outputs = [embedder_lambda(training_input) for embedder_lambda in embedder_lambdas]
+
+	capsnet_embedding_outputs = [embedder_lambda(training_input) for 
+		embedder_lambda in embedder_lambdas]
+	capsnet_distance_outputs = [hyperbolic_distance(embedding) for 
+		hyperbolic_distance, embedding in zip(hyperbolic_distances, capsnet_embedding_outputs)]
 
 	# graphcaps = Model(training_input, label_predictions + hyperbolic_distances)
-	graphcaps = Model(training_input,  capsnet_label_prediction_outputs + capsnet_embedding_outputs)
+	graphcaps = Model(training_input,  capsnet_label_prediction_outputs + capsnet_distance_outputs)
 	graphcaps.compile(optimizer="adam", 
 		loss=[masked_crossentropy]*len(capsnet_label_prediction_outputs) + 
-		[hyperbolic_negative_sampling_loss]*len(capsnet_embedding_outputs), 
+		[hyperbolic_negative_sampling_loss]*len(capsnet_distance_outputs), 
 		loss_weights=[0]*len(capsnet_label_prediction_outputs) + 
-		[1./len(capsnet_embedding_outputs)]*len(capsnet_embedding_outputs))
+		# [0]*(len(capsnet_distance_outputs)-1)+[1])
+		[1./len(capsnet_distance_outputs)]*len(capsnet_distance_outputs))
 		# loss_weights = [1./(len(label_predictions) + len(hyperbolic_distances))] * 
 		# (len(label_predictions) + len(hyperbolic_distances)))
 
 
 
-	embedder_input = layers.Input(batch_shape=(batch_size, np.prod(neighbourhood_sample_sizes + 1), 1, data_dim))
+	embedder_input = layers.Input(shape=(np.prod(neighbourhood_sample_sizes + 1), 1, data_dim))
 	embedder_output = embedder_lambdas[-1](embedder_input)
 
 	embedder = Model(embedder_input, embedder_output)
+
+	# l = 0
+	# for tuple_ in zip(agg_layers[:l], capsule_layers[:l], capsule_outputs[:l]) + [(agg_layers[l], capsule_layers[l]), (reshape_layers[l], embeddings[l])] :
+	# 	for layer in tuple_:
+	# 		print layer.name
+
+	
+	# print embedder_lambdas
+	# print capsnet_embedding_outputs
+	# for d, e in zip(hyperbolic_distances, capsnet_embedding_outputs):
+	# 	print d.name
+	# 	print e
+	# 	print
+	# print 
+	# l = 1
+	# for tuple_ in zip(agg_layers[:l], capsule_layers[:l], capsule_outputs[:l]) + [(agg_layers[l], capsule_layers[l]), (reshape_layers[l], embeddings[l])] :
+	# 	for layer in tuple_:
+	# 		print layer.name
+
+	# raise SystemExit
 
 	return graphcaps, embedder
 

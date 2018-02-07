@@ -181,7 +181,7 @@ class AggregateLayer(layers.Layer):
 		input_shape = [batch_size, Nn, num_caps, cap_dim]
 		'''
 
-		self.batch_size = input_shape[0]
+		# self.batch_size = input_shape[0]
 		self.n_dimension = input_shape[1] 
 		self.num_caps = input_shape[2]
 		self.old_dim = input_shape[3]
@@ -210,24 +210,16 @@ class AggregateLayer(layers.Layer):
 		'''
 		
 		#aggregate over neighbours
-		print inputs.shape
-
-		inputs_shaped = K.reshape(inputs, shape=[self.batch_size, -1, self.num_neighbours, self.num_caps, self.old_dim])
-		print inputs_shaped.shape
+		inputs_shaped = K.reshape(inputs, shape=tf.stack([K.shape(inputs)[0], -1, self.num_neighbours, self.num_caps, self.old_dim]))
 		inputs_aggregated = K.mean(inputs_shaped, axis=2)
-		print inputs_aggregated.shape
 
-		inputs_shaped = K.reshape(inputs_aggregated, shape=[self.batch_size, self.n_dimension / self.num_neighbours, -1])
-		print inputs_shaped.shape
+		inputs_shaped = K.reshape(inputs_aggregated, shape=tf.stack([K.shape(inputs)[0], -1, self.num_caps*self.old_dim]))
 		output = K.map_fn(lambda x : 
 			# K.dot(self.mean_vector, x), elems=inputs_shaped)
 			# K.dot(self.mean_vector, K.dot(x, self.W) + self.bias), elems=inputs_shaped)
 			K.dot(x, self.W) + self.bias, elems=inputs_shaped)
-		print output.shape
 		output = K.reshape(output, 
-			[self.batch_size, self.n_dimension / self.num_neighbours, self.num_filters, self.new_dim])
-		print output.shape
-		print
+			shape=tf.stack([K.shape(inputs)[0], -1, self.num_filters, self.new_dim]))
 		# output = K.reshape(output, [K.shape(output)[0], K.shape(output)[1], 
 		# 	K.shape(inputs)[2], K.shape(inputs)[3]])
 		# shape is now [None, Nn+1, num_caps, cap_dim]
@@ -245,7 +237,7 @@ class AggregateLayer(layers.Layer):
 		'''
 		
 		# return tuple([input_shape[0], self.n_dimension, input_shape[2], input_shape[3]])
-		return tuple([self.batch_size, self.n_dimension / self.num_neighbours, self.num_filters, self.new_dim])
+		return tuple([input_shape[0], input_shape[1] / self.num_neighbours, self.num_filters, self.new_dim])
 
 class HyperbolicDistanceLayer(layers.Layer):
     """
@@ -272,27 +264,13 @@ class HyperbolicDistanceLayer(layers.Layer):
         input_shape = [None, N, D]
         '''
 
-        # print "hypdist input shape", inputs.shape#, inputs.get_shape(), inputs.shape
-
-        # raise SystemExit
-
         inputs = inputs[:,0:self.N:self.step_size]
         u = inputs[:,:1]
         v = inputs[:,1:]
 
-        # u.set_shape([None, 1, inputs.shape[2]])
-        # v.set_shape([None, self.num_positive_samples+self.num_negative_samples, inputs.shape[2]])
-        # print "u shape", u.shape
-        # print "v.shape", v.shape
-
 
         d = tf.acosh(1 + 2 * self.safe_norm(u - v) / 
                      ((1 - self.safe_norm(u)) * (1 - self.safe_norm(v))))
-        # print "d shape", d.shape
-        # d = K.squeeze(d, axis=-1)
-
-        # print "d shape", d.shape
-
         return d
 
     def compute_output_shape(self, input_shape):

@@ -6,7 +6,7 @@ import argparse
 
 from models import build_graphcaps, generate_graphcaps_model
 from generators import neighbourhood_sample_generator
-from utils import load_karate, load_cora, load_facebook, plot_embedding
+from utils import load_karate, load_cora, load_facebook, preprocess_data, plot_embedding
 
 
 def parse_args():
@@ -57,7 +57,9 @@ def main():
 
 	args = parse_args()
 
-	G, X, Y = load_karate()
+	G, X, Y = load_cora()
+
+	X = preprocess_data(X)
 
 	data_dim = X.shape[1]
 	num_classes = Y.shape[1]
@@ -98,14 +100,17 @@ def main():
 	neighbourhood_sample_sizes, num_filters_per_layer, agg_dim_per_layer,
 	num_capsules_per_layer, capsule_dim_per_layer)
 
+	print "GRAPHCAPS SUMMARY"
 	capsnet.summary()
+	print "EMBEDDER SUMMARY"
 	embedder.summary()
 	# raise SystemExit
 
 	capsnet.fit_generator(generator, steps_per_epoch=1, epochs=args.num_epochs, 
 		verbose=1, callbacks=[TerminateOnNaN()])
 
-	plot_embedding(G, X, Y, embedder, neighbourhood_sample_sizes, dim=embedding_dim, path=args.plot_path)
+	plot_embedding(G, X, Y, embedder, neighbourhood_sample_sizes, batch_size, annotate=False, 
+		dim=embedding_dim, path=args.plot_path)
 
 if __name__  == "__main__":
 	main()

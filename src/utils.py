@@ -2,6 +2,9 @@ import numpy as np
 import networkx as nx
 import scipy as sp
 
+from sklearn.feature_selection import VarianceThreshold
+from sklearn.preprocessing import StandardScaler
+
 from itertools import izip_longest
 
 import matplotlib
@@ -42,8 +45,11 @@ def load_cora():
 	
 	nx.set_edge_attributes(G, name="weight", values=1)
 
-	X = sp.sparse.load_npz("../data/cora/cited_words.npz").toarray()
-	Y = sp.sparse.load_npz("../data/cora/paper_labels.npz").toarray()
+	X = sp.sparse.load_npz("../data/cora/cited_words.npz")
+	Y = sp.sparse.load_npz("../data/cora/paper_labels.npz")
+
+	X = X.toarray()
+	Y = Y.toarray()
 
 	return G, X, Y
 
@@ -54,14 +60,18 @@ def load_facebook():
 	
 	nx.set_edge_attributes(G, name="weight", values=1)
 
-	'''
-	TODO
-	'''
+	X = sp.sparse.load_npz("../data/facebook/features.npz")
+	Y = sp.sparse.load_npz("../data/facebook/circle_labels.npz")
 
-	X = sp.sparse.load_npz("../data/facebook/features.npz").toarray()
-	Y = sp.sparse.load_npz("../data/facebook/circle_labels.npz").toarray()
+	X = X.toarray()
+	Y = Y.toarray()
 
 	return G, X, Y
+
+def preprocess_data(X):
+	X = VarianceThreshold().fit_transform(X)
+	X = StandardScaler().fit_transform(X)
+	return X
 
 def connect_layers(layer_tuples, x):
 	
@@ -70,7 +80,6 @@ def connect_layers(layer_tuples, x):
 	for layer_tuple in layer_tuples:
 		for layer in layer_tuple:
 			y = layer(y)
-
 	return y
 
 
@@ -270,10 +279,12 @@ def neighbourhood_sample_generator(G, X, Y, neighbourhood_sample_sizes, num_caps
 		# 	yield x, [y_label_true] + [y_label_mask] + negative_sample_targets
 			# yield x, negative_sample_targets
 
-def plot_embedding(G, X, Y, embedder, neighbourhood_sample_sizes, batch_size, dim=2, path=None):
+def plot_embedding(G, X, Y, embedder, neighbourhood_sample_sizes, batch_size, dim=2, annotate=False, path=None):
 
 	# x, yl = generator.next()
 	# x, [_, y, _, _] = generator.next()
+
+	print "Plotting network and saving to {}...".format(path)
 
 	# y = yl[-1]
 	nodes = np.arange(len(G)).reshape(-1, 1)
@@ -281,17 +292,17 @@ def plot_embedding(G, X, Y, embedder, neighbourhood_sample_sizes, batch_size, di
 	neighbour_list = create_neighbourhood_sample_list(nodes, neighbourhood_sample_sizes, neighbours)
 
 	x = X[neighbour_list[0]]
+	# print x.shape
 	x = np.expand_dims(x, 2)
-
-	print x.shape
+	# print x.shape
 
 	embedding = embedder.predict(x, batch_size=batch_size)
+	# print embedding.shape
 	embedding = embedding.reshape(-1, dim)
+	# print embedding.shape
+
 
 	y = Y.argmax(axis=1)
-
-	# num_classes = y.shape[-1] / 2
-	# assignments = y[:,:,num_classes:].argmax(axis=-1).flatten()
 
 	fig = plt.figure(figsize=(5, 5))
 	if dim == 3:
@@ -299,8 +310,13 @@ def plot_embedding(G, X, Y, embedder, neighbourhood_sample_sizes, batch_size, di
 		ax.scatter(embedding[:,0], embedding[:,1], embedding[:,2], c=y)
 	else:
 		plt.scatter(embedding[:,0], embedding[:,1], c=y)
+		if annotate:
+			for label, p in zip(list(G), embedding[:,:2]):
+				plt.annotate(label, p)
 	# plt.show()
 	if path is not None:
 		plt.savefig(path)
+
+	print "Done"
 	
 
