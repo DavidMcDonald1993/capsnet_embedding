@@ -32,9 +32,11 @@
 	We see this in the simple relationships amongst people that form an entire society; in the iterations between genes, proteins and metabolites that form a living organism; and in the links between pages that make up the internet.
 	Within these systems, interactions are not controlled globally, but emerge locally based on some local organisation that gives rise to new levels of organisation.
 	In this way, we see that the organisation of complex systems is \textit{hierarchical}: elements belong to many different systems on many different scales, with all the levels affecting each other \cite{barabasi1999emergence}.   
+	In addition to the hierarchical organisation of elements, we observe that entities can be richly annotated with features, that are themselves organised hierarchically.  
+	For example, a paper within a citation network may be annotated with the presence of particular key words. 
 	
 	% why embedding? downstream tasks
-	Representation learning -- learning to represent data in a different way -- has become common for processing information on non-Euclidean domains -- such as the graph topology that comprise these complex systems.  
+	Representation learning -- learning to represent data in a different way -- has become common for processing information on non-Euclidean domains -- such as the domain of nodes and edges that comprise these complex systems.  
 	Prediction over nodes and edges, for example, requires careful feature engineering \cite{grover2016node2vec} and representation learning leads to the extraction of features from a graph that a most useful for downstream tasks, without careful design or a-priori knowledge.
 	In particular, research has shown compelling evidence that an underlying metric space underpins the emergence of behaviour in the network -- for example, two elements that appear close together in this metric space are more likely to interact \cite{grover2016node2vec,alanis2016efficient,alanis2016manifold} and furthermore, that the shape of this metric space is, in fact, hyperbolic.
 	Indeed, we see that a hyperbolic space is a continuous representation of a discrete tree structure that captures the hierarchical organisation of elements within a complex system \cite{krioukov2010hyperbolic}.
@@ -42,11 +44,12 @@
 	% signal processing
 	In many complex systems, we find that elements are richly annotated -- people have likes and dislikes, for example -- and we also observe that elements interact with other elements that are similar -- one is more likely to be friend with someone of similar interests, for example.
 	Often, these annotations provide valuable information about the elements of the system -- valuable information that would be lost if only the topology of the system was considered. 
-	Here, we examine the usefulness of Graph Signal Processing (GSP), and emergent field in the literature that considers the expressions of elements within the system to be a ``signal'' that structured by the relationships that we observe \cite{defferrard2016convolutional,kipf2016semi,hamilton2017inductive} -- for representing the elements of a system as a set of points in n-dimensional hyperbolic space. entit
-	Often, our access to these systems is incomplete, or the system is changing over time, and so we consider this task in the \textit{inductive} setting.
-	Furthermore, we leverage the advantages of ``capsules'' -- a recently proposed variant of the standard neural-network neuron that outputs a vector that abstractly represents a feature and its ``pose'', to uncover the parse tree of hierarchical features in the system \cite{hinton2011transforming,sabour2017dynamic}.
+	Here, we examine the usefulness of Graph Signal Processing (GSP), and emergent field in the literature that considers the expressions of elements within the system to be a ``signal'' that structured by the relationships that we observe \cite{defferrard2016convolutional,kipf2016semi,hamilton2017inductive} -- for representing the elements of a system as a set of points in n-dimensional hyperbolic space.
+	Often, our access to these systems is incomplete, or the system is evolving over time, and so we consider this task in the \textit{inductive} setting, where we learn representations of entities based on sampling of local features.
+	Furthermore, we leverage the advantages of ``capsules'' -- a recently proposed variant of the standard neural-network neuron that outputs a vector that abstractly represents a feature and its ``pose'', to uncover the parse tree of hierarchical features in the system \cite{hinton2011transforming,sabour2017dynamic}, to perform a layer-wise embedding of a complex system into hyperbolic space, where representations in higher levels of the network correspond to the presence of increasingly abstract features.
 	
 	% capsule networks
+	\subsection{Main Contribution}
 	
 	
 	
@@ -135,10 +138,11 @@
 	dynamic routing algorithm: \cite{sabour2017dynamic}
 	TODO
 	\subsection{Unsupervised Loss Function}
+	Batch-wise loss function
 	\begin{align*}
-	L(\Theta) = -\frac{1}{|D|} \sum_{(u, v) \in D} \log \bigg[\frac{\exp(-d(\textbf{h}_u, \textbf{h}_v))}{\sum_{v' \in \mathcal{N}(u)} \exp(-d(\textbf{h}_u, \textbf{h}_{v'}))} \bigg]
+	L(\Theta) = -\frac{1}{|D|} \sum_{u \in D} \log \bigg[\frac{\exp(-d(\textbf{h}_u, \textbf{h}_v))}{\sum_{v' \in \mathcal{S}(u)} \exp(-d(\textbf{h}_u, \textbf{h}_{v'}))} \bigg]
 	\end{align*}
-	where $\mathcal{N}(u)$ is the set of positive and negative samples of node $u$. 
+	where $\mathcal{S}(u)$ is the set of positive and negative samples of node $u$, and $D$ is the set of nodes in the batch. 
 	
 	Hyperbolic distance computed as 
 	\begin{align*}

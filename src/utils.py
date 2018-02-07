@@ -1,6 +1,7 @@
 import numpy as np
 import networkx as nx
 import scipy as sp
+import pandas as pd 
 
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.preprocessing import StandardScaler
@@ -36,7 +37,7 @@ def load_karate():
 	X = X.toarray()
 	Y = Y.toarray()
 
-	return G, X, Y
+	return G, X, Y, None
 
 def load_cora():
 
@@ -51,7 +52,11 @@ def load_cora():
 	X = X.toarray()
 	Y = Y.toarray()
 
-	return G, X, Y
+	label_name_df = pd.read_csv("../data/cora/paper.tsv", sep="\t", index_col=0)
+	label_names = label_name_df["class_label"].unique()
+	label_name_map = {i: label_name for i, label_name in enumerate(label_names) }
+
+	return G, X, Y, label_name_map
 
 def load_facebook():
 
@@ -66,7 +71,7 @@ def load_facebook():
 	X = X.toarray()
 	Y = Y.toarray()
 
-	return G, X, Y
+	return G, X, Y, None
 
 def preprocess_data(X):
 	X = VarianceThreshold().fit_transform(X)
@@ -279,7 +284,7 @@ def neighbourhood_sample_generator(G, X, Y, neighbourhood_sample_sizes, num_caps
 		# 	yield x, [y_label_true] + [y_label_mask] + negative_sample_targets
 			# yield x, negative_sample_targets
 
-def plot_embedding(G, X, Y, embedder, neighbourhood_sample_sizes, batch_size, dim=2, annotate=False, path=None):
+def plot_embedding(G, X, Y, embedder, neighbourhood_sample_sizes, batch_size, label_map, dim=2, annotate=False, path=None):
 
 	# x, yl = generator.next()
 	# x, [_, y, _, _] = generator.next()
@@ -304,7 +309,7 @@ def plot_embedding(G, X, Y, embedder, neighbourhood_sample_sizes, batch_size, di
 
 	y = Y.argmax(axis=1)
 
-	fig = plt.figure(figsize=(5, 5))
+	fig = plt.figure(figsize=(10, 10))
 	if dim == 3:
 		ax = fig.add_subplot(111, projection='3d')
 		ax.scatter(embedding[:,0], embedding[:,1], embedding[:,2], c=y)
@@ -313,7 +318,13 @@ def plot_embedding(G, X, Y, embedder, neighbourhood_sample_sizes, batch_size, di
 		if annotate:
 			for label, p in zip(list(G), embedding[:,:2]):
 				plt.annotate(label, p)
-	# plt.show()
+		if label_map is not None:
+			present_classes = np.unique(y)
+			representatives = np.array([np.where(y==c)[0][0] for c in present_classes])
+			present_classes = [label_map[c] for c in present_classes]
+			for label, p in zip(present_classes, embedding[representatives, :2]):
+				plt.annotate(label, p)
+	plt.show()
 	if path is not None:
 		plt.savefig(path)
 

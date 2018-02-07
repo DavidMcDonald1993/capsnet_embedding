@@ -264,7 +264,7 @@ class HyperbolicDistanceLayer(layers.Layer):
         input_shape = [None, N, D]
         '''
 
-        inputs = inputs[:,0:self.N:self.step_size]
+        inputs = inputs[:,::self.step_size]
         u = inputs[:,:1]
         v = inputs[:,1:]
 

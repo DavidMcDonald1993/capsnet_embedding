@@ -12,10 +12,10 @@ from utils import load_karate, load_cora, load_facebook, preprocess_data, plot_e
 def parse_args():
 	parser = argparse.ArgumentParser(description="GraphCaps for feature learning of complex networks")
 
-	parser.add_argument("-e", "--num_epochs", dest="num_epochs", type=int, default=100,
+	parser.add_argument("-e", "--num_epochs", dest="num_epochs", type=int, default=1000,
 		help="The number of epochs to train for (default is 1000).")
-	parser.add_argument("-b", "--batch_size", dest="batch_size", type=int, default=50, 
-		help="Batch size for training (default is 50).")
+	parser.add_argument("-b", "--batch_size", dest="batch_size", type=int, default=10, 
+		help="Batch size for training (default is 10).")
 	parser.add_argument("--npos", dest="num_pos", type=int, default=1, 
 		help="Number of positive samples for training (default is 1).")
 	parser.add_argument("--nneg", dest="num_neg", type=int, default=5, 
@@ -32,7 +32,7 @@ def parse_args():
 	parser.add_argument("-n", "--num_caps", dest="num_capsules_per_layer", type=int, nargs="+",
 		help="Number of capsules for each layer separated by space (default is [16, 7, 1]).", default=[16, 7, 1])
 	parser.add_argument("-d", "--capsule_dim", dest="capsule_dim_per_layer", type=int, nargs="+",
-		help="Dimension of capule output for each layer separated by a space (default is [8, 4, 1]).", default=[8,4,2])
+		help="Dimension of capule output for each layer separated by a space (default is [8, 4, 2]).", default=[8,4,2])
 
 
 	parser.add_argument("-p", dest="p", type=float, default=1.,
@@ -57,7 +57,7 @@ def main():
 
 	args = parse_args()
 
-	G, X, Y = load_cora()
+	G, X, Y, label_map = load_cora()
 
 	X = preprocess_data(X)
 
@@ -109,7 +109,7 @@ def main():
 	capsnet.fit_generator(generator, steps_per_epoch=1, epochs=args.num_epochs, 
 		verbose=1, callbacks=[TerminateOnNaN()])
 
-	plot_embedding(G, X, Y, embedder, neighbourhood_sample_sizes, batch_size, annotate=False, 
+	plot_embedding(G, X, Y, embedder, neighbourhood_sample_sizes, batch_size, label_map, annotate=False, 
 		dim=embedding_dim, path=args.plot_path)
 
 if __name__  == "__main__":

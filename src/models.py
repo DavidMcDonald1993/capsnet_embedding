@@ -27,6 +27,7 @@ def generate_graphcaps_model(X, Y, batch_size, num_positive_samples, num_negativ
 	# y = x
 	# y = []
 	agg_layers = []
+	normalization_layers = []
 	capsule_layers = []
 	capsule_outputs = []
 
@@ -68,6 +69,7 @@ def generate_graphcaps_model(X, Y, batch_size, num_positive_samples, num_negativ
 
 		agg_layers.append(AggregateLayer(num_neighbours=neighbourhood_sample_size+1, num_filters=num_filters, new_dim=agg_dim,
 			activation="relu", name="agg_layer_{}".format(i)))
+		normalization_layers.append(layers.BatchNormalization())
 		capsule_layers.append(GraphCapsuleLayer(num_capsule=num_caps, dim_capsule=capsule_dim, num_routing=num_routing, 
 			name="cap_layer_{}".format(i)))
 
@@ -86,7 +88,7 @@ def generate_graphcaps_model(X, Y, batch_size, num_positive_samples, num_negativ
 
 	## lambda functions of input layer
 	label_prediction_lambdas = [lambda x, i=i, l=l: 
-	connect_layers(zip(agg_layers[:l], capsule_layers[:l], capsule_outputs[:l]) +
+	connect_layers(zip(agg_layers[:l], normalization_layers[:l], capsule_layers[:l], capsule_outputs[:l]) +
 		[(label_predictions[i], )], x) for i, l in enumerate(np.where(number_of_capsules_per_layer == num_classes)[0]+1)]
 	
 	# layer_lists = [zip(agg_layers[:l], capsule_layers[:l], capsule_outputs[:l]) + 
@@ -99,8 +101,9 @@ def generate_graphcaps_model(X, Y, batch_size, num_positive_samples, num_negativ
 	# 	print
 	# print "-------------------------------------------------------------------------------------------"
 
-	embedder_lambdas = [lambda x, l=l: connect_layers(zip(agg_layers[:l], capsule_layers[:l], capsule_outputs[:l]) + 
-		[(agg_layers[l], capsule_layers[l]), (reshape_layers[l], embeddings[l])], x) for l in range(num_layers)]
+	embedder_lambdas = [lambda x, l=l: connect_layers(zip(agg_layers[:l], normalization_layers[:l], 
+		capsule_layers[:l], capsule_outputs[:l]) + 
+		[(agg_layers[l], normalization_layers[l], capsule_layers[l]), (reshape_layers[l], embeddings[l])], x) for l in range(num_layers)]
 	# embedder_lambdas = [lambda x : connect_layers(layer_list, x) for layer_list in layer_lists]
 
 	# for embedder_lambda in embedder_lambdas:
