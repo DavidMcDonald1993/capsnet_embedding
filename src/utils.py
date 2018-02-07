@@ -2,7 +2,7 @@ import numpy as np
 import networkx as nx
 import scipy as sp
 
-from itertools import iziplongest
+from itertools import izip_longest
 
 import matplotlib
 matplotlib.use('agg')
@@ -15,6 +15,7 @@ from node2vec_sampling import Graph
 def load_karate():
 
 	G = nx.karate_club_graph()
+	G = nx.convert_node_labels_to_integers(G)
 
 	nx.set_edge_attributes(G, name="weight", values=1)
 
@@ -28,18 +29,51 @@ def load_karate():
 	Y[np.arange(len(G)), assignments] = 1
 	Y = sp.sparse.csr_matrix(Y)
 
+
+	X = X.toarray()
+	Y = Y.toarray()
+
 	return G, X, Y
 
 def load_cora():
 
 	G = nx.read_edgelist("../data/cora/cites.tsv", delimiter="\t", )
+	G = nx.convert_node_labels_to_integers(G)
 	
 	nx.set_edge_attributes(G, name="weight", values=1)
 
-	X = sp.sparse.load_npz("../data/cora/cited_words.npz")
-	Y = sp.sparse.load_npz("../data/cora/paper_labels.npz")
+	X = sp.sparse.load_npz("../data/cora/cited_words.npz").toarray()
+	Y = sp.sparse.load_npz("../data/cora/paper_labels.npz").toarray()
 
 	return G, X, Y
+
+def load_facebook():
+
+	G = nx.read_gml("../data/facebook/facebook_graph.gml",  )
+	G = nx.convert_node_labels_to_integers(G)
+	
+	nx.set_edge_attributes(G, name="weight", values=1)
+
+	'''
+	TODO
+	'''
+
+	X = sp.sparse.load_npz("../data/facebook/features.npz").toarray()
+	Y = sp.sparse.load_npz("../data/facebook/circle_labels.npz").toarray()
+
+	return G, X, Y
+
+def connect_layers(layer_tuples, x):
+	
+	y = x
+
+	for layer_tuple in layer_tuples:
+		for layer in layer_tuple:
+			y = layer(y)
+
+	return y
+
+
 
 # def compute_negative_sampling_mask(batch_size, n, spacing):
 # 	mask = np.zeros((batch_size, n*spacing))
@@ -59,7 +93,6 @@ def compute_label_mask(Y, num_patterns_to_keep=20):
 def generate_samples_node2vec(G, num_positive_samples, num_negative_samples, context_size,
 	p, q, num_walks, walk_length):
 	
-	G = nx.convert_node_labels_to_integers(G)
 	N = nx.number_of_nodes(G)
 
 	frequencies = np.array(dict(G.degree()).values()) ** 0.75
@@ -83,18 +116,37 @@ def generate_samples_node2vec(G, num_positive_samples, num_negative_samples, con
 					for negative_samples in np.random.choice(possible_negative_samples, replace=True, 
 						size=(1+num_positive_samples, num_negative_samples),
 						p=possible_negative_sample_frequencies):
-						yield np.append(np.array(pair, negative_samples))
+						yield np.append(pair, negative_samples)
 						pair = pair[::-1]
 
 def grouper(n, iterable, fillvalue=None):
-    "grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx"
+    '''grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx'''
     args = [iter(iterable)] * n
     return izip_longest(fillvalue=fillvalue, *args)
+
+def create_neighbourhood_sample_list(nodes, neighbourhood_sample_sizes, neighbours):
+
+	neighbourhood_sample_list = [nodes]
+
+	for neighbourhood_sample_size in neighbourhood_sample_sizes[::-1]:
+			neighbourhood_sample_list.append(
+				np.array([
+				np.concatenate([ 
+					np.append(n, np.random.choice(neighbours[n], replace=True, size=neighbourhood_sample_size)) 
+								for n in batch]) 
+				for batch in neighbourhood_sample_list[-1]]))
+
+	# flip neighbour list
+	neighbourhood_sample_list = neighbourhood_sample_list[::-1]
+
+
+	return neighbourhood_sample_list
 
 
 
 def neighbourhood_sample_generator(G, X, Y, neighbourhood_sample_sizes, num_capsules_per_layer,
-	num_positive_samples, num_negative_samples, context_size, batch_size, p, q, num_walks, walk_length):
+	num_positive_samples, num_negative_samples, context_size, batch_size, p, q, num_walks, walk_length,
+	num_samples_per_class=20):
 	
 	'''
 	performs node2vec style neighbourhood sampling for positive samples.
@@ -107,11 +159,14 @@ def neighbourhood_sample_generator(G, X, Y, neighbourhood_sample_sizes, num_caps
 	
 	'''
 
-	X = X.toarray()
-	Y = Y.toarray()
+	# X = X.toarray()
+	# Y = Y.toarray()
 
 	num_classes = Y.shape[1]
-	label_mask = compute_label_mask(Y)
+	if num_samples_per_class is not None:
+		label_mask = compute_label_mask(Y, num_patterns_to_keep=num_samples_per_class)
+	else:
+		label_mask = np.ones(Y.shape)
 
 	label_prediction_layers = np.where(num_capsules_per_layer==num_classes)[0] + 1
 
@@ -146,6 +201,8 @@ def neighbourhood_sample_generator(G, X, Y, neighbourhood_sample_sizes, num_caps
 		batch_nodes = batch_sampler.next()
 		batch_nodes = np.array(batch_nodes)
 
+		# print batch_nodes
+
 		# for j in range(batch_size):
 			
 		# 	if i == N:
@@ -166,14 +223,18 @@ def neighbourhood_sample_generator(G, X, Y, neighbourhood_sample_sizes, num_caps
 		
 		# 	i += 1
 	
-		neighbour_list = [batch_nodes]
-		for neighbourhood_sample_size in neighbourhood_sample_sizes[::-1]:
-			neighbour_list.append(np.array([
-				np.concatenate([ np.append(n, np.random.choice(neighbours[n], replace=True, size=neighbourhood_sample_size)) 
-								for n in batch]) for batch in neighbour_list[-1]]))
+		# neighbour_list = [batch_nodes]
+		# for neighbourhood_sample_size in neighbourhood_sample_sizes[::-1]:
+		# 	neighbour_list.append(np.array([
+		# 		np.concatenate([ np.append(n, np.random.choice(neighbours[n], replace=True, size=neighbourhood_sample_size)) 
+		# 						for n in batch]) for batch in neighbour_list[-1]]))
 
-		# flip neighbour list
-		neighbour_list = neighbour_list[::-1]
+		# # flip neighbour list
+		# neighbour_list = neighbour_list[::-1]
+
+		neighbour_list = create_neighbourhood_sample_list(batch_nodes, neighbourhood_sample_sizes, neighbours)
+
+		# print neighbour_list
 
 		# shape is [batch_size, output_shape*prod(sample_sizes), D]
 		x = X[neighbour_list[0]]
@@ -209,15 +270,25 @@ def neighbourhood_sample_generator(G, X, Y, neighbourhood_sample_sizes, num_caps
 		# 	yield x, [y_label_true] + [y_label_mask] + negative_sample_targets
 			# yield x, negative_sample_targets
 
-def draw_embedding(embedder, generator, dim=2, path=None):
+def plot_embedding(G, X, Y, embedder, neighbourhood_sample_sizes, batch_size, dim=2, path=None):
 
-	x, yl = generator.next()
+	# x, yl = generator.next()
 	# x, [_, y, _, _] = generator.next()
 
-	y = yl[-1]
+	# y = yl[-1]
+	nodes = np.arange(len(G)).reshape(-1, 1)
+	neighbours = [list(G.neighbors(n)) for n in list(G.nodes())]
+	neighbour_list = create_neighbourhood_sample_list(nodes, neighbourhood_sample_sizes, neighbours)
 
-	embedding = embedder.predict(x)
+	x = X[neighbour_list[0]]
+	x = np.expand_dims(x, 2)
+
+	print x.shape
+
+	embedding = embedder.predict(x, batch_size=batch_size)
 	embedding = embedding.reshape(-1, dim)
+
+	y = Y.argmax(axis=1)
 
 	# num_classes = y.shape[-1] / 2
 	# assignments = y[:,:,num_classes:].argmax(axis=-1).flatten()
@@ -225,9 +296,9 @@ def draw_embedding(embedder, generator, dim=2, path=None):
 	fig = plt.figure(figsize=(5, 5))
 	if dim == 3:
 		ax = fig.add_subplot(111, projection='3d')
-		ax.scatter(embedding[:,0], embedding[:,1], embedding[:,2], c=y.flatten())
+		ax.scatter(embedding[:,0], embedding[:,1], embedding[:,2], c=y)
 	else:
-		plt.scatter(embedding[:,0], embedding[:,1], c=y.flatten())
+		plt.scatter(embedding[:,0], embedding[:,1], c=y)
 	# plt.show()
 	if path is not None:
 		plt.savefig(path)

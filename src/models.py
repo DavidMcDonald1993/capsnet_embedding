@@ -7,18 +7,32 @@ from keras.regularizers import l2
 
 from graphcaps_layers import AggregateLayer, GraphCapsuleLayer, HyperbolicDistanceLayer, Length, squash
 from losses import masked_crossentropy, masked_margin_loss, hyperbolic_negative_sampling_loss
+from utils import connect_layers
 
-def generate_graphcaps_model(data_dim, num_classes, num_positive_samples, num_negative_samples,
+
+
+def generate_graphcaps_model(X, Y, batch_size, num_positive_samples, num_negative_samples,
 	neighbourhood_sample_sizes, num_filters_per_layer, agg_dim_per_layer,
 	number_of_capsules_per_layer, capsule_dim_per_layer):
 
+	N, data_dim = X.shape
+	_, num_classes = Y.shape
 	output_size = 1 + num_positive_samples + num_negative_samples
 
-	x = layers.Input(shape=(np.prod(neighbourhood_sample_sizes + 1) * output_size, 1, data_dim), name="input_layer")
+	# x = layers.Input(shape=(np.prod(neighbourhood_sample_sizes + 1) * output_size, 1, data_dim), name="input_layer")
+	training_input = layers.Input(batch_shape=(batch_size, np.prod(neighbourhood_sample_sizes + 1) * output_size, 1, data_dim), 
+		name="input_layer")
 
-	y = x
+
+	# y = x
+	# y = []
+	agg_layers = []
+	capsule_layers = []
+	capsule_outputs = []
 
 	label_predictions = []
+
+	reshape_layers = []
 	embeddings = []
 	hyperbolic_distances = []
 
@@ -33,32 +47,71 @@ def generate_graphcaps_model(data_dim, num_classes, num_positive_samples, num_ne
 		else:
 			num_routing = 3 
 
-		y = AggregateLayer(num_neighbours=neighbourhood_sample_size+1, num_filters=num_filters, new_dim=agg_dim,
-			activation="relu", name="agg_layer_{}".format(i))(y)
-		y = GraphCapsuleLayer(num_capsule=num_caps, dim_capsule=capsule_dim, num_routing=num_routing, 
-			name="cap_layer_{}".format(i))(y)
+		# y = AggregateLayer(num_neighbours=neighbourhood_sample_size+1, num_filters=num_filters, new_dim=agg_dim,
+		# 	activation="relu", name="agg_layer_{}".format(i))(y)
+		# y = GraphCapsuleLayer(num_capsule=num_caps, dim_capsule=capsule_dim, num_routing=num_routing, 
+		# 	name="cap_layer_{}".format(i))(y)
 
-		layer_embedding = layers.Reshape((-1, num_caps*capsule_dim), name="embedding_reshape_layer_{}".format(i))(y)
-		layer_embedding = layers.Lambda(squash, name="embedding_squash_layer_{}".format(i))(layer_embedding)
-		layer_hyperbolic_distance = HyperbolicDistanceLayer(num_positive_samples=num_positive_samples,
-			num_negative_samples=num_negative_samples, name="hyperbolic_distance_layer_{}".format(i))(layer_embedding)
+		# layer_embedding = layers.Reshape((-1, num_caps*capsule_dim), name="embedding_reshape_layer_{}".format(i))(y)
+		# layer_embedding = layers.Lambda(squash, name="embedding_squash_layer_{}".format(i))(layer_embedding)
+		# layer_hyperbolic_distance = HyperbolicDistanceLayer(num_positive_samples=num_positive_samples,
+		# 	num_negative_samples=num_negative_samples, name="hyperbolic_distance_layer_{}".format(i))(layer_embedding)
 
-		embeddings.append(layer_embedding)
-		hyperbolic_distances.append(layer_hyperbolic_distance)
+		# embeddings.append(layer_embedding)
+		# hyperbolic_distances.append(layer_hyperbolic_distance)
 
-		y = layers.Lambda(squash, name="squash_layer_{}".format(i))(y)
+		# y = layers.Lambda(squash, name="squash_layer_{}".format(i))(y)
+
+		# if num_caps == num_classes:
+		# 	label_prediction = Length(name="label_prediction_layer_{}".format(i))(y)
+		# 	label_predictions.append(label_prediction)
+
+		agg_layers.append(AggregateLayer(num_neighbours=neighbourhood_sample_size+1, num_filters=num_filters, new_dim=agg_dim,
+			activation="relu", name="agg_layer_{}".format(i)))
+		capsule_layers.append(GraphCapsuleLayer(num_capsule=num_caps, dim_capsule=capsule_dim, num_routing=num_routing, 
+			name="cap_layer_{}".format(i)))
+
+		capsule_outputs.append(layers.Lambda(squash, name="squash_layer_{}".format(i)))
 
 		if num_caps == num_classes:
-			label_prediction = Length(name="label_prediction_layer_{}".format(i))(y)
-			label_predictions.append(label_prediction)
+			label_predictions.append(Length(name="label_prediction_layer_{}".format(i)))
+
+		reshape_layers.append(layers.Reshape((-1, num_caps*capsule_dim), name="embedding_reshape_layer_{}".format(i)))
+		embeddings.append(layers.Lambda(squash, name="embedding_squash_layer_{}".format(i)))
+		hyperbolic_distances.append(HyperbolicDistanceLayer(num_positive_samples=num_positive_samples,
+			num_negative_samples=num_negative_samples, name="hyperbolic_distance_layer_{}".format(i)))
 
 
-	graphcaps = Model(x, label_predictions + hyperbolic_distances)
+
+
+	## lambda functions of input layer
+	label_prediction_lambdas = [lambda x : 
+	connect_layers(zip(agg_layers[:l], capsule_layers[:l], capsule_outputs[:l]) +
+		[(label_predictions[l])], x) for l in np.where(number_of_capsules_per_layer == num_classes)[0]]
+	embedder_lambdas = [lambda x : 
+	connect_layers(zip(agg_layers[:max(0, l-1)], capsule_layers[:max(0, l-1)], capsule_outputs[:max(0, l-1)]) + 
+		[(agg_layers[l], capsule_layers[l]) + (reshape_layers[l], embeddings[l], hyperbolic_distances[l])], x) for l in range(num_layers)]
+
+	capsnet_label_prediction_outputs = [label_prediction_lambda(training_input) for 
+		label_prediction_lambda in label_prediction_lambdas]
+	capsnet_embedding_outputs = [embedder_lambda(training_input) for embedder_lambda in embedder_lambdas]
+
+	# graphcaps = Model(training_input, label_predictions + hyperbolic_distances)
+	graphcaps = Model(training_input,  capsnet_label_prediction_outputs + capsnet_embedding_outputs)
 	graphcaps.compile(optimizer="adam", 
-		loss=[masked_crossentropy]*len(label_predictions) + [hyperbolic_negative_sampling_loss]*len(embeddings), 
-		loss_weights=[0]*len(label_predictions) + [1./len(hyperbolic_distances)]*len(hyperbolic_distances))
+		loss=[masked_crossentropy]*len(capsnet_label_prediction_outputs) + 
+		[hyperbolic_negative_sampling_loss]*len(capsnet_embedding_outputs), 
+		loss_weights=[0]*len(capsnet_label_prediction_outputs) + 
+		[1./len(capsnet_embedding_outputs)]*len(capsnet_embedding_outputs))
+		# loss_weights = [1./(len(label_predictions) + len(hyperbolic_distances))] * 
+		# (len(label_predictions) + len(hyperbolic_distances)))
 
-	embedder = Model(x, embeddings[-1])
+
+
+	embedder_input = layers.Input(batch_shape=(batch_size, np.prod(neighbourhood_sample_sizes + 1), 1, data_dim))
+	embedder_output = embedder_lambdas[-1](embedder_input)
+
+	embedder = Model(embedder_input, embedder_output)
 
 	return graphcaps, embedder
 

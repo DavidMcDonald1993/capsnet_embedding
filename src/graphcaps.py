@@ -4,8 +4,9 @@ from keras.callbacks import TerminateOnNaN
 
 import argparse
 
-from utils import load_karate, load_cora, neighbourhood_sample_generator, draw_embedding
 from models import build_graphcaps, generate_graphcaps_model
+from generators import neighbourhood_sample_generator
+from utils import load_karate, load_cora, load_facebook, plot_embedding
 
 
 def parse_args():
@@ -56,7 +57,7 @@ def main():
 
 	args = parse_args()
 
-	G, X, Y = load_cora()
+	G, X, Y = load_karate()
 
 	data_dim = X.shape[1]
 	num_classes = Y.shape[1]
@@ -84,7 +85,7 @@ def main():
 	generator = neighbourhood_sample_generator(G, X, Y,
 		neighbourhood_sample_sizes, num_capsules_per_layer, 
 		num_positive_samples, num_negative_samples, context_size, batch_size,
-		p, q, num_walks, walk_length)
+		p, q, num_walks, walk_length, num_samples_per_class=None)
 
 
 	embedding_dim = num_capsules_per_layer[-1] * capsule_dim_per_layer[-1]
@@ -93,17 +94,18 @@ def main():
 
 	# capsnet, embedder = build_graphcaps(data_dim, num_classes, embedding_dim,
 	# 	num_positive_samples, num_negative_samples, neighbourhood_sample_sizes)
-	capsnet, embedder = generate_graphcaps_model(data_dim, num_classes, num_positive_samples, num_negative_samples,
+	capsnet, embedder = generate_graphcaps_model(X, Y, batch_size, num_positive_samples, num_negative_samples,
 	neighbourhood_sample_sizes, num_filters_per_layer, agg_dim_per_layer,
 	num_capsules_per_layer, capsule_dim_per_layer)
 
 	capsnet.summary()
+	embedder.summary()
 	# raise SystemExit
 
 	capsnet.fit_generator(generator, steps_per_epoch=1, epochs=args.num_epochs, 
 		verbose=1, callbacks=[TerminateOnNaN()])
 
-	draw_embedding(embedder, generator, dim=embedding_dim, path=args.plot_path)
+	plot_embedding(G, X, Y, embedder, neighbourhood_sample_sizes, dim=embedding_dim, path=args.plot_path)
 
 if __name__  == "__main__":
 	main()

@@ -57,7 +57,7 @@ class GraphCapsuleLayer(layers.Layer):
 	def __init__(self, num_capsule, dim_capsule, num_routing=3,
 				 kernel_initializer='glorot_uniform', 
 				 # kernel_initializer=RandomUniform(-0.5, 0.5),
-				 kernel_regularizer=l2(1e-4),
+				 kernel_regularizer=l2(1e-3),
 				 **kwargs):
 		super(GraphCapsuleLayer, self).__init__(**kwargs)
 		self.num_capsule = num_capsule
@@ -152,7 +152,7 @@ class AggregateLayer(layers.Layer):
 	Author: David McDonald, Email: `dxm237@cs.bham.ac.uk'
 	"""
 	def __init__(self, num_neighbours, num_filters, new_dim, mode="mean", activation=None,
-				 kernel_initializer='glorot_uniform', kernel_regularizer=l2(1e-4),
+				 kernel_initializer='glorot_uniform', kernel_regularizer=l2(1e-3),
 				 **kwargs):
 		super(AggregateLayer, self).__init__(**kwargs)
 
@@ -164,34 +164,36 @@ class AggregateLayer(layers.Layer):
 		self.kernel_initializer = initializers.get(kernel_initializer)
 		self.kernel_regularizer = kernel_regularizer
 		
-	def mean_weight_initializer(self, shape):
-		n_dimension, Nn = shape
-		W = np.zeros((n_dimension, Nn))
+	# def mean_weight_initializer(self, shape):
+	# 	n_dimension, Nn = shape
+	# 	W = np.zeros((n_dimension, Nn))
 		
-		rows = np.repeat(np.arange(n_dimension), self.num_neighbours)
-		cols = np.arange(Nn)
+	# 	rows = np.repeat(np.arange(n_dimension), self.num_neighbours)
+	# 	cols = np.arange(Nn)
 		
-		W[rows, cols] = 1. / self.num_neighbours
-		# print "W", W
+	# 	W[rows, cols] = 1. / self.num_neighbours
+	# 	# print "W", W
 
-		return K.constant(W)
+	# 	return K.constant(W)
 
 	def build(self, input_shape):
 		'''
 		input_shape = [batch_size, Nn, num_caps, cap_dim]
 		'''
 
-		self.n_dimension = input_shape[1] / self.num_neighbours
-		# print "n dimension", self.n_dimension
-		
-		# bias term ?
-		if self.mode == "mean":
-			initializer = self.mean_weight_initializer
-		self.mean_vector = self.add_weight(shape=(self.n_dimension, input_shape[1]), 
-									trainable=False,  initializer=initializer,     
-								   name="mean_weight_vector")
+		self.batch_size = input_shape[0]
+		self.n_dimension = input_shape[1] 
+		self.num_caps = input_shape[2]
+		self.old_dim = input_shape[3]
 
-		self.W = self.add_weight(shape=(input_shape[2] * input_shape[3], self.num_filters * self.new_dim), 
+		# bias term ?
+		# if self.mode == "mean":
+		# 	initializer = self.mean_weight_initializer
+		# self.mean_vector = self.add_weight(shape=(self.n_dimension, input_shape[1]), 
+		# 							trainable=False,  initializer=initializer,     
+		# 						   name="mean_weight_vector")
+
+		self.W = self.add_weight(shape=(self.num_caps * self.old_dim, self.num_filters * self.new_dim), 
 									trainable=True, initializer=self.kernel_initializer, regularizer=self.kernel_regularizer,
 									name="W")
 
@@ -208,12 +210,24 @@ class AggregateLayer(layers.Layer):
 		'''
 		
 		#aggregate over neighbours
-		inputs_shaped = K.reshape(inputs, shape=[K.shape(inputs)[0], K.shape(inputs)[1], -1])
+		print inputs.shape
+
+		inputs_shaped = K.reshape(inputs, shape=[self.batch_size, -1, self.num_neighbours, self.num_caps, self.old_dim])
+		print inputs_shaped.shape
+		inputs_aggregated = K.mean(inputs_shaped, axis=2)
+		print inputs_aggregated.shape
+
+		inputs_shaped = K.reshape(inputs_aggregated, shape=[self.batch_size, self.n_dimension / self.num_neighbours, -1])
+		print inputs_shaped.shape
 		output = K.map_fn(lambda x : 
 			# K.dot(self.mean_vector, x), elems=inputs_shaped)
-			K.dot(self.mean_vector, K.dot(x, self.W) + self.bias), elems=inputs_shaped)
-		output = K.reshape(output, [K.shape(output)[0], K.shape(output)[1], 
-			self.num_filters, self.new_dim])
+			# K.dot(self.mean_vector, K.dot(x, self.W) + self.bias), elems=inputs_shaped)
+			K.dot(x, self.W) + self.bias, elems=inputs_shaped)
+		print output.shape
+		output = K.reshape(output, 
+			[self.batch_size, self.n_dimension / self.num_neighbours, self.num_filters, self.new_dim])
+		print output.shape
+		print
 		# output = K.reshape(output, [K.shape(output)[0], K.shape(output)[1], 
 		# 	K.shape(inputs)[2], K.shape(inputs)[3]])
 		# shape is now [None, Nn+1, num_caps, cap_dim]
@@ -231,7 +245,7 @@ class AggregateLayer(layers.Layer):
 		'''
 		
 		# return tuple([input_shape[0], self.n_dimension, input_shape[2], input_shape[3]])
-		return tuple([input_shape[0], self.n_dimension, self.num_filters, self.new_dim])
+		return tuple([self.batch_size, self.n_dimension / self.num_neighbours, self.num_filters, self.new_dim])
 
 class HyperbolicDistanceLayer(layers.Layer):
     """
