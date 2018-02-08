@@ -33,23 +33,26 @@
 	Within these systems, interactions are not controlled globally, but emerge locally based on some local organisation that gives rise to new levels of organisation.
 	In this way, we see that the organisation of complex systems is \textit{hierarchical}: elements belong to many different systems on many different scales, with all the levels affecting each other \cite{barabasi1999emergence}.   
 	In addition to the hierarchical organisation of elements, we observe that entities can be richly annotated with features, that are themselves organised hierarchically.  
-	For example, a paper within a citation network may be annotated with the presence of particular key words. 
+	For example, a paper within a citation network may be annotated with the presence of particular key words and the presence of these words may give rise to the presence or absence of higher order (or more abstract) features such as semantics or topic. 
 	
 	% why embedding? downstream tasks
-	Representation learning -- learning to represent data in a different way -- has become common for processing information on non-Euclidean domains -- such as the domain of nodes and edges that comprise these complex systems.  
+	The success of machine learning algorithms often depends upon data representation \cite{bengio2013representation}.
+	Representation learning -- where we learn alternative representations of data -- has become common for processing information on non-Euclidean domains, such as the domain of nodes and edges that comprise these complex systems.  
 	Prediction over nodes and edges, for example, requires careful feature engineering \cite{grover2016node2vec} and representation learning leads to the extraction of features from a graph that a most useful for downstream tasks, without careful design or a-priori knowledge.
 	In particular, research has shown compelling evidence that an underlying metric space underpins the emergence of behaviour in the network -- for example, two elements that appear close together in this metric space are more likely to interact \cite{grover2016node2vec,alanis2016efficient,alanis2016manifold} and furthermore, that the shape of this metric space is, in fact, hyperbolic.
-	Indeed, we see that a hyperbolic space is a continuous representation of a discrete tree structure that captures the hierarchical organisation of elements within a complex system \cite{krioukov2010hyperbolic}.
+	Indeed, we can interpret a hyperbolic space is a continuous representation of a discrete tree structure that captures the hierarchical organisation of elements within a complex system \cite{krioukov2010hyperbolic}.
 	
 	% signal processing
-	In many complex systems, we find that elements are richly annotated -- people have likes and dislikes, for example -- and we also observe that elements interact with other elements that are similar -- one is more likely to be friend with someone of similar interests, for example.
-	Often, these annotations provide valuable information about the elements of the system -- valuable information that would be lost if only the topology of the system was considered. 
+%	In many complex systems, we find that elements are richly annotated -- people have likes and dislikes, for example -- and we also observe that elements interact with other elements that are similar -- one is more likely to be friend with someone of similar interests, for example.
+%	Often, these annotations provide valuable information about the elements of the system -- valuable information that would be lost if only the topology of the system was considered. 
+	
+	\subsection{Present Work: Hierarchical Decomposition of Attributed Networks in to Hyperbolic Feature Space}
 	Here, we examine the usefulness of Graph Signal Processing (GSP), and emergent field in the literature that considers the expressions of elements within the system to be a ``signal'' that structured by the relationships that we observe \cite{defferrard2016convolutional,kipf2016semi,hamilton2017inductive} -- for representing the elements of a system as a set of points in n-dimensional hyperbolic space.
-	Often, our access to these systems is incomplete, or the system is evolving over time, and so we consider this task in the \textit{inductive} setting, where we learn representations of entities based on sampling of local features.
+	Often, our access to these systems is incomplete, or the system is evolving over time, and so we consider this task in the \textit{inductive} setting, where we learn representations of entities based on sampling of local features, rather than knowledge of the entire network topology.
 	Furthermore, we leverage the advantages of ``capsules'' -- a recently proposed variant of the standard neural-network neuron that outputs a vector that abstractly represents a feature and its ``pose'', to uncover the parse tree of hierarchical features in the system \cite{hinton2011transforming,sabour2017dynamic}, to perform a layer-wise embedding of a complex system into hyperbolic space, where representations in higher levels of the network correspond to the presence of increasingly abstract features.
 	
 	% capsule networks
-	\subsection{Main Contribution}
+
 	
 	
 	
@@ -62,24 +65,32 @@
 	% 2d hyperbolic space
 	% nd hyperbolic space
 	\subsection{Representation Learning on Graphs}
-	Several models in the literature assume the existence of an underlying metric space that controls the topology (and possibly dynamics) of the network. They suppose that elements that are closer together in this space are more `similar' and have a higher probability of being connected. These models aim to infer the geometry of these spaces and the positions of nodes within the space, such that the probability of reconstructing the observed network is maximised, for purposed of better understanding of the system and visualisation. This is network embedding, and is the cornerstone of the field of \textit{network geometry} (\cite{krioukov2010hyperbolic}). 
+	Several models in the literature assume the existence of an underlying metric space that controls the topology (and possibly dynamics) of the network. 
+	They suppose that elements that are closer together in this space are more `similar' and have a higher probability of being connected. These models aim to infer the geometry of these spaces and the positions of nodes within the space, such that the probability of reconstructing the observed network is maximised, for purposed of better understanding of the system and visualisation. 
+	This is network embedding, and is the cornerstone of the field of \textit{network geometry} (\cite{krioukov2010hyperbolic}). 
 	
-	Network embedding is closely related to the field of manifold learning. Indeed, many classical non-linear manifold learning techniques, such as Isomap (\cite{tenenbaum2000global}) and Laplacian Eigenmaps (\cite{belkin2002laplacian}), must first construct nearest neighbour graphs based on dissimilarities between samples before dimensionality reduction takes place. Many of these techniques are directly applicable to embedding of (single-layer, unweighted) complex networks by simply omitting the graph construction step.
+	Network embedding is closely related to the field of manifold learning. 
+	Indeed, many classical non-linear manifold learning techniques, such as Isomap (\cite{tenenbaum2000global}) and Laplacian Eigenmaps (\cite{belkin2002laplacian}), must first construct nearest neighbour graphs based on dissimilarities between samples before dimensionality reduction takes place. 
+	Many of these techniques are directly applicable to embedding of (single-layer, unweighted) complex networks by simply omitting the graph construction step.
 	
-	An interesting and popular embedding paradigm in the literature comes from natural language processing (NLP). In particular, the Skipgram model and the Word2Vec algorithm that aims to vectorise words and phrases in a Euclidean `semantic' space such that similar words are mapped close together (\cite{mikolov2013distributed,mikolov2013efficient}). 
+	An interesting and popular embedding paradigm in the literature comes from natural language processing (NLP). 
+	In particular, the Skipgram model and the Word2Vec algorithm that aims to vectorise words and phrases in a Euclidean `semantic' space such that similar words are mapped close together (\cite{mikolov2013distributed,mikolov2013efficient}). 
 	The principle idea is, given a corpus of words and a particular sentence, generate a `context' for each input word with the aim of maximising the likelihood of observing context words in the embedding space, given the input word. 
-	Similarities are measured by dot products and accordingly, observation probabilities are computed using a multilayer perception with a linear hidden layer and Softmax output. Through the use of sub-sampling and negative sampling (replacing Softmax with sigmoid), training can be made very efficient and the resulting embeddings can be obtained from the activation of the hidden units. This idea naturally extends to networks, where sentences are replaced by `neighbourhood graphs' generated from random walks. Furthermore, the shallow architecture of the Skipgram model has been replaced with multiple non-linear layers to learn the highly non-linear relationships between nodes by adopting a deep learning framework (\cite{perozzi2014deepwalk,tang2015line}).
-	By introducing additional parameters into the random walk to control a breadth vs. depth first neighbourhood search, \cite{grover2016node2vec} were able to identify neighbourhoods of nodes with high \textit{homophily} and high structural similarity with node2vec. The use of these parameters to control the random walk, therefore controlled the definition of community and offered great flexibility to the practitioner to customised the search based on exactly what they are looking for. 
-	Node2vec, however, was not designed with multilayer networks in mind, and more fundamentally, could not handle dynamic, attributed networks. 
+	Similarities are measured by dot products and accordingly, observation probabilities are computed using a multilayer perception with a linear hidden layer and Softmax output. Through the use of sub-sampling and negative sampling (replacing Softmax with sigmoid), training can be made very efficient and the resulting embeddings can be obtained from the activation of the hidden units. This idea naturally extends to networks, where sentences are replaced by `neighbourhood graphs' generated from random walks. 
+	Furthermore, the shallow architecture of the Skipgram model has been replaced with multiple non-linear layers to learn the highly non-linear relationships between nodes by adopting a deep learning framework (\cite{perozzi2014deepwalk,tang2015line}).
+	By introducing additional parameters into the random walk to control a breadth vs. depth first neighbourhood search, Grover and Leskovec \cite{grover2016node2vec} were able to identify neighbourhoods of nodes with high \textit{homophily} and high structural similarity with node2vec. 
+	The use of these parameters to control the random walk, therefore controlled the definition of community and offered great flexibility to the practitioner to customised the search based on exactly what they are looking for. 
+	Node2vec, however, was not designed with attributed networks in mind. 
 	
-	An emerging popular belief in the literature is that the underlying metric space of most complex networks is in fact hyperbolic. Nodes in real world networks often form a \textit{taxonomy} -- where nodes are grouped hierarchically into groups in an approximate tree structure (\cite{papadopoulos2011popularity}). 
+	An emerging popular belief in the literature is that the underlying metric space of most complex networks is in fact hyperbolic. 
+	Nodes in real world networks often form a \textit{taxonomy} -- where nodes are grouped hierarchically into groups in an approximate tree structure (\cite{papadopoulos2011popularity}). 
 	Hyperbolic spaces can be viewed as continuous representations of this tree structure and so models that embed networks into hyperbolic space have proven to be increasingly popular in the literature (\cite{krioukov2009curvature,krioukov2010hyperbolic}). In fact, this assumption has already had proven success in the task of greedy forwarding of information packets where nodes use only the hyperbolic coordinates of their neighbours to ensure packets reach their intended destination (\cite{papadopoulos2010greedy}). 
 	
-	The most popular of all these models is the Popularity-Similarity (or PS) model (\cite{papadopoulos2011popularity}). This model extends the ``popularity is attractive'' aphorism of preferential attachment (\cite{barabasi1999emergence}) to include node similarity as a further dimension of attachment. Nodes like to connect to popular nodes but also nodes that `so the same thing'. The PS model sustains that the clustering and hierarchy observed in real world networks is the result of this principle (\cite{alanis2016efficient}), and this trade-off is abstractly represented by distance in hyperbolic space. 
-	
+	The most popular of all these models is the Popularity-Similarity (or PS) model (\cite{papadopoulos2011popularity}). This model extends the ``popularity is attractive'' aphorism of preferential attachment (\cite{barabasi1999emergence}) to include node similarity as a further dimension of attachment. 
+	Nodes like to connect to popular nodes but also nodes that `so the same thing'. The PS model sustains that the clustering and hierarchy observed in real world networks is the result of this principle (\cite{alanis2016efficient}), and this trade-off is abstractly represented by distance in hyperbolic space. 
 	Maximum likelihood (ML) was used in \cite{papadopoulos2011popularity} to search the space of all PS models with similar structural properties as the observed network, to find the one that fit it best. This was extended by the authors in \cite{papadopoulos2015network,papadopoulos2015networkgeo}. Due to the computationally demanding task of maximum likelihood estimation, often heuristic methods are used. For example, \cite{alanis2016efficient} used Laplacian Eigenmaps to efficiently estimate the angular coordinates of nodes in the PS model. The authors then combined both approaches to leverage the performance of ML estimation against the efficiency of heuristic search with a user controlled parameter in \cite{alanis2016manifold}. Additionally, \cite{thomas2016machine} propose the use of classical manifold learning techniques in the PS model setting with a framework that they call \textit{coalescent embedding}. 
 	
-	Beyond the two-dimensional hyperbolic disk of the PS model, we see that embedding to an n-dimensional hyperbolic ball can give more degrees of freedom to the embedding and capture further dimensions of attractiveness than merely ``popularity'' and ``similarity'' \cite{nickel2017poincar}.
+	Beyond the two-dimensional hyperbolic disk of the PS model, we see that embedding to an n-dimensional Poincar\'e ball can give more degrees of freedom to the embedding and capture further dimensions of attractiveness than just ``popularity'' and ``similarity'' \cite{nickel2017poincar}.
 	
 	% signal processing on graphs
 	% defferard
@@ -91,17 +102,19 @@
 	In fact, the discovery of an efficient training algorithm for them as well as the performance of AlexNet in on the challenging and high dimensional Imagenet dataset in 2012 \cite{krizhevsky2012imagenet} brought the entire field of deep learning into the mainstream.
 	We can view images as data with an inherent regular structure -- a lattice of pixels with connections between neighbouring pixels that enforce a similarity between their outputs. 
 	In this way, we can view learning on images as learning on two-dimensional signals and convolution operator as a local filter applied in the spacial domain that extracts features from the input signal \cite{defferrard2016convolutional}.
-	The convolution is well defined because of the order of pixels in an image -- we can move from left to right, top to bottom.
-	However, generalising this concept to data structure represented by irregular graphs is challenging as their is no intrinsic order to nodes in a graph.
+	A further example of data with a regular structure is time-series data as we can interpret this as a chain graph, with nodes representing time-points and connections between only neighbouring nodes. 
+	The convolution operation is well defined because of the order of pixels in an image -- we can move from left to right, top to bottom.
+	However, generalising this concept to data structure represented by irregular graphs is challenging as their is no intrinsic order to nodes in a general graph.
 	
 	Graph \textit{canonicalization} was used by Patchy-San to give order to a node's neighbours within a graph, and this allowed for an efficient extraction of local graph kernels \cite{niepert2016learning}.
-	Defferrard et \textit{al}. \cite{defferrard2016convolutional} propose performing the convolution in the spectral domain of the graph and approximate the filter by a $K$ dimensional Chebyshev polynomial of the graph's Laplacian matrix. 
-	This both localises the convolution and reduces the number of parameters to learn from $\mathcal{O}(N)$ (the number of nodes in the network) to $\mathcal{O}(K)$ (the filter size) which is the same as traditional CNNs. 
+	Defferrard et \textit{al}. \cite{defferrard2016convolutional} proposed performing the convolution in the spectral domain of the graph and approximate the filter by a $K$ dimensional Chebyshev polynomial of the graph's Laplacian matrix. 
+	This both localises the convolution operation in the spacial domain and reduces the number of parameters to learn from $\mathcal{O}(N)$ (the number of nodes in the network) to $\mathcal{O}(K)$ (the filter size) which is the same as traditional CNNs. 
 	Filtering signals on graphs can be further accelerated by using the more involved Lanczos method that, in practice, outperforms the Chebyshev polynomial approximation in approximation error \cite{susnjara2015accelerated}.
 	Additionally, Defferrard et \textit{al}. use a graph coarsening approach to pool graph features as a form of the one-dimensional signal pooling from regular signal processing. 
-	Kipf and Welling \cite{kipf2016semi} argue that multiple convolutional layers with a small filter size stacked on top of each other, will out-perform a single layer with a larger filter size, citing that this approach has improved model capacity in other domains \cite{he2016deep}. They show that their method GCN, a deep layer-wise linear model, can out-perform state of the art embedding algorithms in the semi-supervised setting of node classification.
+	Kipf and Welling \cite{kipf2016semi} argue that multiple convolutional layers with a small filter size stacked on top of each other, will out-perform a single layer with a larger filter size, citing that this approach has improved model capacity in other domains \cite{he2016deep}. 
+	They show that their method GCN, a deep layer-wise linear model, can out-perform state of the art embedding algorithms in the semi-supervised setting of node classification.
 	
-	All of these approaches are \textit{transductive} in that the entire graph structure must be known at training time. Furthermore, they require a batch training approach, that limits scalability to datasets that fit entirely into memory. 
+	Due to reliance on computing the graph Laplacian, all of these approaches are \textit{transductive} in that the entire graph structure must be known at training time. Furthermore, they require a batch training approach, that limits scalability to datasets that fit entirely into memory. 
 	Hamilton et \textit{al}. \cite{hamilton2017inductive} attempt to overcome these drawbacks by proposing GraphSAGE, a general \textit{inductive} framework that learns representations based on local features only and that can be applied to very large or evolving graphs. 
 	They investigate a number of aggregation methods and, interestingly, show that the layer-wise linear filter of GCN is simply a rescaled version of element-wise mean pooling over the representations of the neighbours of a node.
 	
@@ -111,12 +124,12 @@
 	% capsule net
 	\subsection{Capsules: Learning the Parse Tree of Features}
 	The pooling operation in CNNs is used as dimensionality reduction and to introduce some \textit{translational invariance} to the model \cite{krizhevsky2012imagenet}. 
-	However, even a $2\times2$ pool will discard 75\% of the information in the previous layer of the model.
-	Hinton argues that the fact that this works well is unfortunate and that the use of the pooling operation in deep learning is a ``big mistake''.
+	However, even a $2\times2$ pool will discard 75\% of the information in the previous layer of the model, as only the largest activation within a pooling neurons receptive field is passed on the next layer in the network.
+	Hinton argues that the fact that this works well is unfortunate and, in fact, that the use of the pooling operation at all in deep learning is a ``big mistake''.
 	%\footnote{Source:\url{https://mirror2image.wordpress.com/2014/11/11/geoffrey-hinton-on-max-pooling-reddit-ama/}}
-	Instead, he proposes ``capsules'' that, rather than outputting a scalar as traditional neurons do, output a vector that represent the ``pose'' of a particular feature \cite{hinton2011transforming}.
-	Capsules between layers do not connect to each other in the traditional way -- low level capsules select the high level capsules to send their output to based on how well they can ``predict'' the output of that high level capsule.
-	The process of learning the strengths of links between capsules is the ``dynamic routing between capsules'' algorithm \cite{sabour2017dynamic}. 
+	Instead, he proposes ``capsules'' that, rather than outputting a scalar as traditional neurons do, output a vector that represent the ``pose'' parameters of a particular feature \cite{hinton2011transforming}.
+	Pose parameters such as scale, localized skew and translation, for example. 
+	Capsules in different layers do not connect to each other in the traditional way -- low level capsules ``select'' the high level capsules to send their output to based on how well they can predict the output of that capsule \cite{sabour2017dynamic}. 
 	
 	
 	

@@ -82,8 +82,8 @@ def hyperbolic_negative_sampling_loss(y_true, y_pred):
     y_true is a mask to allow for negative sampling over all levels 
     norm y_pred < 1
     '''
-    P = K.softmax(-K.square(y_pred))
-    # P = K.softmax(-y_pred)
+    # P = K.softmax(-K.square(y_pred))
+    P = K.softmax(-y_pred)
     P = K.clip(P, min_value=K.epsilon(), max_value=1-K.epsilon())
 
     pos = P[:,0]

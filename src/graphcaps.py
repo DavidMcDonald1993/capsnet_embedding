@@ -6,7 +6,7 @@ import argparse
 
 from models import build_graphcaps, generate_graphcaps_model
 from generators import neighbourhood_sample_generator
-from utils import load_karate, load_cora, load_facebook, preprocess_data, plot_embedding
+from utils import load_karate, load_cora, load_facebook, preprocess_data, remove_edges, perform_embedding, evaluate_link_prediction, plot_ROC, plot_embedding, make_and_evaluate_label_predictions
 
 
 def parse_args():
@@ -60,6 +60,7 @@ def main():
 	G, X, Y, label_map = load_cora()
 
 	X = preprocess_data(X)
+	G, removed_edges = remove_edges(G, number_of_edges_to_remove=200)
 
 	data_dim = X.shape[1]
 	num_classes = Y.shape[1]
@@ -89,28 +90,32 @@ def main():
 		num_positive_samples, num_negative_samples, context_size, batch_size,
 		p, q, num_walks, walk_length, num_samples_per_class=None)
 
-
-	embedding_dim = num_capsules_per_layer[-1] * capsule_dim_per_layer[-1]
-	# print embedding_dim
-	# raise SystemExit
-
-	# capsnet, embedder = build_graphcaps(data_dim, num_classes, embedding_dim,
-	# 	num_positive_samples, num_negative_samples, neighbourhood_sample_sizes)
-	capsnet, embedder = generate_graphcaps_model(X, Y, batch_size, num_positive_samples, num_negative_samples,
-	neighbourhood_sample_sizes, num_filters_per_layer, agg_dim_per_layer,
-	num_capsules_per_layer, capsule_dim_per_layer)
+	capsnet, embedder, label_prediction_model = generate_graphcaps_model(X, Y, batch_size, 
+		num_positive_samples, num_negative_samples,
+		neighbourhood_sample_sizes, num_filters_per_layer, agg_dim_per_layer,
+		num_capsules_per_layer, capsule_dim_per_layer)
 
 	print "GRAPHCAPS SUMMARY"
 	capsnet.summary()
 	print "EMBEDDER SUMMARY"
 	embedder.summary()
-	# raise SystemExit
+	if label_prediction_model is not None:
+		print "LABEL PREDICTOR SUMMARY"
+		label_prediction_model.summary()
 
-	capsnet.fit_generator(generator, steps_per_epoch=1, epochs=args.num_epochs, 
+	capsnet.fit_generator(generator, steps_per_epoch=float(len(G))*context_size/args.batch_size, epochs=args.num_epochs, 
 		verbose=1, callbacks=[TerminateOnNaN()])
 
-	plot_embedding(G, X, Y, embedder, neighbourhood_sample_sizes, batch_size, label_map, annotate=False, 
-		dim=embedding_dim, path=args.plot_path)
+	if label_prediction_model is not None:
+		make_and_evaluate_label_predictions(G, X, Y, label_prediction_model, num_capsules_per_layer, neighbourhood_sample_sizes, batch_size)
+
+	embedding = perform_embedding(G, X, neighbourhood_sample_sizes, embedder)
+
+	precisions, recalls = evaluate_link_prediction(G, embedding, removed_edges)
+	plot_ROC(precisions, recalls)
+
+	plot_embedding(embedding, Y, label_map, annotate=False, 
+		path=args.plot_path)
 
 if __name__  == "__main__":
 	main()
