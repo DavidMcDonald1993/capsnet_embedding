@@ -1,4 +1,5 @@
 import numpy as np
+import networkx as nx
 
 from utils import compute_label_mask, generate_samples_node2vec, grouper, create_neighbourhood_sample_list
 
@@ -17,6 +18,8 @@ def neighbourhood_sample_generator(G, X, Y, neighbourhood_sample_sizes, num_caps
 	
 	'''
 
+	G = nx.convert_node_labels_to_integers(G)
+
 	num_classes = Y.shape[1]
 	if num_samples_per_class is not None:
 		label_mask = compute_label_mask(Y, num_patterns_to_keep=num_samples_per_class)
@@ -26,7 +29,7 @@ def neighbourhood_sample_generator(G, X, Y, neighbourhood_sample_sizes, num_caps
 	label_prediction_layers = np.where(num_capsules_per_layer==num_classes)[0] + 1
 
 	
-	neighbours = [list(G.neighbors(n)) for n in list(G.nodes())]
+	neighbours = {n : list(G.neighbors(n)) for n in G.nodes}
 	
 
 	num_layers = neighbourhood_sample_sizes.shape[0]

@@ -123,13 +123,14 @@ def generate_graphcaps_model(X, Y, batch_size, num_positive_samples, num_negativ
 
 
 
-	embedder_input = layers.Input(shape=(np.prod(neighbourhood_sample_sizes + 1), 1, data_dim))
+	embedder_input = layers.Input(shape=(np.prod(neighbourhood_sample_sizes + 1), 1, data_dim), name="embedder_input")
 	embedder_output = embedder_lambdas[-1](embedder_input)
 
 	embedder = Model(embedder_input, embedder_output)
 
 	if len(label_prediction_layers) > 0:
-		label_prediction_input = layers.Input(shape=(np.prod(neighbourhood_sample_sizes[:label_prediction_layers[-1]] + 1), 1, data_dim))
+		label_prediction_input = layers.Input(shape=(np.prod(neighbourhood_sample_sizes[:label_prediction_layers[-1]] + 1), 1, data_dim),
+			name="label_prediction_input")
 		label_prediction_output = label_prediction_lambdas[-1](label_prediction_input)
 
 		prediction_model = Model(label_prediction_input, label_prediction_output)

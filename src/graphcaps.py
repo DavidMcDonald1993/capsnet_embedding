@@ -1,12 +1,12 @@
 import numpy as np
 
-from keras.callbacks import TerminateOnNaN
+from keras.callbacks import TerminateOnNaN, EarlyStopping, ModelCheckpoint, TensorBoard
 
 import argparse
 
 from models import build_graphcaps, generate_graphcaps_model
 from generators import neighbourhood_sample_generator
-from utils import load_karate, load_cora, load_facebook, preprocess_data, remove_edges, perform_embedding, evaluate_link_prediction, plot_embedding, make_and_evaluate_label_predictions, PlotCallback
+from utils import load_karate, load_cora, load_facebook, preprocess_data, remove_edges, split_data, perform_embedding, evaluate_link_prediction, plot_embedding, make_and_evaluate_label_predictions, PlotCallback
 
 
 def parse_args():
@@ -14,8 +14,8 @@ def parse_args():
 
 	parser.add_argument("-e", "--num_epochs", dest="num_epochs", type=int, default=1000,
 		help="The number of epochs to train for (default is 1000).")
-	parser.add_argument("-b", "--batch_size", dest="batch_size", type=int, default=10, 
-		help="Batch size for training (default is 10).")
+	parser.add_argument("-b", "--batch_size", dest="batch_size", type=int, default=100, 
+		help="Batch size for training (default is 100).")
 	# parser.add_argument("--npos", dest="num_pos", type=int, default=1, 
 	# 	help="Number of positive samples for training (default is 1).")
 	parser.add_argument("--nneg", dest="num_neg", type=int, default=5, 
@@ -57,19 +57,15 @@ def main():
 
 	args = parse_args()
 
-	G, X, Y, label_map = load_facebook()
+	G, X, Y, label_map = load_cora()
 
 	X = preprocess_data(X)
-	number_of_edges_to_remove = int(len(G.edges)*0.1)
+	number_of_edges_to_remove = int(len(G.edges)*0.0)
 	G, removed_edges = remove_edges(G, number_of_edges_to_remove=number_of_edges_to_remove)
 
-
-	# embedding = np.random.rand(len(G), 2) * 0.1
-
-	# evaluate_link_prediction(G, embedding, removed_edges)
-
-	# raise SystemExit
-
+	(X_train, Y_train, G_train), (X_val, Y_val, G_val) = split_data(G, X, Y, split=0.3)
+	print X_train.shape, Y_train.shape, len(G_train)
+	print X_val.shape, Y_val.shape, len(G_val)
 
 	data_dim = X.shape[1]
 	num_classes = Y.shape[1]
@@ -94,7 +90,16 @@ def main():
 	num_walks = args.num_walks
 	walk_length = args.walk_length
 
-	generator = neighbourhood_sample_generator(G, X, Y,
+	# generator = neighbourhood_sample_generator(G, X, Y,
+	# 	neighbourhood_sample_sizes, num_capsules_per_layer, 
+	# 	num_positive_samples, num_negative_samples, context_size, batch_size,
+	# 	p, q, num_walks, walk_length, num_samples_per_class=None)
+
+	training_generator = neighbourhood_sample_generator(G_train, X_train, Y_train,
+		neighbourhood_sample_sizes, num_capsules_per_layer, 
+		num_positive_samples, num_negative_samples, context_size, batch_size,
+		p, q, num_walks, walk_length, num_samples_per_class=None)
+	validation_generator = neighbourhood_sample_generator(G_val, X_val, Y_val,
 		neighbourhood_sample_sizes, num_capsules_per_layer, 
 		num_positive_samples, num_negative_samples, context_size, batch_size,
 		p, q, num_walks, walk_length, num_samples_per_class=None)
@@ -115,11 +120,15 @@ def main():
 
 	plot_callback = PlotCallback(G, X, Y, neighbourhood_sample_sizes, embedder, label_map, annotate=False, path=args.plot_path)
 
-	capsnet.fit_generator(generator, 
+	capsnet.fit_generator(training_generator, 
 		# steps_per_epoch=float(len(G))*context_size/args.batch_size, 
-		steps_per_epoch=1,
+		steps_per_epoch=100,
 		epochs=args.num_epochs, 
-		verbose=1, callbacks=[plot_callback, TerminateOnNaN()])
+		validation_data=validation_generator, validation_steps=1,
+		verbose=1, callbacks=[plot_callback, TerminateOnNaN(), 
+		EarlyStopping(monitor="loss", patience=100),
+		ModelCheckpoint("../models/{epoch:04d}-{loss:.2f}.h5", monitor="loss"), 
+		TensorBoard(log_dir="../logs", batch_size=batch_size)])
 
 	if label_prediction_model is not None:
 		make_and_evaluate_label_predictions(G, X, Y, label_prediction_model, num_capsules_per_layer, 

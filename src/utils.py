@@ -45,7 +45,7 @@ def load_karate():
 def load_cora():
 
 	G = nx.read_edgelist("../data/cora/cites.tsv", delimiter="\t", )
-	G = nx.convert_node_labels_to_integers(G)
+	G = nx.convert_node_labels_to_integers(G, label_attribute="original_name")
 
 	X = sp.sparse.load_npz("../data/cora/cited_words.npz")
 	Y = sp.sparse.load_npz("../data/cora/paper_labels.npz")
@@ -76,6 +76,41 @@ def preprocess_data(X):
 	# X = VarianceThreshold().fit_transform(X)
 	X = StandardScaler().fit_transform(X)
 	return X
+
+def split_data(G, X, Y, split=0.2):
+
+	num_samples = X.shape[0]
+	training_size = int(num_samples * (1-split))
+	validation_size = num_samples - training_size
+
+	# training_samples = np.random.choice(np.arange(num_samples), replace=False, size=training_size)
+	# validation_samples = np.setdiff1d(np.arange(num_samples), training_samples)
+	n = np.random.choice(np.arange(num_samples))
+	training_samples = [n]
+	while len(training_samples) < training_size:
+		n = np.random.choice(list(G.neighbors(n)))
+		if n not in training_samples:
+			training_samples.append(n)
+
+	training_samples = np.array(training_samples)
+	validation_samples= np.setdiff1d(np.arange(num_samples), training_samples)
+
+	training_samples = np.append(training_samples, list(nx.isolates(G.subgraph(validation_samples))))
+	validation_samples= np.setdiff1d(np.arange(num_samples), training_samples)
+
+	training_samples = sorted(training_samples)
+	validation_samples = sorted(validation_samples)
+
+	X_train = X[training_samples]
+	Y_train = Y[training_samples]
+	G_train = nx.Graph(G.subgraph(training_samples))
+
+
+	X_val = X[validation_samples]
+	Y_val = Y[validation_samples]
+	G_val = nx.Graph(G.subgraph(validation_samples))
+
+	return (X_train, Y_train, G_train), (X_val, Y_val, G_val)
 
 def remove_edges(G, number_of_edges_to_remove):
 
@@ -148,6 +183,8 @@ def generate_samples_node2vec(G, num_positive_samples, num_negative_samples, con
 
 			for i in range(len(walk)):
 				for j in range(i+1, min(len(walk), i+1+context_size)):
+					if walk[i] == walk[j]:
+						continue
 					pair = np.array([walk[i], walk[j]])
 					for negative_samples in np.random.choice(possible_negative_samples, replace=True, 
 						size=(1+num_positive_samples, num_negative_samples),
@@ -165,12 +202,9 @@ def create_neighbourhood_sample_list(nodes, neighbourhood_sample_sizes, neighbou
 	neighbourhood_sample_list = [nodes]
 
 	for neighbourhood_sample_size in neighbourhood_sample_sizes[::-1]:
-			neighbourhood_sample_list.append(
-				np.array([
-				np.concatenate([ 
-					np.append(n, np.random.choice(neighbours[n], replace=True, size=neighbourhood_sample_size)) 
-								for n in batch]) 
-				for batch in neighbourhood_sample_list[-1]]))
+
+		neighbourhood_sample_list.append(np.array([np.concatenate([np.append(n, np.random.choice(neighbours[n], 
+			replace=True, size=neighbourhood_sample_size)) for n in batch]) for batch in neighbourhood_sample_list[-1]]))
 
 	# flip neighbour list
 	neighbourhood_sample_list = neighbourhood_sample_list[::-1]
@@ -180,72 +214,75 @@ def create_neighbourhood_sample_list(nodes, neighbourhood_sample_sizes, neighbou
 
 
 
-def neighbourhood_sample_generator(G, X, Y, neighbourhood_sample_sizes, num_capsules_per_layer,
-	num_positive_samples, num_negative_samples, context_size, batch_size, p, q, num_walks, walk_length,
-	num_samples_per_class=20):
+# def neighbourhood_sample_generator(G, X, Y, neighbourhood_sample_sizes, num_capsules_per_layer,
+# 	num_positive_samples, num_negative_samples, context_size, batch_size, p, q, num_walks, walk_length,
+# 	num_samples_per_class=20):
 	
-	'''
-	performs node2vec style neighbourhood sampling for positive samples.
-	negative samples are selected according to degree
-	uniform sampling of neighbours for aggregation
+# 	'''
+# 	performs node2vec style neighbourhood sampling for positive samples.
+# 	negative samples are selected according to degree
+# 	uniform sampling of neighbours for aggregation
 
-	'''
-	'''
-	PRECOMPUTATION
+# 	'''
+# 	'''
+# 	PRECOMPUTATION
 	
-	'''
+# 	'''
+# 	# print "OLD", max(G.nodes)
+# 	G = nx.convert_node_labels_to_integers(G)
+# 	# print "NEW", max(G.nodes)
+# 	# return
 
-	num_classes = Y.shape[1]
-	if num_samples_per_class is not None:
-		label_mask = compute_label_mask(Y, num_patterns_to_keep=num_samples_per_class)
-	else:
-		label_mask = np.ones(Y.shape)
+# 	num_classes = Y.shape[1]
+# 	if num_samples_per_class is not None:
+# 		label_mask = compute_label_mask(Y, num_patterns_to_keep=num_samples_per_class)
+# 	else:
+# 		label_mask = np.ones(Y.shape)
 
-	label_prediction_layers = np.where(num_capsules_per_layer==num_classes)[0] + 1
+# 	label_prediction_layers = np.where(num_capsules_per_layer==num_classes)[0] + 1
 	
-	neighbours = [list(G.neighbors(n)) for n in list(G.nodes())]
+# 	neighbours = {n: list(G.neighbors(n)) for n in list(G.nodes())}
 
-	num_layers = neighbourhood_sample_sizes.shape[0]
+# 	num_layers = neighbourhood_sample_sizes.shape[0]
 
-	node2vec_sampler = generate_samples_node2vec(G, num_positive_samples, num_negative_samples, context_size, 
-		p, q, num_walks, walk_length)
-	batch_sampler = grouper(batch_size, node2vec_sampler)
+# 	node2vec_sampler = generate_samples_node2vec(G, num_positive_samples, num_negative_samples, context_size, 
+# 		p, q, num_walks, walk_length)
+# 	batch_sampler = grouper(batch_size, node2vec_sampler)
 	
-	'''
-	END OF PRECOMPUTATION
-	'''
+# 	'''
+# 	END OF PRECOMPUTATION
+# 	'''
 	
-	while True:
+# 	while True:
 
-		batch_nodes = batch_sampler.next()
-		batch_nodes = np.array(batch_nodes)
+# 		batch_nodes = batch_sampler.next()
+# 		batch_nodes = np.array(batch_nodes)
+# 		neighbour_list = create_neighbourhood_sample_list(batch_nodes, neighbourhood_sample_sizes, neighbours)
 
-		neighbour_list = create_neighbourhood_sample_list(batch_nodes, neighbourhood_sample_sizes, neighbours)
-
-		# shape is [batch_size, output_shape*prod(sample_sizes), D]
-		x = X[neighbour_list[0]]
-		x = np.expand_dims(x, 2)
-		# shape is now [batch_nodes, output_shape*prod(sample_sizes), 1, D]
+# 		# shape is [batch_size, output_shape*prod(sample_sizes), D]
+# 		x = X[neighbour_list[0]]
+# 		x = np.expand_dims(x, 2)
+# 		# shape is now [batch_nodes, output_shape*prod(sample_sizes), 1, D]
 
 
-		negative_sample_targets = [Y[nl].argmax(axis=-1) for nl in neighbour_list[1:]]
+# 		negative_sample_targets = [Y[nl].argmax(axis=-1) for nl in neighbour_list[1:]]
 
-		labels = []
-		for layer in label_prediction_layers:
-			y = Y[neighbour_list[layer]]
-			mask = label_mask[neighbour_list[layer]]
-			y_masked = np.append(mask, y, axis=-1)
-			labels.append(y_masked)
+# 		labels = []
+# 		for layer in label_prediction_layers:
+# 			y = Y[neighbour_list[layer]]
+# 			mask = label_mask[neighbour_list[layer]]
+# 			y_masked = np.append(mask, y, axis=-1)
+# 			labels.append(y_masked)
 
-		if all([(y_masked[:,:,:num_classes] > 0).any() for y_masked in labels]):
-			yield x, labels + negative_sample_targets
+# 		if all([(y_masked[:,:,:num_classes] > 0).any() for y_masked in labels]):
+# 			yield x, labels + negative_sample_targets
 
 def perform_embedding(G, X, neighbourhood_sample_sizes, embedder):
 
 	# print "Performing embedding"
 
 	nodes = np.arange(len(G)).reshape(-1, 1)
-	neighbours = [list(G.neighbors(n)) for n in list(G.nodes())]
+	neighbours = {n: list(G.neighbors(n)) for n in G.nodes}
 	neighbour_list = create_neighbourhood_sample_list(nodes, neighbourhood_sample_sizes, neighbours)
 
 	x = X[neighbour_list[0]]
@@ -347,7 +384,7 @@ class PlotCallback(Callback):
 
 	def on_epoch_end(self, epoch, logs={}):
 		embedding = perform_embedding(self.G, self.X, self.neighbourhood_sample_sizes, self.embedder)
-		plot_embedding(embedding, self.Y, self.label_map, self.annotate, path="{}/embedding_epoch_{}".format(self.path, epoch))
+		plot_embedding(embedding, self.Y, self.label_map, self.annotate, path="{}/embedding_epoch_{:04}".format(self.path, epoch))
 
 def plot_embedding(embedding, Y, label_map,annotate=False, path=None):
 
@@ -368,9 +405,10 @@ def plot_embedding(embedding, Y, label_map,annotate=False, path=None):
 		if label_map is not None:
 			present_classes = np.unique(y)
 			representatives = np.array([np.where(y==c)[0][0] for c in present_classes])
-			present_classes = [label_map[c] for c in present_classes]
-			for label, p in zip(present_classes, embedding[representatives, :2]):
-				plt.annotate(label, p)
+			present_class_names = [label_map[c] for c in present_classes]
+			for c, label, p in zip(present_classes, present_class_names, embedding[representatives, :2]):
+				# print present_classes
+				plt.annotate(label, p)#, c=c)
 	# plt.show()
 	if path is not None:
 		plt.savefig(path)
@@ -384,7 +422,7 @@ def make_and_evaluate_label_predictions(G, X, Y, predictor, num_capsules_per_lay
 	label_prediction_layers = np.where(num_capsules_per_layer==num_classes)[0] + 1
 
 	nodes = np.arange(len(G)).reshape(-1, 1)
-	neighbours = [list(G.neighbors(n)) for n in list(G.nodes())]
+	neighbours = {n: list(G.neighbors(n)) for n in G.nodes}
 	neighbour_list = create_neighbourhood_sample_list(nodes, neighbourhood_sample_sizes[:label_prediction_layers[-1]], neighbours)
 
 	x = X[neighbour_list[0]]
