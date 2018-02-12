@@ -92,11 +92,6 @@
 	
 	Beyond the two-dimensional hyperbolic disk of the PS model, we see that embedding to an n-dimensional Poincar\'e ball can give more degrees of freedom to the embedding and capture further dimensions of attractiveness than just ``popularity'' and ``similarity'' \cite{nickel2017poincar}.
 	
-	% signal processing on graphs
-	% defferard
-	% lanctoz
-	% kipf - linear simplification
-	% graph sage - inductive
 	\subsection{Signal Processing on Irregular Domains}
 	Convolutional neural networks (CNNs) has enjoyed immense popularity in recent years thanks, primarily, to their great successes across a wide variety of computer vision tasks. 
 	In fact, the discovery of an efficient training algorithm for them as well as the performance of AlexNet in on the challenging and high dimensional Imagenet dataset in 2012 \cite{krizhevsky2012imagenet} brought the entire field of deep learning into the mainstream.
@@ -153,9 +148,9 @@
 	\subsection{Unsupervised Loss Function}
 	Batch-wise loss function
 	\begin{align*}
-	L(\Theta) = -\frac{1}{|D|} \sum_{u \in D} \log \bigg[\frac{\exp(-d(\textbf{h}_u, \textbf{h}_v))}{\sum_{v' \in \mathcal{S}(u)} \exp(-d(\textbf{h}_u, \textbf{h}_{v'}))} \bigg]
+	L(\Theta) = -\frac{1}{|D|} \sum_{(u, v) \in D} \log \bigg[\frac{\exp(-d(\textbf{h}_u, \textbf{h}_v))}{\sum_{v' \in \mathcal{S}(u)} \exp(-d(\textbf{h}_u, \textbf{h}_{v'}))} \bigg]
 	\end{align*}
-	where $\mathcal{S}(u)$ is the set of positive and negative samples of node $u$, and $D$ is the set of nodes in the batch. 
+	where $\mathcal{S}(u)$ is the set of positive and negative samples of node $u$, and $D$ is the set of positive sample pairs in the batch. 
 	
 	Hyperbolic distance computed as 
 	\begin{align*}

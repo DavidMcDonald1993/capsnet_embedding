@@ -6,7 +6,7 @@ import argparse
 
 from models import build_graphcaps, generate_graphcaps_model
 from generators import neighbourhood_sample_generator
-from utils import load_karate, load_cora, load_facebook, preprocess_data, remove_edges, perform_embedding, evaluate_link_prediction, plot_ROC, plot_embedding, make_and_evaluate_label_predictions
+from utils import load_karate, load_cora, load_facebook, preprocess_data, remove_edges, perform_embedding, evaluate_link_prediction, plot_embedding, make_and_evaluate_label_predictions, PlotCallback
 
 
 def parse_args():
@@ -16,8 +16,8 @@ def parse_args():
 		help="The number of epochs to train for (default is 1000).")
 	parser.add_argument("-b", "--batch_size", dest="batch_size", type=int, default=10, 
 		help="Batch size for training (default is 10).")
-	parser.add_argument("--npos", dest="num_pos", type=int, default=1, 
-		help="Number of positive samples for training (default is 1).")
+	# parser.add_argument("--npos", dest="num_pos", type=int, default=1, 
+	# 	help="Number of positive samples for training (default is 1).")
 	parser.add_argument("--nneg", dest="num_neg", type=int, default=5, 
 		help="Number of negative samples for training (default is 5).")
 	parser.add_argument("--context_size", dest="context_size", type=int, default=5,
@@ -46,8 +46,8 @@ def parse_args():
 
 	
 
-	parser.add_argument("--plot", dest="plot_path", default="../plots/embedding.png", 
-		help="path to save plot (default is '../plots/embedding.png.'")
+	parser.add_argument("--plot", dest="plot_path", default="../plots/", 
+		help="path to save plot (default is '../plots/.'")
 
 
 	args = parser.parse_args()
@@ -57,16 +57,25 @@ def main():
 
 	args = parse_args()
 
-	G, X, Y, label_map = load_cora()
+	G, X, Y, label_map = load_facebook()
 
 	X = preprocess_data(X)
-	G, removed_edges = remove_edges(G, number_of_edges_to_remove=200)
+	number_of_edges_to_remove = int(len(G.edges)*0.1)
+	G, removed_edges = remove_edges(G, number_of_edges_to_remove=number_of_edges_to_remove)
+
+
+	# embedding = np.random.rand(len(G), 2) * 0.1
+
+	# evaluate_link_prediction(G, embedding, removed_edges)
+
+	# raise SystemExit
+
 
 	data_dim = X.shape[1]
 	num_classes = Y.shape[1]
 
 	batch_size = args.batch_size
-	num_positive_samples = args.num_pos
+	num_positive_samples = 1
 	num_negative_samples = args.num_neg
 
 	neighbourhood_sample_sizes = np.array(args.neighbourhood_sample_sizes[::-1])
@@ -91,6 +100,7 @@ def main():
 		p, q, num_walks, walk_length, num_samples_per_class=None)
 
 	capsnet, embedder, label_prediction_model = generate_graphcaps_model(X, Y, batch_size, 
+	# capsnet = generate_graphcaps_model(X, Y, batch_size, 
 		num_positive_samples, num_negative_samples,
 		neighbourhood_sample_sizes, num_filters_per_layer, agg_dim_per_layer,
 		num_capsules_per_layer, capsule_dim_per_layer)
@@ -103,19 +113,25 @@ def main():
 		print "LABEL PREDICTOR SUMMARY"
 		label_prediction_model.summary()
 
-	capsnet.fit_generator(generator, steps_per_epoch=float(len(G))*context_size/args.batch_size, epochs=args.num_epochs, 
-		verbose=1, callbacks=[TerminateOnNaN()])
+	plot_callback = PlotCallback(G, X, Y, neighbourhood_sample_sizes, embedder, label_map, annotate=False, path=args.plot_path)
+
+	capsnet.fit_generator(generator, 
+		# steps_per_epoch=float(len(G))*context_size/args.batch_size, 
+		steps_per_epoch=1,
+		epochs=args.num_epochs, 
+		verbose=1, callbacks=[plot_callback, TerminateOnNaN()])
 
 	if label_prediction_model is not None:
-		make_and_evaluate_label_predictions(G, X, Y, label_prediction_model, num_capsules_per_layer, neighbourhood_sample_sizes, batch_size)
+		make_and_evaluate_label_predictions(G, X, Y, label_prediction_model, num_capsules_per_layer, 
+			neighbourhood_sample_sizes, batch_size)
 
 	embedding = perform_embedding(G, X, neighbourhood_sample_sizes, embedder)
 
-	precisions, recalls = evaluate_link_prediction(G, embedding, removed_edges)
-	plot_ROC(precisions, recalls)
+	if number_of_edges_to_remove > 0:
+		precisions, recalls, f1_scores = evaluate_link_prediction(G, embedding, removed_edges)
 
-	plot_embedding(embedding, Y, label_map, annotate=False, 
-		path=args.plot_path)
+	# plot_embedding(embedding, Y, label_map, annotate=False, 
+	# 	path=args.plot_path+)
 
 if __name__  == "__main__":
 	main()

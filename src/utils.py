@@ -6,7 +6,7 @@ import pandas as pd
 
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import normalized_mutual_info_score
+from sklearn.metrics import normalized_mutual_info_score, precision_recall_curve, average_precision_score
 from sklearn.metrics.pairwise import pairwise_distances
 
 from itertools import izip_longest
@@ -18,6 +18,8 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 from node2vec_sampling import Graph
+
+from keras.callbacks import Callback
 
 def load_karate():
 
@@ -82,7 +84,7 @@ def remove_edges(G, number_of_edges_to_remove):
 	# raise SystemExit
 
 	N = len(G)
-	removed_edges = set()
+	removed_edges = []
 	edges = list(G.edges)
 	random.shuffle(edges)
 
@@ -96,7 +98,7 @@ def remove_edges(G, number_of_edges_to_remove):
 			G.remove_edge(u, v)
 			i = min(u, v)
 			j = max(u, v)
-			removed_edges.add((i, j))
+			removed_edges.append((i, j))
 			print "removed edge {}: {}".format(len(removed_edges), (i, j))
 
 	return G, removed_edges
@@ -154,9 +156,9 @@ def generate_samples_node2vec(G, num_positive_samples, num_negative_samples, con
 						pair = pair[::-1]
 
 def grouper(n, iterable, fillvalue=None):
-    '''grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx'''
-    args = [iter(iterable)] * n
-    return izip_longest(fillvalue=fillvalue, *args)
+	'''grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx'''
+	args = [iter(iterable)] * n
+	return izip_longest(fillvalue=fillvalue, *args)
 
 def create_neighbourhood_sample_list(nodes, neighbourhood_sample_sizes, neighbours):
 
@@ -240,7 +242,7 @@ def neighbourhood_sample_generator(G, X, Y, neighbourhood_sample_sizes, num_caps
 
 def perform_embedding(G, X, neighbourhood_sample_sizes, embedder):
 
-	print "Performing embedding"
+	# print "Performing embedding"
 
 	nodes = np.arange(len(G)).reshape(-1, 1)
 	neighbours = [list(G.neighbors(n)) for n in list(G.nodes())]
@@ -258,52 +260,98 @@ def perform_embedding(G, X, neighbourhood_sample_sizes, embedder):
 
 	return embedding
 
-def hyperbolic_distance(u, v):
-	return np.arccosh(1 + 2 * np.linalg.norm(u - v, axis=-1)**2 / (1 - np.linalg.norm(u, axis=-1)**2) * (1 - np.linalg.norm(v, axis=-1)**2))
+# def compute_precision_and_recall(i, sorted_candidates, removed_edges):
+	# num_candidates = len(sorted_candidates)
+	# number_of_removed_edges_above_threshold = float(len(set(sorted_candidates[:i]) & removed_edges))
+	# number_of_removed_edges_below_threshold = len(removed_edges) - number_of_removed_edges_above_threshold
+	# return number_of_removed_edges_above_threshold / (i + 1e-8), number_of_removed_edges_below_threshold / (num_candidates - i)
 
 def evaluate_link_prediction(G, embedding, removed_edges):
 
+	def check_edge_in_edgelist((u, v), edgelist):
+		for u_prime, v_prime in edgelist:
+			if u_prime > u:
+				return False
+			if u_prime == u and v_prime == v:
+				edgelist.remove((u, v))
+				return True
+
+	def hyperbolic_distance(u, v):
+		return np.arccosh(1 + 2 * np.linalg.norm(u - v, axis=-1)**2 / ((1 - np.linalg.norm(u, axis=-1)**2) * (1 - np.linalg.norm(v, axis=-1)**2)))
+
+	def sigmoid(x):
+		return 1. / (1 + np.exp(-x))
+
 	N = len(G)
 
+	print  "determining candidate edges"
+	removed_edges.sort(key=lambda (u, v): u)
+	candidate_edges = [(u, v)for u in range(N) for v in range(u+1, N) if (u, v) not in G.edges and (v, u) not in G.edges]
+	# candidate_edges.extend(removed_edges)
+	zipped_candidate_edges = zip(*candidate_edges)
+
 	print "computing hyperbolic distance between all points"
-	candidate_edges = np.array([(u, v)for u in range(N) for v in range(u+1, N) if (u, v) not in G.edges and (v, u) not in G.edges])
-	# print candidate_edges
-	hyperbolic_distances = hyperbolic_distance(embedding[candidate_edges[:,0]], embedding[candidate_edges[:,1]])
-	# print hyperbolic_distances[:10]
-	# print "DONE"
-	# raise SystemExit
-	num_candidates = candidate_edges.shape[0]
-
-	candidates = {(candidate_edges[i,0], candidate_edges[i,1]) : hyperbolic_distances[i] for i in range(num_candidates)}
-	sorted_candidates = sorted(candidates, key=candidates.get)
-
-	precisions = np.zeros(num_candidates)
-	recalls = np.zeros(num_candidates)
+	hyperbolic_distances = hyperbolic_distance(embedding[zipped_candidate_edges[0],:], 
+		embedding[zipped_candidate_edges[1], :])
+	r = 1
+	t = 1
+	print "converting distances into probabilities"
+	y_pred = sigmoid((r - hyperbolic_distances) / t)
+	print "determining labels"
+	y_true = np.array([1. if check_edge_in_edgelist(edge, removed_edges) else 0 for edge in candidate_edges])
 
 	print "computing precision and recalls"
+	average_precision = average_precision_score(y_true, y_pred)
+	precisions, recalls, thresholds = precision_recall_curve(y_true, y_pred)
+	f1_scores = 2 * precisions * recalls / (precisions + recalls + 1e-8)
 
-	for i in range(num_candidates):
-		
-		if i > 0:
-			number_of_removed_edges_above_threshold = float(len(set(sorted_candidates[:i]) & removed_edges))
-			precisions[i] = number_of_removed_edges_above_threshold / i
-
-		if i < num_candidates-1:	
-			number_of_removed_edges_below_threshold = float(len(set(sorted_candidates[i:]) & removed_edges))
-			recalls[i] = number_of_removed_edges_below_threshold / (num_candidates - i)
-
-	return precisions, recalls
-
-def plot_ROC(precisions, recalls):
 	plt.figure(figsize=(10, 10))
-	plt.scatter(recalls, precisions)
-	plt.xlabel("recall")
-	plt.ylabel("precision")
-	plt.savefig("../plots/ROC.png")
+	plt.step(recalls[:-1], precisions[:-1], c="b", where="post")
+	plt.fill_between(recalls[:-1], precisions[:-1], step='post', alpha=0.2,
+					 color='b')
+	plt.xlabel('Recall')
+	plt.ylabel('Precision')
+	# plt.ylim([0.0, 1.05])
+	# plt.xlim([0.0, 1.0])
+	plt.title('2-class Precision-Recall curve: AP={0:0.2f}'.format(average_precision))
+	plt.savefig("../plots/recall-precision.png")
+	plt.close()
+
+	plt.figure(figsize=(10, 10))
+	plt.plot(thresholds, f1_scores[:-1], c="r")
+	plt.xlabel("threshold")
+	plt.ylabel("F1 score")
+	plt.savefig("../plots/F1.png")
+	plt.close()
+
+	return precisions, recalls, f1_scores
+
+# def plot_ROC(precisions, recalls):
+# 	plt.figure(figsize=(10, 10))
+# 	plt.scatter(recalls, precisions)
+# 	plt.xlabel("recall")
+# 	plt.ylabel("precision")
+# 	plt.savefig("../plots/ROC.png")
+
+class PlotCallback(Callback):
+
+	def __init__(self, G, X, Y, neighbourhood_sample_sizes, embedder, label_map, annotate, path):
+		self.G = G 
+		self.X = X
+		self.Y = Y
+		self.neighbourhood_sample_sizes = neighbourhood_sample_sizes
+		self.embedder = embedder
+		self.label_map = label_map
+		self.annotate = annotate
+		self.path = path
+
+	def on_epoch_end(self, epoch, logs={}):
+		embedding = perform_embedding(self.G, self.X, self.neighbourhood_sample_sizes, self.embedder)
+		plot_embedding(embedding, self.Y, self.label_map, self.annotate, path="{}/embedding_epoch_{}".format(self.path, epoch))
 
 def plot_embedding(embedding, Y, label_map,annotate=False, path=None):
 
-	print "Plotting network and saving to {}...".format(path)
+	# print "Plotting network and saving to {}...".format(path)
 
 	y = Y.argmax(axis=1)
 	embedding_dim = embedding.shape[-1]
@@ -315,7 +363,7 @@ def plot_embedding(embedding, Y, label_map,annotate=False, path=None):
 	else:
 		plt.scatter(embedding[:,0], embedding[:,1], c=y)
 		if annotate:
-			for label, p in zip(list(G), embedding[:,:2]):
+			for label, p in zip(range(embedding.shape[0]), embedding[:,:2]):
 				plt.annotate(label, p)
 		if label_map is not None:
 			present_classes = np.unique(y)
@@ -323,11 +371,12 @@ def plot_embedding(embedding, Y, label_map,annotate=False, path=None):
 			present_classes = [label_map[c] for c in present_classes]
 			for label, p in zip(present_classes, embedding[representatives, :2]):
 				plt.annotate(label, p)
-	plt.show()
+	# plt.show()
 	if path is not None:
 		plt.savefig(path)
+	plt.close()
 
-	print "Done"
+	# print "Done"
 	
 def make_and_evaluate_label_predictions(G, X, Y, predictor, num_capsules_per_layer, neighbourhood_sample_sizes, batch_size):
 

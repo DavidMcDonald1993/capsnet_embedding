@@ -69,7 +69,7 @@ def generate_graphcaps_model(X, Y, batch_size, num_positive_samples, num_negativ
 
 		agg_layers.append(AggregateLayer(num_neighbours=neighbourhood_sample_size+1, num_filters=num_filters, new_dim=agg_dim,
 			activation="relu", name="agg_layer_{}".format(i)))
-		normalization_layers.append(layers.BatchNormalization())
+		normalization_layers.append(layers.BatchNormalization(name="batch_normalization_{}".format(i)))
 		capsule_layers.append(GraphCapsuleLayer(num_capsule=num_caps, dim_capsule=capsule_dim, num_routing=num_routing, 
 			name="cap_layer_{}".format(i)))
 
@@ -110,16 +110,16 @@ def generate_graphcaps_model(X, Y, batch_size, num_positive_samples, num_negativ
 	capsnet_distance_outputs = [hyperbolic_distance(embedding) for 
 		hyperbolic_distance, embedding in zip(hyperbolic_distances, capsnet_embedding_outputs)]
 
-	# graphcaps = Model(training_input, label_predictions + hyperbolic_distances)
+
 	graphcaps = Model(training_input,  capsnet_label_prediction_outputs + capsnet_distance_outputs)
 	graphcaps.compile(optimizer="adam", 
 		loss=[masked_crossentropy]*len(capsnet_label_prediction_outputs) + 
 		[hyperbolic_negative_sampling_loss]*len(capsnet_distance_outputs), 
-		# loss_weights=[0]*len(capsnet_label_prediction_outputs) + 
+		loss_weights=[0]*len(capsnet_label_prediction_outputs) + 
 		# [0]*(len(capsnet_distance_outputs)-1)+[1])
-		# [1./len(capsnet_distance_outputs)]*len(capsnet_distance_outputs))
-		loss_weights = [1./(len(capsnet_label_prediction_outputs) + len(capsnet_distance_outputs))] * 
-		(len(capsnet_label_prediction_outputs) + len(capsnet_distance_outputs)))
+		[1./len(capsnet_distance_outputs)]*len(capsnet_distance_outputs))
+		# loss_weights = [1./(len(capsnet_label_prediction_outputs) + len(capsnet_distance_outputs))] * 
+		# (len(capsnet_label_prediction_outputs) + len(capsnet_distance_outputs)))
 
 
 
