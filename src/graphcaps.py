@@ -63,9 +63,13 @@ def main():
 	number_of_edges_to_remove = int(len(G.edges())*0.0)
 	G, removed_edges = remove_edges(G, number_of_edges_to_remove=number_of_edges_to_remove)
 
-	(X_train, Y_train, G_train), (X_val, Y_val, G_val) = split_data(G, X, Y, split=0.3)
-	print X_train.shape, Y_train.shape, len(G_train)
-	print X_val.shape, Y_val.shape, len(G_val)
+	split = 0.0:
+	if split > 0:
+		(X_train, Y_train, G_train), (X_val, Y_val, G_val) = split_data(G, X, Y, split=split)
+	else:
+		X_train = X
+		Y_train = Y
+		G_train = G
 
 	data_dim = X.shape[1]
 	num_classes = Y.shape[1]
@@ -99,13 +103,15 @@ def main():
 		neighbourhood_sample_sizes, num_capsules_per_layer, 
 		num_positive_samples, num_negative_samples, context_size, batch_size,
 		p, q, num_walks, walk_length, num_samples_per_class=None)
-	validation_generator = neighbourhood_sample_generator(G_val, X_val, Y_val,
-		neighbourhood_sample_sizes, num_capsules_per_layer, 
-		num_positive_samples, num_negative_samples, context_size, batch_size,
-		p, q, num_walks, walk_length, num_samples_per_class=None)
+	if split > 0:
+		validation_generator = neighbourhood_sample_generator(G_val, X_val, Y_val,
+			neighbourhood_sample_sizes, num_capsules_per_layer, 
+			num_positive_samples, num_negative_samples, context_size, batch_size,
+			p, q, num_walks, walk_length, num_samples_per_class=None)
+	else:
+		validation_generator = None
 
 	capsnet, embedder, label_prediction_model = generate_graphcaps_model(X, Y, batch_size, 
-	# capsnet = generate_graphcaps_model(X, Y, batch_size, 
 		num_positive_samples, num_negative_samples,
 		neighbourhood_sample_sizes, num_filters_per_layer, agg_dim_per_layer,
 		num_capsules_per_layer, capsule_dim_per_layer)
@@ -121,7 +127,6 @@ def main():
 	plot_callback = PlotCallback(G, X, Y, neighbourhood_sample_sizes, embedder, label_map, annotate=False, path=args.plot_path)
 
 	capsnet.fit_generator(training_generator, 
-		# steps_per_epoch=float(len(G))*context_size/args.batch_size, 
 		steps_per_epoch=100,
 		epochs=args.num_epochs, 
 		validation_data=validation_generator, validation_steps=1,
@@ -138,9 +143,6 @@ def main():
 
 	if number_of_edges_to_remove > 0:
 		precisions, recalls, f1_scores = evaluate_link_prediction(G, embedding, removed_edges)
-
-	# plot_embedding(embedding, Y, label_map, annotate=False, 
-	# 	path=args.plot_path+)
 
 if __name__  == "__main__":
 	main()
