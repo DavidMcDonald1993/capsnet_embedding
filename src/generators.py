@@ -29,7 +29,7 @@ def neighbourhood_sample_generator(G, X, Y, neighbourhood_sample_sizes, num_caps
 	label_prediction_layers = np.where(num_capsules_per_layer==num_classes)[0] + 1
 
 	
-	neighbours = {n : list(G.neighbors(n)) for n in G.nodes}
+	neighbours = {n : list(G.neighbors(n)) for n in G.nodes()}
 	
 
 	num_layers = neighbourhood_sample_sizes.shape[0]

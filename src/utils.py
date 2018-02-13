@@ -120,7 +120,7 @@ def remove_edges(G, number_of_edges_to_remove):
 
 	N = len(G)
 	removed_edges = []
-	edges = list(G.edges)
+	edges = list(G.edges())
 	random.shuffle(edges)
 
 	for u, v in edges:
@@ -282,7 +282,7 @@ def perform_embedding(G, X, neighbourhood_sample_sizes, embedder):
 	# print "Performing embedding"
 
 	nodes = np.arange(len(G)).reshape(-1, 1)
-	neighbours = {n: list(G.neighbors(n)) for n in G.nodes}
+	neighbours = {n: list(G.neighbors(n)) for n in G.nodes()}
 	neighbour_list = create_neighbourhood_sample_list(nodes, neighbourhood_sample_sizes, neighbours)
 
 	x = X[neighbour_list[0]]
@@ -323,7 +323,7 @@ def evaluate_link_prediction(G, embedding, removed_edges):
 
 	print  "determining candidate edges"
 	removed_edges.sort(key=lambda (u, v): u)
-	candidate_edges = [(u, v)for u in range(N) for v in range(u+1, N) if (u, v) not in G.edges and (v, u) not in G.edges]
+	candidate_edges = [(u, v)for u in range(N) for v in range(u+1, N) if (u, v) not in G.edges() and (v, u) not in G.edges()]
 	# candidate_edges.extend(removed_edges)
 	zipped_candidate_edges = zip(*candidate_edges)
 
@@ -422,7 +422,7 @@ def make_and_evaluate_label_predictions(G, X, Y, predictor, num_capsules_per_lay
 	label_prediction_layers = np.where(num_capsules_per_layer==num_classes)[0] + 1
 
 	nodes = np.arange(len(G)).reshape(-1, 1)
-	neighbours = {n: list(G.neighbors(n)) for n in G.nodes}
+	neighbours = {n: list(G.neighbors(n)) for n in G.nodes()}
 	neighbour_list = create_neighbourhood_sample_list(nodes, neighbourhood_sample_sizes[:label_prediction_layers[-1]], neighbours)
 
 	x = X[neighbour_list[0]]

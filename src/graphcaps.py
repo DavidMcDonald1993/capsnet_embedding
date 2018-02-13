@@ -60,7 +60,7 @@ def main():
 	G, X, Y, label_map = load_cora()
 
 	X = preprocess_data(X)
-	number_of_edges_to_remove = int(len(G.edges)*0.0)
+	number_of_edges_to_remove = int(len(G.edges())*0.0)
 	G, removed_edges = remove_edges(G, number_of_edges_to_remove=number_of_edges_to_remove)
 
 	(X_train, Y_train, G_train), (X_val, Y_val, G_val) = split_data(G, X, Y, split=0.3)
