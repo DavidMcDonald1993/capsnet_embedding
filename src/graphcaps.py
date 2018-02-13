@@ -63,7 +63,7 @@ def main():
 	number_of_edges_to_remove = int(len(G.edges())*0.0)
 	G, removed_edges = remove_edges(G, number_of_edges_to_remove=number_of_edges_to_remove)
 
-	split = 0.0:
+	split = 0.0
 	if split > 0:
 		(X_train, Y_train, G_train), (X_val, Y_val, G_val) = split_data(G, X, Y, split=split)
 	else:
