@@ -127,8 +127,8 @@ def main():
 		validation_data=validation_generator, validation_steps=1,
 		verbose=1, callbacks=[plot_callback, TerminateOnNaN(), 
 		EarlyStopping(monitor="loss", patience=100),
-		ModelCheckpoint("../models/{epoch:04d}-{loss:.2f}.h5", monitor="loss"), 
-		TensorBoard(log_dir="../logs", batch_size=batch_size)])
+		ModelCheckpoint("../models/{epoch:04d}-{loss:.2f}.h5", monitor="loss"), ])
+		# TensorBoard(log_dir="../logs", batch_size=batch_size)])
 
 	if label_prediction_model is not None:
 		make_and_evaluate_label_predictions(G, X, Y, label_prediction_model, num_capsules_per_layer, 

@@ -17,8 +17,6 @@ matplotlib.use('agg')
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
-from node2vec_sampling import Graph
-
 from keras.callbacks import Callback
 
 def load_karate():
