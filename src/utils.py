@@ -9,8 +9,6 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import normalized_mutual_info_score, precision_recall_curve, average_precision_score
 from sklearn.metrics.pairwise import pairwise_distances
 
-from itertools import izip_longest
-
 import matplotlib
 matplotlib.use('agg')
 
