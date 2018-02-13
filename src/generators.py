@@ -75,7 +75,7 @@ def generate_samples_node2vec(G, num_positive_samples, num_negative_samples, con
 	p, q, num_walks, walk_length):
 
 	if nx.__version__ < 2:
-		nx.set_node_attribute(G, "weight", 1)
+		nx.set_node_attributes(G, "weight", 1)
 	else:
 		nx.set_edge_attributes(G, 1, "weight")
 	
