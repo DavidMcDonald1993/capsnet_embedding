@@ -74,7 +74,10 @@ def neighbourhood_sample_generator(G, X, Y, neighbourhood_sample_sizes, num_caps
 def generate_samples_node2vec(G, num_positive_samples, num_negative_samples, context_size,
 	p, q, num_walks, walk_length):
 
-	nx.set_edge_attributes(G, 1, "weight")
+	if nx.__version__ < 2:
+		nx.set_node_attribute(G, "weight", 1)
+	else:
+		nx.set_edge_attributes(G, 1, "weight")
 	
 	N = nx.number_of_nodes(G)
 
