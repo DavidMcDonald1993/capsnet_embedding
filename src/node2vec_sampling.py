@@ -80,6 +80,7 @@ class Graph():
 		Preprocessing of transition probabilities for guiding the random walks.
 		'''
 		G = self.G
+		print G.nodes(data=True)
 		is_directed = self.is_directed
 
 		alias_nodes = {}
