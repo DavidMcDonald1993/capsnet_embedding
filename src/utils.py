@@ -36,7 +36,7 @@ def load_karate():
 	X = X.toarray()
 	Y = Y.toarray()
 
-	return G, X, Y, None
+	return G, X, Y, {v : k for k, v in map_.items()}
 
 def load_cora():
 
