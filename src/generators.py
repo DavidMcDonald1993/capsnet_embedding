@@ -1,14 +1,15 @@
+import random
 import numpy as np
 import networkx as nx
 
 from itertools import izip_longest
 
 from utils import compute_label_mask, create_neighbourhood_sample_list
+from data_utils import preprocess_data
 from node2vec_sampling import Graph
 
-def neighbourhood_sample_generator(G, X, Y, neighbourhood_sample_sizes, num_capsules_per_layer,
-	num_positive_samples, num_negative_samples, context_size, batch_size, p, q, num_walks, walk_length,
-	num_samples_per_class=20):
+def neighbourhood_sample_generator(G, X, Y, walks, neighbourhood_sample_sizes, num_capsules_per_layer,
+	num_positive_samples, num_negative_samples, context_size, batch_size, num_samples_per_class=20):
 	
 	'''
 	performs node2vec style neighbourhood sampling for positive samples.
@@ -21,7 +22,7 @@ def neighbourhood_sample_generator(G, X, Y, neighbourhood_sample_sizes, num_caps
 	
 	'''
 
-	G = nx.convert_node_labels_to_integers(G)
+	# G = nx.convert_node_labels_to_integers(G, ordering="sorted")
 
 	num_classes = Y.shape[1]
 	if num_samples_per_class is not None:
@@ -35,9 +36,14 @@ def neighbourhood_sample_generator(G, X, Y, neighbourhood_sample_sizes, num_caps
 
 	num_layers = neighbourhood_sample_sizes.shape[0]
 
-	node2vec_sampler = generate_samples_node2vec(G, num_positive_samples, num_negative_samples, context_size, 
-		p, q, num_walks, walk_length)
+	node2vec_sampler = generate_samples_node2vec(G, walks, num_positive_samples, num_negative_samples, context_size, )
+		# p, q, num_walks, walk_length)
 	batch_sampler = grouper(batch_size, node2vec_sampler)
+
+	# not used at the moment
+	negative_sample_targets = np.zeros((batch_size, num_positive_samples+num_negative_samples))
+	negative_sample_targets[:,0] = 1
+	negative_sample_targets = [negative_sample_targets] * num_layers
 	
 	'''
 	END OF PRECOMPUTATION
@@ -47,42 +53,56 @@ def neighbourhood_sample_generator(G, X, Y, neighbourhood_sample_sizes, num_caps
 
 		batch_nodes = batch_sampler.next()
 		batch_nodes = np.array(batch_nodes)
+		batch_nodes = np.random.permutation(batch_nodes)
 
 		neighbour_list = create_neighbourhood_sample_list(batch_nodes, neighbourhood_sample_sizes, neighbours)
 
 		# shape is [batch_size, output_shape*prod(sample_sizes), D]
-		x = X[neighbour_list[0]]
-		x = np.expand_dims(x, 2)
+		input_nodes = neighbour_list[0]
+		original_shape = list(input_nodes.shape)
+		x = X[input_nodes.flatten()]#.toarray()
+		# x = preprocess_data(x)
+		# add atrifical bacth dimension and capsule dimension 
+		x = x.reshape(original_shape + [1, -1])
+		# print "SHAPE", x.shape
+		# x = np.expand_dims(x, 2)
 		# shape is now [batch_nodes, output_shape*prod(sample_sizes), 1, D]
 
-
-		negative_sample_targets = [Y[nl].argmax(axis=-1) for nl in neighbour_list[1:]]
-
 		labels = []
+		all_zero_mask = False
 		for layer in label_prediction_layers:
-			y = Y[neighbour_list[layer]]
+			nodes_to_evaluate_label = neighbour_list[layer]
+			original_shape = list(nodes_to_evaluate_label.shape)
+			y = Y[nodes_to_evaluate_label.flatten()]#.toarray()
+			y = y.reshape(original_shape + [-1])
+
+
 			mask = label_mask[neighbour_list[layer]]
+			if (mask == 0).all():
+				all_zero_mask = True
+				break
 			y_masked = np.append(mask, y, axis=-1)
 			labels.append(y_masked)
 
 
-		if all([(y_masked[:,:,:num_classes] > 0).any() for y_masked in labels]):
+		if not all_zero_mask:
 			yield x, labels + negative_sample_targets
 
-def generate_samples_node2vec(G, num_positive_samples, num_negative_samples, context_size,
-	p, q, num_walks, walk_length):
+def generate_samples_node2vec(G, walks, num_positive_samples, num_negative_samples, context_size,):
+	# p, q, num_walks, walk_length):
 
-	nx.set_edge_attributes(G=G, name="weight", values=1)
-	
 	N = nx.number_of_nodes(G)
-
 	frequencies = np.array(dict(G.degree()).values()) ** 0.75
 
-	node2vec_graph = Graph(nx_G=G, is_directed=False, p=p, q=q)
-	node2vec_graph.preprocess_transition_probs()
+	# nx.set_edge_attributes(G=G, name="weight", values=1)
+	# node2vec_graph = Graph(nx_G=G, is_directed=False, p=p, q=q)
+	# # node2vec_graph.preprocess_transition_probs()
+	# walks = node2vec_graph.simulate_walks(num_walks=num_walks, walk_length=walk_length)
 
 	while True:
-		walks = node2vec_graph.simulate_walks(num_walks=num_walks, walk_length=walk_length)
+		
+		random.shuffle(walks)
+
 		for walk in walks:
 
 			possible_negative_samples = np.setdiff1d(np.arange(N), walk)

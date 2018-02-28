@@ -82,14 +82,19 @@ def hyperbolic_negative_sampling_loss(y_true, y_pred):
     y_true is a mask to allow for negative sampling over all levels 
     norm y_pred < 1
     '''
-    P = K.softmax(-K.square(y_pred))
-    # P = K.softmax(-y_pred)
-    P = K.clip(P, min_value=K.epsilon(), max_value=1-K.epsilon())
 
-    pos = P[:,0]
-    neg = P[:,1:]
+    # def sigmoid(x):
+    #     return 1. / (1 + K.exp(-x))
+
+    P = K.softmax(-y_pred)
+    # P = K.softmax(-K.square(y_pred))
+
+    # r = 1.
+    # t = 1.
+    # P = K.sigmoid((r - y_pred) / t)
     
-    # num_neg = 5
+    P = K.clip(P, min_value=K.epsilon(), max_value=1-K.epsilon())
     
-    return -K.mean(K.log(pos))
-    # return K.mean(K.log(pos) - num_neg * K.mean(K.log(neg), axis=1))
+    return K.categorical_crossentropy(y_true, P)
+    # return -K.mean(K.log(pos))
+    # return - K.mean( K.log(P[:,0]) + K.mean(K.log(1 - P[:,1:]), axis=1) )

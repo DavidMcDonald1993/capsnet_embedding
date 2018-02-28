@@ -7,9 +7,9 @@ import numpy as np
 
 import keras.backend as K
 import tensorflow as tf
-from keras import initializers, layers, activations
-from keras.regularizers import l1_l2, l2
-from keras.initializers import RandomUniform
+from keras import initializers, layers, activations, regularizers
+# from keras.regularizers import l1_l2, l2
+# from keras.initializers import RandomUniform
 
 
 
@@ -57,28 +57,38 @@ class GraphCapsuleLayer(layers.Layer):
 	def __init__(self, num_capsule, dim_capsule, num_routing=3,
 				 kernel_initializer='glorot_uniform', 
 				 # kernel_initializer=RandomUniform(-0.5, 0.5),
-				 kernel_regularizer=l2(1e-3),
+				 kernel_regularizer="l2",
 				 **kwargs):
 		super(GraphCapsuleLayer, self).__init__(**kwargs)
 		self.num_capsule = num_capsule
 		self.dim_capsule = dim_capsule
 		self.num_routing = num_routing
-		self.kernel_initializer = initializers.get(kernel_initializer)
+		self.kernel_initializer = kernel_initializer
 		self.kernel_regularizer = kernel_regularizer
 
 	def build(self, input_shape):
 		assert len(input_shape) >= 4, "The input Tensor should have shape=[None, N, input_num_capsule, input_dim_capsule]"
 		self.input_num_capsule = input_shape[2]
 		self.input_dim_capsule = input_shape[3]
+		
+		initializer = initializers.get(self.kernel_initializer)
+		regularizer = regularizers.get(self.kernel_regularizer)
 
 		# Transform matrix
 		self.W = self.add_weight(shape=[self.num_capsule, self.input_num_capsule,
 										self.dim_capsule, self.input_dim_capsule],
-								 initializer=self.kernel_initializer,
-								 regularizer=self.kernel_regularizer,
+								 initializer=initializer,
+								 regularizer=regularizer,
 								 name='W')
 
 		self.built = True
+
+	def get_config(self):
+		config = super(GraphCapsuleLayer, self).get_config()
+		config.update({"num_capsule":self.num_capsule,
+			"dim_capsule":self.dim_capsule, "num_routing":self.num_routing,
+			"kernel_initializer":self.kernel_initializer, "kernel_regularizer":self.kernel_regularizer})
+		return config
 
 	def call(self, inputs):
 		# inputs.shape=[None, N, input_num_capsule, input_dim_capsule]
@@ -152,7 +162,7 @@ class AggregateLayer(layers.Layer):
 	Author: David McDonald, Email: `dxm237@cs.bham.ac.uk'
 	"""
 	def __init__(self, num_neighbours, num_filters, new_dim, mode="mean", activation=None,
-				 kernel_initializer='glorot_uniform', kernel_regularizer=l2(1e-3),
+				 kernel_initializer='glorot_uniform', kernel_regularizer="l2",
 				 **kwargs):
 		super(AggregateLayer, self).__init__(**kwargs)
 
@@ -161,20 +171,8 @@ class AggregateLayer(layers.Layer):
 		self.new_dim = new_dim
 		self.mode = mode
 		self.activation = activation
-		self.kernel_initializer = initializers.get(kernel_initializer)
+		self.kernel_initializer = kernel_initializer
 		self.kernel_regularizer = kernel_regularizer
-		
-	# def mean_weight_initializer(self, shape):
-	# 	n_dimension, Nn = shape
-	# 	W = np.zeros((n_dimension, Nn))
-		
-	# 	rows = np.repeat(np.arange(n_dimension), self.num_neighbours)
-	# 	cols = np.arange(Nn)
-		
-	# 	W[rows, cols] = 1. / self.num_neighbours
-	# 	# print "W", W
-
-	# 	return K.constant(W)
 
 	def build(self, input_shape):
 		'''
@@ -186,22 +184,25 @@ class AggregateLayer(layers.Layer):
 		self.num_caps = input_shape[2]
 		self.old_dim = input_shape[3]
 
-		# bias term ?
-		# if self.mode == "mean":
-		# 	initializer = self.mean_weight_initializer
-		# self.mean_vector = self.add_weight(shape=(self.n_dimension, input_shape[1]), 
-		# 							trainable=False,  initializer=initializer,     
-		# 						   name="mean_weight_vector")
+		initializer = initializers.get(self.kernel_initializer)
+		regularizer = regularizers.get(self.kernel_regularizer)
 
 		self.W = self.add_weight(shape=(self.num_caps * self.old_dim, self.num_filters * self.new_dim), 
-									trainable=True, initializer=self.kernel_initializer, regularizer=self.kernel_regularizer,
+									trainable=True, initializer=initializer, regularizer=regularizer,
 									name="W")
 
 		self.bias = self.add_weight(shape=(1, self.num_filters * self.new_dim),
-									trainable=True, initializer=self.kernel_initializer, regularizer=self.kernel_regularizer,
+									trainable=True, initializer=initializer, regularizer=regularizer,
 									name="bias")
 
 		self.built = True
+
+	def get_config(self):
+		config = super(AggregateLayer, self).get_config()
+		config.update({"num_neighbours":self.num_neighbours,
+			"num_filters":self.num_filters, "new_dim":self.new_dim, "mode":self.mode, "activation":self.activation,
+			"kernel_initializer":self.kernel_initializer, "kernel_regularizer":self.kernel_regularizer})
+		return config
 
 	def call(self, inputs):
 
@@ -252,6 +253,12 @@ class HyperbolicDistanceLayer(layers.Layer):
     	self.N = input_shape[1]
     	self.step_size = self.N / (1 + self.num_positive_samples + self.num_negative_samples)
     	self.built = True
+
+    def get_config(self):
+        config = super(HyperbolicDistanceLayer, self).get_config()
+        config.update({"num_positive_samples":self.num_positive_samples, 
+                       "num_negative_samples":self.num_negative_samples})
+        return config
         
     def safe_norm(self, x, sqrt=False):
         x = K.sum(K.square(x), axis=-1, keepdims=False) + K.epsilon()
