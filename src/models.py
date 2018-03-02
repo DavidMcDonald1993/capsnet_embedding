@@ -5,6 +5,7 @@ import numpy as np
 from keras import layers
 from keras.models import Model, load_model
 from keras.regularizers import l2
+from keras import backend as K
 
 from graphcaps_layers import AggregateLayer, GraphCapsuleLayer, HyperbolicDistanceLayer, Length, squash
 from losses import masked_crossentropy, masked_margin_loss, hyperbolic_negative_sampling_loss
@@ -29,6 +30,33 @@ def load_models(X, Y, model_path, neighbourhood_sample_sizes, num_filters_per_la
 		    layer_dict.setdefault(layer_name, []).append(layer)
 		return layer_dict
 
+	def get_model_memory_usage(batch_size, model):
+
+	    shapes_mem_count = 0
+	    for l in model.layers:
+	        single_layer_mem = 1
+	        for s in l.output_shape:
+	            if s is None:
+	                continue
+	            single_layer_mem *= s
+	        if "cap_layer" in l.name:
+	        	_, n, in_cap, in_cap_dim = l.input_shape
+	        	_, _, out_cap, out_cap_dim = l.output_shape
+
+	        	in_hat_shape = [n, in_cap, out_cap, out_cap_dim]
+	        	c_shape = [n, out_cap, in_cap]
+        		single_layer_mem += np.prod(in_hat_shape)
+        		single_layer_mem *= np.prod(c_shape)
+
+	        shapes_mem_count += single_layer_mem
+
+	    trainable_count = np.sum([K.count_params(p) for p in set(model.trainable_weights)])
+	    non_trainable_count = np.sum([K.count_params(p) for p in set(model.non_trainable_weights)])
+
+	    total_memory = 4.0*batch_size*(shapes_mem_count + trainable_count + non_trainable_count)
+	    gbytes = np.round(total_memory / (1024.0 ** 3), 3)
+	    return gbytes
+
 	saved_models = sorted(os.listdir(model_path))
 	initial_epoch = len(saved_models)
 
@@ -44,22 +72,29 @@ def load_models(X, Y, model_path, neighbourhood_sample_sizes, num_filters_per_la
 		num_negative_samples = args.num_neg
 
 
-		capsnet = generate_graphcaps_model(X, Y, batch_size, 
+		model = generate_graphcaps_model(X, Y, batch_size, 
 		num_positive_samples, num_negative_samples,
 		neighbourhood_sample_sizes, num_filters_per_layer, agg_dim_per_layer,
 		num_capsules_per_layer, capsule_dim_per_layer)
+
 
 	else:
 
 		print "Loading model from file"
 
-		capsnet = load_model(os.path.join(model_path, saved_models[-1]),
+		model = load_model(os.path.join(model_path, saved_models[-1]),
 			custom_objects={"AggregateLayer":AggregateLayer, "Length":Length,
 							 "HyperbolicDistanceLayer":HyperbolicDistanceLayer, "GraphCapsuleLayer": GraphCapsuleLayer,
 							 "hyperbolic_negative_sampling_loss": hyperbolic_negative_sampling_loss, "masked_crossentropy": masked_crossentropy})
 
+	model.summary()
 
-	layer_dict = model_to_dict(capsnet)
+	model_memory_usage = get_model_memory_usage(args.batch_size, model)
+	print "Memory usage: {}Gb".format(model_memory_usage)
+	# assert model_memory_usage < 2, "This model will use {}Gb of memory. Consider decreasing the batch_size".format(model_memory_usage)
+	# raise SystemExit
+
+	layer_dict = model_to_dict(model)
 	num_layers = len(neighbourhood_sample_sizes)
 
 	embedding_layer = num_layers - 1
@@ -89,7 +124,7 @@ def load_models(X, Y, model_path, neighbourhood_sample_sizes, num_filters_per_la
 	else: 
 		label_prediction_model = None
 
-	return capsnet, embedder, label_prediction_model, initial_epoch
+	return model, embedder, label_prediction_model, initial_epoch
 
 
 
@@ -154,7 +189,8 @@ def generate_graphcaps_model(X, Y, batch_size, num_positive_samples, num_negativ
 
 		agg_layers.append(AggregateLayer(num_neighbours=neighbourhood_sample_size+1, num_filters=num_filters, new_dim=agg_dim,
 			activation="relu", name="agg_layer_{}".format(i)))
-		normalization_layers.append(layers.BatchNormalization(name="batch_normalization_layer_{}".format(i)))
+		# normalizer over filter/channel dimension
+		normalization_layers.append(layers.BatchNormalization(axis=2, name="batch_normalization_layer_{}".format(i)))
 		capsule_layers.append(GraphCapsuleLayer(num_capsule=num_caps, dim_capsule=capsule_dim, num_routing=num_routing, 
 			name="cap_layer_{}".format(i)))
 
@@ -213,21 +249,21 @@ def generate_graphcaps_model(X, Y, batch_size, num_positive_samples, num_negativ
 
 
 
-	embedder_input = layers.Input(shape=(np.prod(neighbourhood_sample_sizes + 1), 1, data_dim), name="embedder_input")
-	embedder_output = embedder_lambdas[-1](embedder_input)
+	# embedder_input = layers.Input(shape=(np.prod(neighbourhood_sample_sizes + 1), 1, data_dim), name="embedder_input")
+	# embedder_output = embedder_lambdas[-1](embedder_input)
 
-	embedder = Model(embedder_input, embedder_output)
+	# embedder = Model(embedder_input, embedder_output)
 
-	if len(label_prediction_layers) > 0:
-		label_prediction_input = layers.Input(shape=(np.prod(neighbourhood_sample_sizes[:label_prediction_layers[-1]] + 1), 1, data_dim),
-			name="label_prediction_input")
-		label_prediction_output = label_prediction_lambdas[-1](label_prediction_input)
+	# if len(label_prediction_layers) > 0:
+	# 	label_prediction_input = layers.Input(shape=(np.prod(neighbourhood_sample_sizes[:label_prediction_layers[-1]] + 1), 1, data_dim),
+	# 		name="label_prediction_input")
+	# 	label_prediction_output = label_prediction_lambdas[-1](label_prediction_input)
 
-		prediction_model = Model(label_prediction_input, label_prediction_output)
-	else: 
-		prediction_model = None
+	# 	prediction_model = Model(label_prediction_input, label_prediction_output)
+	# else: 
+	# 	prediction_model = None
 
-	return graphcaps, embedder, prediction_model
+	# return graphcaps, embedder, prediction_model
 
 # def build_graphcaps(data_dim, num_classes, embedding_dim, num_positive_samples, num_negative_samples, sample_sizes):
 

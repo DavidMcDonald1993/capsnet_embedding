@@ -8,7 +8,7 @@ import numpy as np
 import keras.backend as K
 import tensorflow as tf
 from keras import initializers, layers, activations, regularizers
-# from keras.regularizers import l1_l2, l2
+from keras.regularizers import l2
 # from keras.initializers import RandomUniform
 
 
@@ -57,7 +57,7 @@ class GraphCapsuleLayer(layers.Layer):
 	def __init__(self, num_capsule, dim_capsule, num_routing=3,
 				 kernel_initializer='glorot_uniform', 
 				 # kernel_initializer=RandomUniform(-0.5, 0.5),
-				 kernel_regularizer="l2",
+				 kernel_regularizer=1e-3,
 				 **kwargs):
 		super(GraphCapsuleLayer, self).__init__(**kwargs)
 		self.num_capsule = num_capsule
@@ -68,15 +68,23 @@ class GraphCapsuleLayer(layers.Layer):
 
 	def build(self, input_shape):
 		assert len(input_shape) >= 4, "The input Tensor should have shape=[None, N, input_num_capsule, input_dim_capsule]"
+		# self.batch_size = input_shape[0]
+		self.neighbours = input_shape[1]
 		self.input_num_capsule = input_shape[2]
 		self.input_dim_capsule = input_shape[3]
 		
 		initializer = initializers.get(self.kernel_initializer)
-		regularizer = regularizers.get(self.kernel_regularizer)
+		# regularizer = regularizers.get(self.kernel_regularizer)
+		regularizer = l2(self.kernel_regularizer)
 
 		# Transform matrix
-		self.W = self.add_weight(shape=[self.num_capsule, self.input_num_capsule,
-										self.dim_capsule, self.input_dim_capsule],
+		# self.W = self.add_weight(shape=[self.num_capsule, self.input_num_capsule,
+		# 								self.dim_capsule, self.input_dim_capsule],
+		# 						 initializer=initializer,
+		# 						 regularizer=regularizer,
+		# 						 name='W')
+		self.W = self.add_weight(shape=[self.input_num_capsule, self.input_dim_capsule,
+										self.num_capsule * self.dim_capsule],
 								 initializer=initializer,
 								 regularizer=regularizer,
 								 name='W')
@@ -93,12 +101,11 @@ class GraphCapsuleLayer(layers.Layer):
 	def call(self, inputs):
 		# inputs.shape=[None, N, input_num_capsule, input_dim_capsule]
 		# inputs_expand.shape=[None, N, 1, input_num_capsule, input_dim_capsule]
-		inputs_expand = K.expand_dims(inputs, 2)
+		# inputs_expand = K.expand_dims(inputs, 2)
 
 		# Replicate num_capsule dimension to prepare being multiplied by W
 		# inputs_tiled.shape=[None, N, num_capsule, input_num_capsule, input_dim_capsule]
-		inputs_tiled = K.tile(inputs_expand, [1, 1, self.num_capsule, 1, 1])
-		# print "tiled in shape", inputs_tiled.shape
+		# inputs_tiled = K.tile(inputs_expand, [1, 1, self.num_capsule, 1, 1])
 
 		# Compute `inputs * W` by scanning inputs_tiled on dimension 0.
 		# y.shape=[num_capsule, input_num_capsule, input_dim_capsule]
@@ -106,10 +113,16 @@ class GraphCapsuleLayer(layers.Layer):
 		# Regard the first two dimensions as `batch` dimension,
 		# then matmul: [input_dim_capsule] x [dim_capsule, input_dim_capsule]^T -> [dim_capsule].
 		# inputs_hat.shape = [None, N, num_capsule, input_num_capsule, dim_capsule]
-		inputs_hat = K.map_fn(lambda x: 
-							  K.map_fn(lambda y: K.batch_dot(y, self.W, [2, 3]), elems=x), elems=inputs_tiled)
-		# print "inhat shape", inputs_hat.shape
+		# inputs_hat = K.map_fn(lambda x: 
+		# 					  K.map_fn(lambda y: K.batch_dot(y, self.W, [2, 3]), elems=x), elems=inputs_tiled)
 
+		inputs_hat = K.map_fn(lambda x: K.map_fn(lambda y: 
+			K.reshape(K.batch_dot(y, self.W, axes=1), shape=[-1, self.num_capsule, self.dim_capsule]), elems=x), 
+			elems=inputs)
+		# print "inputs_hat", inputs_hat.shape
+
+		inputs_hat = K.permute_dimensions(inputs_hat, pattern=[0,1,3,2,4])
+		# print "inputs_hat", inputs_hat.shape
 		# raise SystemExit
 		
 		# Begin: Routing algorithm ---------------------------------------------------------------------#
@@ -121,6 +134,7 @@ class GraphCapsuleLayer(layers.Layer):
 		# b.shape = [None, N, self.num_capsule, self.input_num_capsule].
 		b = tf.zeros(shape=[K.shape(inputs_hat)[0], K.shape(inputs_hat)[1],
 							self.num_capsule, self.input_num_capsule])
+		# print "b", b.shape
 
 		assert self.num_routing > 0, 'The num_routing should be > 0.'
 		for i in range(self.num_routing):
@@ -133,21 +147,22 @@ class GraphCapsuleLayer(layers.Layer):
 				# inputs_hat.shape=[None, N, num_capsule, input_num_capsule, dim_capsule]
 				# The first three dimensions as `batch` dimension,
 				# then matmal: [input_num_capsule] x [input_num_capsule, dim_capsule] -> [dim_capsule].
-				# outputs.shape=[None, num_capsule, dim_capsule]
+				# outputs.shape=[None, N, num_capsule, dim_capsule]
 
 				# outputs = squash(K.batch_dot(c, inputs_hat, [3, 3]))  
-				outputs = K.batch_dot(c, inputs_hat, [3, 3])
+				outputs = K.batch_dot(c, inputs_hat, axes=3)
 			else:  # Otherwise, use `inputs_hat_stopped` to update `b`. No gradients flow on this path.
-				outputs = squash(K.batch_dot(c, inputs_hat_stopped, [3, 3]))
-
+				outputs = squash(K.batch_dot(c, inputs_hat_stopped, axes=3))
+				# print "outputs", outputs.shape
 				# outputs.shape =  [None, N, num_capsule, dim_capsule]
 				# inputs_hat.shape=[None, N, num_capsule, input_num_capsule, dim_capsule]
 				# The first two dimensions as `batch` dimension,
 				# then matmal: [dim_capsule] x [input_num_capsule, dim_capsule]^T -> [input_num_capsule].
 				# b.shape=[batch_size, N, num_capsule, input_num_capsule]
-				b += K.batch_dot(outputs, inputs_hat_stopped, [3, 4])
+				b += K.batch_dot(outputs, inputs_hat_stopped, axes=[3,4])
 		# End: Routing algorithm -----------------------------------------------------------------------#
 
+		# raise SystemExit
 		return outputs
 
 	def compute_output_shape(self, input_shape):
@@ -162,7 +177,7 @@ class AggregateLayer(layers.Layer):
 	Author: David McDonald, Email: `dxm237@cs.bham.ac.uk'
 	"""
 	def __init__(self, num_neighbours, num_filters, new_dim, mode="mean", activation=None,
-				 kernel_initializer='glorot_uniform', kernel_regularizer="l2",
+				 kernel_initializer='glorot_uniform', kernel_regularizer=1e-3,
 				 **kwargs):
 		super(AggregateLayer, self).__init__(**kwargs)
 
@@ -185,7 +200,8 @@ class AggregateLayer(layers.Layer):
 		self.old_dim = input_shape[3]
 
 		initializer = initializers.get(self.kernel_initializer)
-		regularizer = regularizers.get(self.kernel_regularizer)
+		# regularizer = regularizers.get(self.kernel_regularizer)
+		regularizer = l2(self.kernel_regularizer)
 
 		self.W = self.add_weight(shape=(self.num_caps * self.old_dim, self.num_filters * self.new_dim), 
 									trainable=True, initializer=initializer, regularizer=regularizer,

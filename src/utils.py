@@ -130,7 +130,7 @@ class EmbeddingCallback(Callback):
 		removed_edges_dict = self.removed_edges_dict
 		N = len(G)
 
-		r = 1.
+		r = 5.
 		t = 1.
 
 		ranks = np.zeros(len(removed_edges_dict))
@@ -185,6 +185,8 @@ class EmbeddingCallback(Callback):
 
 	def perform_embedding(self):
 
+		print "performing embedding"
+
 		def embedding_generator(X, input_nodes, batch_size=100):
 			num_steps = (input_nodes.shape[0] + batch_size - 1) / batch_size
 			for step in range(num_steps):
@@ -226,6 +228,8 @@ class EmbeddingCallback(Callback):
 		return embedding
 
 	def plot_embedding(self, embedding, path):
+
+		print "plotting embedding and saving to {}".format(path)
 
 		y = self.Y.argmax(axis=1)#.A1
 		embedding_dim = embedding.shape[-1]

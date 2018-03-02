@@ -2,6 +2,8 @@ import numpy as np
 import networkx as nx
 
 # from keras.models import load_model
+import tensorflow as tf
+from keras import backend as K
 from keras.callbacks import TerminateOnNaN, EarlyStopping, ModelCheckpoint, TensorBoard
 
 import argparse
@@ -16,12 +18,23 @@ from metrics import evaluate_link_prediction, make_and_evaluate_label_prediction
 
 
 
+# TensorFlow wizardry
+config = tf.ConfigProto()
+ 
+# Don't pre-allocate memory; allocate as-needed
+config.gpu_options.allow_growth = True
+ 
+# Only allow a total of half the GPU memory to be allocated
+config.gpu_options.per_process_gpu_memory_fraction = 0.5
+
+# Create a session with the above options specified.
+K.tensorflow_backend.set_session(tf.Session(config=config))
 
 def parse_args():
 	parser = argparse.ArgumentParser(description="GraphCaps for feature learning of complex networks")
 
-	parser.add_argument("--dataset", dest="dataset", type=str, default="wordnet",
-		help="The dataset to load. Must be one of [wordnet, cora, karate]. (Default is wordnet)")
+	parser.add_argument("--dataset", dest="dataset", type=str, default="cora",
+		help="The dataset to load. Must be one of [wordnet, cora, karate]. (Default is cora)")
 
 	parser.add_argument("-e", "--num_epochs", dest="num_epochs", type=int, default=1000,
 		help="The number of epochs to train for (default is 1000).")
@@ -75,6 +88,9 @@ def parse_args():
 def main():
 
 	args = parse_args()
+
+	assert len(args.neighbourhood_sample_sizes) == len(args.num_filters_per_layer) == len(args.agg_dim_per_layer) == \
+	len(args.num_capsules_per_layer) == len(args.capsule_dim_per_layer), "lengths of all input lists must be the same"
 
 	dataset = args.dataset
 
@@ -155,8 +171,7 @@ def main():
 	num_capsules_per_layer = np.array(args.num_capsules_per_layer)
 	capsule_dim_per_layer = np.array(args.capsule_dim_per_layer)
 
-	assert len(neighbourhood_sample_sizes) == len(num_filters_per_layer) == len(agg_dim_per_layer) == \
-	len(num_capsules_per_layer) == len(capsule_dim_per_layer), "lengths of all input lists must be the same"
+	
 
 	# context_size = args.context_size
 	# p = args.p
@@ -176,7 +191,7 @@ def main():
 	# else:
 	# 	validation_generator = None
 
-	capsnet, embedder, label_prediction_model, initial_epoch = load_models(X, Y, model_path, 
+	model, embedder, label_prediction_model, initial_epoch = load_models(X, Y, model_path, 
 		neighbourhood_sample_sizes, num_filters_per_layer, agg_dim_per_layer,
 		num_capsules_per_layer, capsule_dim_per_layer, args)
 
@@ -200,8 +215,8 @@ def main():
 		embedder, label_prediction_model, batch_size,
 		# annotate_idx=nodes_to_annotate, 
 		embedding_path=embedding_path, plot_path=plot_path, )
-	capsnet.fit_generator(training_generator, 
-		steps_per_epoch=len(G) / batch_size,
+	model.fit_generator(training_generator, 
+		steps_per_epoch=100,#len(G) / batch_size,
 		epochs=args.num_epochs, 
 		initial_epoch=initial_epoch,
 		# validation_data=validation_generator, validation_steps=1,
