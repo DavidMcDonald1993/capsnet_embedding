@@ -82,8 +82,7 @@ class Graph():
 			random.shuffle(nodes)
 			for node in nodes:
 				walks.append(self.node2vec_walk(walk_length=walk_length, start_node=node))
-				print "completed walk {}/{}, {.02f}% complete".format(i, num_walks*len(G), 
-					float(i) / (num_walks * len(G)) * 100)
+				print "completed walk {}/{}".format(i, num_walks*len(G))
 				i += 1
 
 		return walks

@@ -1,5 +1,6 @@
 import random
 import numpy as np
+import scipy as sp
 import networkx as nx
 
 from itertools import izip_longest
@@ -8,8 +9,8 @@ from utils import compute_label_mask, create_neighbourhood_sample_list
 from data_utils import preprocess_data
 from node2vec_sampling import Graph
 
-def neighbourhood_sample_generator(G, X, Y, walks, neighbourhood_sample_sizes, num_capsules_per_layer,
-	num_positive_samples, num_negative_samples, context_size, batch_size, num_samples_per_class=20):
+def neighbourhood_sample_generator(G, X, Y, train_mask, walks, neighbourhood_sample_sizes, num_capsules_per_layer,
+	num_positive_samples, num_negative_samples, context_size, batch_size,):
 	
 	'''
 	performs node2vec style neighbourhood sampling for positive samples.
@@ -25,11 +26,10 @@ def neighbourhood_sample_generator(G, X, Y, walks, neighbourhood_sample_sizes, n
 	# G = nx.convert_node_labels_to_integers(G, ordering="sorted")
 
 	num_classes = Y.shape[1]
-	if num_samples_per_class is not None:
-		label_mask = compute_label_mask(Y, num_patterns_to_keep=num_samples_per_class)
-	else:
-		label_mask = np.ones(Y.shape)
-
+	# if num_samples_per_class is not None:
+	# 	label_mask = compute_label_mask(Y, num_patterns_to_keep=num_samples_per_class)
+	# else:
+	# 	label_mask = np.ones(Y.shape)
 	label_prediction_layers = np.where(num_capsules_per_layer==num_classes)[0] + 1
 
 	neighbours = {n : list(G.neighbors(n)) for n in G.nodes()}
@@ -60,16 +60,21 @@ def neighbourhood_sample_generator(G, X, Y, walks, neighbourhood_sample_sizes, n
 		# shape is [batch_size, output_shape*prod(sample_sizes), D]
 		input_nodes = neighbour_list[0]
 		original_shape = list(input_nodes.shape)
-		x = X[input_nodes.flatten()]#.toarray()
-		# x = preprocess_data(x)
-		# add atrifical bacth dimension and capsule dimension 
+
+		if sp.sparse.issparse(X):
+
+			x = X[input_nodes.flatten()].toarray()
+			x = preprocess_data(x)
+
+		else:
+			x = X[input_nodes]
+		# add artificial capsule dimension 
 		x = x.reshape(original_shape + [1, -1])
-		# print "SHAPE", x.shape
 		# x = np.expand_dims(x, 2)
 		# shape is now [batch_nodes, output_shape*prod(sample_sizes), 1, D]
 
-		labels = []
-		all_zero_mask = False
+		masked_labels = []
+		# all_zero_mask = False
 		for layer in label_prediction_layers:
 			nodes_to_evaluate_label = neighbour_list[layer]
 			original_shape = list(nodes_to_evaluate_label.shape)
@@ -77,16 +82,16 @@ def neighbourhood_sample_generator(G, X, Y, walks, neighbourhood_sample_sizes, n
 			y = y.reshape(original_shape + [-1])
 
 
-			mask = label_mask[neighbour_list[layer]]
-			if (mask == 0).all():
-				all_zero_mask = True
-				break
+			mask = train_mask[neighbour_list[layer]]
+			# if (mask == 0).all():
+				# all_zero_mask = True
+				# break
 			y_masked = np.append(mask, y, axis=-1)
-			labels.append(y_masked)
+			masked_labels.append(y_masked)
 
 
-		if not all_zero_mask:
-			yield x, labels + negative_sample_targets
+		# if not all_zero_mask:
+		yield x, masked_labels + negative_sample_targets
 
 def generate_samples_node2vec(G, walks, num_positive_samples, num_negative_samples, context_size,):
 	# p, q, num_walks, walk_length):

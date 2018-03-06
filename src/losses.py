@@ -9,11 +9,13 @@ def masked_crossentropy(y_true, y_pred):
     y_pred shape = [None, N, num_classes]
     
     '''    
-    mask, y_true = tf.split(y_true, num_or_size_splits=2, axis=-1)
+    mask = y_true[:,:,:1]
+    y_true = y_true[:,:,1:]
+    # mask, y_true = tf.split(y_true, num_or_size_splits=2, axis=-1)
     # mask shape = [None, N, num_classes]
 
     # assert K.sum(mask[:,0]) > 0, "zero mask"
-    mask /= K.mean(mask)
+    # mask /= K.mean(mask)
     y_pred = K.clip(y_pred, min_value=K.epsilon(), max_value=1-K.epsilon())
 
 
@@ -56,24 +58,24 @@ def masked_margin_loss(y_true, y_pred):
 
     return K.mean(K.mean(K.sum(L, axis=-1), axis=-1))
 
-def euclidean_negative_sampling_loss(y_true, y_pred, num_pos=1, num_neg=5):
+# def euclidean_negative_sampling_loss(y_true, y_pred, num_pos=1, num_neg=5):
 
-    # n shape = [None, D]
-    u = y_pred[:,:1]
-    v = K.permute_dimensions(y_pred[:,1:1+num_pos], [0,2,1])
-    neg_samples = K.permute_dimensions(y_pred[:,-num_neg:], [0,2,1])
+#     # n shape = [None, D]
+#     u = y_pred[:,:1]
+#     v = K.permute_dimensions(y_pred[:,1:1+num_pos], [0,2,1])
+#     neg_samples = K.permute_dimensions(y_pred[:,-num_neg:], [0,2,1])
     
-    uv = K.batch_dot(u, v)
-    sig_uv = K.clip(K.sigmoid(uv), min_value=K.epsilon(), max_value=1-K.epsilon())
-    log_sig_uv = -K.log(sig_uv)
-    
-    
-    uneg = -K.batch_dot(u, neg_samples)
-    sig_uneg = K.clip(K.sigmoid(uneg), min_value=K.epsilon(), max_value=1-K.epsilon())
-    log_sig_uneg = -K.log(sig_uneg)
+#     uv = K.batch_dot(u, v)
+#     sig_uv = K.clip(K.sigmoid(uv), min_value=K.epsilon(), max_value=1-K.epsilon())
+#     log_sig_uv = -K.log(sig_uv)
     
     
-    return K.mean(log_sig_uv + num_neg * K.mean(log_sig_uneg, axis=1))
+#     uneg = -K.batch_dot(u, neg_samples)
+#     sig_uneg = K.clip(K.sigmoid(uneg), min_value=K.epsilon(), max_value=1-K.epsilon())
+#     log_sig_uneg = -K.log(sig_uneg)
+    
+    
+#     return K.mean(log_sig_uv + num_neg * K.mean(log_sig_uneg, axis=1))
 
 def hyperbolic_negative_sampling_loss(y_true, y_pred):
 
@@ -86,8 +88,8 @@ def hyperbolic_negative_sampling_loss(y_true, y_pred):
     # def sigmoid(x):
     #     return 1. / (1 + K.exp(-x))
 
-    P = K.softmax(-y_pred)
-    # P = K.softmax(-K.square(y_pred))
+    # P = K.softmax(-y_pred)
+    P = K.softmax(-K.square(y_pred))
 
     # r = 1.
     # t = 1.

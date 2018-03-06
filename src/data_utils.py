@@ -59,13 +59,13 @@ def load_data_gcn(dataset_str):
 	labels = np.vstack((ally, ty))
 	labels[test_idx_reorder, :] = labels[test_idx_range, :]
 
-	# idx_test = test_idx_range.tolist()
-	# idx_train = range(len(y))
-	# idx_val = range(len(y), len(y)+500)
+	idx_test = test_idx_range.tolist()
+	idx_train = range(len(y))
+	idx_val = range(len(y), len(y)+500)
 
-	# train_mask = sample_mask(idx_train, labels.shape[0])
-	# val_mask = sample_mask(idx_val, labels.shape[0])
-	# test_mask = sample_mask(idx_test, labels.shape[0])
+	train_mask = sample_mask(idx_train, labels.shape[0])
+	val_mask = sample_mask(idx_val, labels.shape[0])
+	test_mask = sample_mask(idx_test, labels.shape[0])
 
 	# y_train = np.zeros(labels.shape)
 	# y_val = np.zeros(labels.shape)
@@ -79,7 +79,6 @@ def load_data_gcn(dataset_str):
 	G = nx.from_numpy_array(adj.toarray())
 	G = nx.convert_node_labels_to_integers(G, label_attribute="original_name")
 	nx.set_edge_attributes(G=G, name="weight", values=1)
-
 
 	X = features.toarray()
 	Y = labels
@@ -109,7 +108,11 @@ def load_data_gcn(dataset_str):
 		G.remove_edges_from(val_edges)
 		G.remove_edges_from(test_edges)
 
-	return G, X, Y, val_edges, test_edges
+	train_mask = train_mask.reshape(-1, 1).astype(np.float32)
+	val_mask = train_mask.reshape(-1, 1).astype(np.float32)
+	test_mask = train_mask.reshape(-1, 1).astype(np.float32)
+
+	return G, X, Y, val_edges, test_edges, train_mask, val_mask, test_mask
 
 	# if not os.path.exists("../data/labelled_attributed_networks/{}_training_idx".format(dataset_str)):
 	# 	training_idx, val_idx = split_data(G, X, Y, split=0.3)
@@ -143,10 +146,10 @@ def load_citation_network(dataset_str):
 
 	N = len(G)
 
-	X = np.identity(N)
+	X = sp.sparse.identity(N, format="csr")
 	Y = np.ones((N, 1))
 
-	X = preprocess_data(X)
+	# X = preprocess_data(X)
 
 	val_file = "../data/collaboration_networks/{}_val_edges.pkl".format(dataset_str)
 	test_file = "../data/collaboration_networks/{}_test_edges.pkl".format(dataset_str)
@@ -171,7 +174,12 @@ def load_citation_network(dataset_str):
 		G.remove_edges_from(val_edges)
 		G.remove_edges_from(test_edges)
 
-	return G, X, Y, val_edges, test_edges
+	# not relevant for citation networks
+	train_mask = np.zeros((N, 1))
+	val_mask = np.zeros((N, 1))
+	test_mask = np.zeros((N, 1))
+
+	return G, X, Y, val_edges, test_edges, train_mask, val_mask, test_mask
 
 	# if not os.path.exists("../data/collaboration_networks/{}_training_idx".format(dataset_str)):
 	# 	training_idx, val_idx = split_data(G, X, Y, split=0.3)

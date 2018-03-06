@@ -10,7 +10,7 @@ import pickle as pkl
 
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import average_precision_score, normalized_mutual_info_score
+from sklearn.metrics import average_precision_score, normalized_mutual_info_score, accuracy_score
 
 import matplotlib
 matplotlib.use('agg')
@@ -20,7 +20,7 @@ from mpl_toolkits.mplot3d import Axes3D
 
 from keras.callbacks import Callback
 
-# from data_utils import preprocess_data
+from data_utils import preprocess_data
 from node2vec_sampling import Graph 
 from metrics import evaluate_link_prediction
 
@@ -57,6 +57,11 @@ def create_neighbourhood_sample_list(nodes, neighbourhood_sample_sizes, neighbou
 
 	for neighbourhood_sample_size in neighbourhood_sample_sizes[::-1]:
 
+		for batch in neighbourhood_sample_list[-1]:
+			for n in batch:
+				if len(neighbours[n]) == 0:
+					print "ZERO", n
+
 		neighbourhood_sample_list.append(np.array([np.concatenate([np.append(n, np.random.choice(neighbours[n], 
 			replace=True, size=neighbourhood_sample_size)) for n in batch]) for batch in neighbourhood_sample_list[-1]]))
 
@@ -68,16 +73,17 @@ def create_neighbourhood_sample_list(nodes, neighbourhood_sample_sizes, neighbou
 
 
 
-class EmbeddingCallback(Callback):
+class ValidationCallback(Callback):
 
-	def __init__(self, G, X, Y, removed_edges, neighbourhood_sample_sizes, num_capsules_per_layer,
+	def __init__(self, G, X, Y, val_mask, removed_edges_val, neighbourhood_sample_sizes, num_capsules_per_layer,
 		embedder, predictor, batch_size,
 	 # annotate_idx, 
 	 embedding_path, plot_path,):
 		self.G = G 
 		self.X = X
 		self.Y = Y
-		self.removed_edges = sorted(removed_edges, key=lambda(u, v): (u, v))
+		self.val_mask = val_mask
+		self.removed_edges_val = sorted(removed_edges_val, key=lambda(u, v): (u, v))
 		self.neighbourhood_sample_sizes = neighbourhood_sample_sizes
 		self.num_capsules_per_layer = num_capsules_per_layer
 		self.embedder = embedder
@@ -86,7 +92,7 @@ class EmbeddingCallback(Callback):
 		# self.annotate_idx = annotate_idx
 		self.embedding_path = embedding_path
 		self.plot_path = plot_path
-		self.removed_edges_dict = self.convert_edgelist_to_dict(removed_edges)
+		self.removed_edges_dict = self.convert_edgelist_to_dict(removed_edges_val)
 		self.G_edge_dict = self.convert_edgelist_to_dict(G.edges(), self_edges=True)
 		# self.candidate_edges_path = candidate_edges_path
 		# if not os.path.exists(candidate_edges_path):
@@ -130,7 +136,7 @@ class EmbeddingCallback(Callback):
 		removed_edges_dict = self.removed_edges_dict
 		N = len(G)
 
-		r = 5.
+		r = 1.
 		t = 1.
 
 		ranks = np.zeros(len(removed_edges_dict))
@@ -180,6 +186,10 @@ class EmbeddingCallback(Callback):
 		mean_rank, mean_precision = self.evaluate_rank_and_MAP(embedding)
 		logs.update({"mean_rank" : mean_rank, "mean_precision" : mean_precision})
 
+		if self.predictor is not None and self.Y.shape[1] > 1:
+			NMI, classification_accuracy = self.make_and_evaluate_label_predictions()
+			logs.update({"NMI": NMI, "classification_accuracy": classification_accuracy})
+
 		self.plot_embedding(embedding, path="{}/embedding_epoch_{:04}".format(self.embedding_path, epoch))
 
 
@@ -191,21 +201,28 @@ class EmbeddingCallback(Callback):
 			num_steps = (input_nodes.shape[0] + batch_size - 1) / batch_size
 			for step in range(num_steps):
 				batch_nodes = input_nodes[batch_size*step : batch_size*(step+1)]
-				x = X[batch_nodes]
+				if sp.sparse.issparse(X):
+					x = X[batch_nodes.flatten()]
+					x = preprocess_data(x)
+				else:
+					x = X[batch_nodes]
 				yield x.reshape([-1, input_nodes.shape[1], 1, X.shape[-1]])
 
 		G = self.G
 		X = self.X
 		neighbourhood_sample_sizes = self.neighbourhood_sample_sizes
 		embedder = self.embedder
-		batch_size = self.batch_size
+		batch_size = self.batch_size * 12
 
-		nodes = np.arange(len(G)).reshape(-1, 1)
+		nodes = np.array(sorted(list(G.nodes()))).reshape(-1, 1)
+
 		# nodes = nodes.reshape(-1, 1)
 		neighbours = {n: list(G.neighbors(n)) for n in G.nodes()}
 		neighbour_list = create_neighbourhood_sample_list(nodes, neighbourhood_sample_sizes, neighbours)
 
 		input_nodes = neighbour_list[0]
+		# print input_nodes
+		# print input_nodes.shape
 		# original_shape = list(input_nodes.shape)
 		# print original_shape, X.shape
 		# raise SystemExit
@@ -258,14 +275,18 @@ class EmbeddingCallback(Callback):
 	
 	def make_and_evaluate_label_predictions(self):
 
-		print "evaluating label predictions"
+		print "evaluating label predictions on validation set"
 
 
 		def prediction_generator(X, input_nodes, batch_size=100):
 			num_steps = (input_nodes.shape[0] + batch_size - 1) / batch_size
 			for step in range(num_steps):
 				batch_nodes = input_nodes[batch_size*step : batch_size*(step+1)]
-				x = X[batch_nodes]
+				if sp.sparse.issparse(X):
+					x = X[batch_nodes.flatten()]
+					x = preprocess_data(x)
+				else:
+					x = X[batch_nodes]
 				yield x.reshape([-1, input_nodes.shape[1], 1, X.shape[-1]])
 
 		G = self.G
@@ -275,7 +296,7 @@ class EmbeddingCallback(Callback):
 		num_capsules_per_layer = self.num_capsules_per_layer
 		neighbourhood_sample_sizes = self.neighbourhood_sample_sizes
 		batch_size = self.batch_size
-
+		val_mask = self.val_mask.flatten().astype(np.bool)
 
 		_, num_classes = Y.shape
 		label_prediction_layers = np.where(num_capsules_per_layer==num_classes)[0] + 1
@@ -292,10 +313,15 @@ class EmbeddingCallback(Callback):
 		predictions = predictor.predict_generator(prediction_gen, steps=num_steps)
 		predictions = predictions.reshape(-1, predictions.shape[-1])
 
-		true_labels = Y.argmax(axis=-1)
-		predicted_labels = predictions.argmax(axis=-1)
+		# only consider validation labels
+		true_labels = Y[val_mask].argmax(axis=-1)
+		predicted_labels = predictions[val_mask].argmax(axis=-1)
 
-		print "NMI of predictions: {}".format(normalized_mutual_info_score(true_labels, predicted_labels))
-		print "Classification accuracy: {}".format((true_labels==predicted_labels).sum() / float(true_labels.shape[0]))
+		NMI = normalized_mutual_info_score(true_labels, predicted_labels)
+		classification_accuracy = accuracy_score(true_labels, predicted_labels, normalize=True)
 
+		print "NMI of predictions: {}".format(NMI)
+		print "Classification accuracy: {}".format(classification_accuracy)
+		
+		return NMI, classification_accuracy
 

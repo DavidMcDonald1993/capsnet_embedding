@@ -14,20 +14,20 @@ from keras.regularizers import l2
 
 
 class Length(layers.Layer):
-    """
-    Compute the length of vectors. This is used to compute a Tensor that has the same shape with y_true in margin_loss.
-    Using this layer as model's output can directly predict labels by using `y_pred = np.argmax(model.predict(x), 1)`
-    inputs: shape=[None, num_vectors, dim_vector]
-    output: shape=[None, num_vectors]
-    
-    Author: Xifeng Guo, E-mail: `guoxifeng1990@163.com`, Github: `https://github.com/XifengGuo/CapsNet-Keras`
-    """
-    def call(self, inputs):
-        return K.sqrt(K.sum(K.square(inputs), axis=-1) + K.epsilon())
+	"""
+	Compute the length of vectors. This is used to compute a Tensor that has the same shape with y_true in margin_loss.
+	Using this layer as model's output can directly predict labels by using `y_pred = np.argmax(model.predict(x), 1)`
+	inputs: shape=[None, num_vectors, dim_vector]
+	output: shape=[None, num_vectors]
+	
+	Author: Xifeng Guo, E-mail: `guoxifeng1990@163.com`, Github: `https://github.com/XifengGuo/CapsNet-Keras`
+	"""
+	def call(self, inputs):
+		return K.sqrt(K.sum(K.square(inputs), axis=-1) + K.epsilon())
 
-    def compute_output_shape(self, input_shape):
-    	# print "length output shape", input_shape[:-1]
-        return input_shape[:-1]
+	def compute_output_shape(self, input_shape):
+		# print "length output shape", input_shape[:-1]
+		return input_shape[:-1]
 
 def squash(vectors, axis=-1):
 	"""
@@ -56,7 +56,6 @@ class GraphCapsuleLayer(layers.Layer):
 	"""
 	def __init__(self, num_capsule, dim_capsule, num_routing=3,
 				 kernel_initializer='glorot_uniform', 
-				 # kernel_initializer=RandomUniform(-0.5, 0.5),
 				 kernel_regularizer=1e-3,
 				 **kwargs):
 		super(GraphCapsuleLayer, self).__init__(**kwargs)
@@ -116,12 +115,37 @@ class GraphCapsuleLayer(layers.Layer):
 		# inputs_hat = K.map_fn(lambda x: 
 		# 					  K.map_fn(lambda y: K.batch_dot(y, self.W, [2, 3]), elems=x), elems=inputs_tiled)
 
-		inputs_hat = K.map_fn(lambda x: K.map_fn(lambda y: 
-			K.reshape(K.batch_dot(y, self.W, axes=1), shape=[-1, self.num_capsule, self.dim_capsule]), elems=x), 
-			elems=inputs)
+		# inputs_hat = K.map_fn(lambda x: 
+		# 	# K.map_fn(lambda y: 
+		# 	K.reshape(K.batch_dot(x, self.W, axes=[2, 1]), 
+		# 		shape=[-1, self.input_num_capsule, self.num_capsule, self.dim_capsule]), 
+		# 	# elems=x),
+		# 	elems=inputs)
+		# inputs_hat = K.map_fn(lambda x, shape=[-1, self.num_capsule, self.dim_capsule]: 
+		# 	K.map_fn(lambda y, shape=shape: 
+		# 	K.reshape(y, shape=shape), elems=x), 
+		# 	elems=inputs_hat)
+
+
+		# inputs shape is [None, N, input_num_caps, input_cap_dim]
+		batch_size = K.shape(inputs)[0]
+		inputs = K.reshape(inputs, [-1, self.input_num_capsule, self.input_dim_capsule])
+		# shape is not [None*N, input num caps, input cap dim]
+		inputs = K.permute_dimensions(inputs, [1, 0, 2])
+		# shape is now [input num caps, None*N, input cap dim]
+		# W shape is [input num caps, input cap dim, num_caps * cap dim]
+		inputs_hat = K.batch_dot(inputs, self.W, axes=[2,1])
+		# shape is now [input num caps, None*N, num caps * cap dim]
+		inputs_hat = K.permute_dimensions(inputs_hat, [1,0, 2])
+		# shape is now [None*N, input num caps, num_caps * caps dim]
+		inputs_hat = K.reshape(inputs_hat, tf.stack([batch_size, -1, self.input_num_capsule, 
+													self.num_capsule, self.dim_capsule]))
+
+		# shape is now [None, N, input num caps, num caps, cap dim]
 		# print "inputs_hat", inputs_hat.shape
 
 		inputs_hat = K.permute_dimensions(inputs_hat, pattern=[0,1,3,2,4])
+		# shape is now [None, N, num_caps, num_input_caps, cap_dim]
 		# print "inputs_hat", inputs_hat.shape
 		# raise SystemExit
 		
@@ -176,12 +200,13 @@ class AggregateLayer(layers.Layer):
 	
 	Author: David McDonald, Email: `dxm237@cs.bham.ac.uk'
 	"""
-	def __init__(self, num_neighbours, num_filters, new_dim, mode="mean", activation=None,
+	def __init__(self, num_neighbours, num_caps, num_filters, new_dim, mode="mean", activation=None,
 				 kernel_initializer='glorot_uniform', kernel_regularizer=1e-3,
 				 **kwargs):
 		super(AggregateLayer, self).__init__(**kwargs)
 
 		self.num_neighbours = num_neighbours
+		self.num_caps = num_caps
 		self.num_filters = num_filters
 		self.new_dim = new_dim
 		self.mode = mode
@@ -191,23 +216,23 @@ class AggregateLayer(layers.Layer):
 
 	def build(self, input_shape):
 		'''
-		input_shape = [batch_size, Nn, num_caps, cap_dim]
+		input_shape = [batch_size, Nn, num_input_caps, cap_dim]
 		'''
 
-		# self.batch_size = input_shape[0]
-		self.n_dimension = input_shape[1] 
-		self.num_caps = input_shape[2]
-		self.old_dim = input_shape[3]
+		# self.n_dimension = input_shape[1] 
+		# self.num_input_caps = input_shape[2]
+		# self.input_dim = input_shape[3]
+		self.input_dim = input_shape[2] * input_shape[3]
 
 		initializer = initializers.get(self.kernel_initializer)
 		# regularizer = regularizers.get(self.kernel_regularizer)
 		regularizer = l2(self.kernel_regularizer)
 
-		self.W = self.add_weight(shape=(self.num_caps * self.old_dim, self.num_filters * self.new_dim), 
+		self.W = self.add_weight(shape=(self.input_dim, self.num_caps * self.num_filters * self.new_dim), 
 									trainable=True, initializer=initializer, regularizer=regularizer,
 									name="W")
 
-		self.bias = self.add_weight(shape=(1, self.num_filters * self.new_dim),
+		self.bias = self.add_weight(shape=(self.num_caps * self.num_filters, self.new_dim),
 									trainable=True, initializer=initializer, regularizer=regularizer,
 									name="bias")
 
@@ -215,7 +240,7 @@ class AggregateLayer(layers.Layer):
 
 	def get_config(self):
 		config = super(AggregateLayer, self).get_config()
-		config.update({"num_neighbours":self.num_neighbours,
+		config.update({"num_neighbours":self.num_neighbours, "num_caps": self.num_caps,
 			"num_filters":self.num_filters, "new_dim":self.new_dim, "mode":self.mode, "activation":self.activation,
 			"kernel_initializer":self.kernel_initializer, "kernel_regularizer":self.kernel_regularizer})
 		return config
@@ -223,26 +248,40 @@ class AggregateLayer(layers.Layer):
 	def call(self, inputs):
 
 		'''
-		input shape = [None, Nn, num_caps, cap_dim]
+		input shape = [None, Nn, num_inputs_caps, cap_dim]
 		'''
 		
 		#aggregate over neighbours
-		inputs_shaped = K.reshape(inputs, shape=tf.stack([K.shape(inputs)[0], -1, self.num_neighbours, self.num_caps, self.old_dim]))
+		# inputs_shaped = K.reshape(inputs, shape=tf.stack([K.shape(inputs)[0], -1, self.num_neighbours, 
+			# self.num_input_caps, self.input_dim]))
+		# print "AGG"
+		inputs_shaped = K.map_fn(lambda x, shape=[-1, self.num_neighbours, self.input_dim]:
+			K.reshape(x, shape=shape), elems=inputs)
+		# print "inputs shaped", inputs_shaped.shape
 		inputs_aggregated = K.mean(inputs_shaped, axis=2)
+		# print "inputs aggregated", inputs_aggregated.shape
+		# shape is [None, Nn+1, input_dim]
 
-		inputs_shaped = K.reshape(inputs_aggregated, shape=tf.stack([K.shape(inputs)[0], -1, self.num_caps*self.old_dim]))
-		output = K.map_fn(lambda x : 
-			# K.dot(self.mean_vector, x), elems=inputs_shaped)
-			# K.dot(self.mean_vector, K.dot(x, self.W) + self.bias), elems=inputs_shaped)
-			K.dot(x, self.W) + self.bias, elems=inputs_shaped)
-		output = K.reshape(output, 
-			shape=tf.stack([K.shape(inputs)[0], -1, self.num_filters, self.new_dim]))
+		output = K.map_fn(lambda x, W=self.W, bias=self.bias, shape=[-1, self.num_caps*self.num_filters, self.new_dim]: 
+			# K.map_fn(lambda y, W=W, bias=bias, shape=shape:
+				K.reshape(K.dot(x, W), shape=shape) + bias, #elems=x), 
+				elems=inputs_aggregated)
+			# K.map_fn(lambda y, W=W, bias=bias, shape=shape: 
+			# 	K.reshape(K.batch_dot(y, W, axes=1) + bias, shape=shape), elems=x), elems=inputs_aggregated)
+		# output shape is [None, Nn+1, ]
+		# print "output", output.shape
+		# output = K.reshape(output, 
+		# 	shape=tf.stack([K.shape(inputs)[0], -1, self.num_filters, self.new_dim]))
 		# output = K.reshape(output, [K.shape(output)[0], K.shape(output)[1], 
 		# 	K.shape(inputs)[2], K.shape(inputs)[3]])
 		# shape is now [None, Nn+1, num_caps, cap_dim]
+
+		# output = K.reshape(output, shape=tf.stack([K.shape(inputs)[0], -1, 
+		# 	self.num_input_caps*self.num_filters, self.new_dim]))
 		
 		if self.activation is not None:
 			output = activations.get(self.activation)(output)
+		# output = squash(output)
 		
 		return output
 		
@@ -252,50 +291,52 @@ class AggregateLayer(layers.Layer):
 		output_shape is [None, Nn+1, num_caps, cap_dim]
 
 		'''
-		
+		# print "AGG OTUPUT ",tuple([input_shape[0], input_shape[1] / self.num_neighbours, 
+		# 	self.num_input_caps*self.num_filters, self.new_dim])
 		# return tuple([input_shape[0], self.n_dimension, input_shape[2], input_shape[3]])
-		return tuple([input_shape[0], input_shape[1] / self.num_neighbours, self.num_filters, self.new_dim])
+		return tuple([input_shape[0], input_shape[1] / self.num_neighbours, 
+			self.num_caps*self.num_filters, self.new_dim])
 
 class HyperbolicDistanceLayer(layers.Layer):
-    """
-    TODO
-    """
-    def __init__(self, num_positive_samples, num_negative_samples, **kwargs):
-        super(HyperbolicDistanceLayer, self).__init__(**kwargs)
-        self.num_positive_samples = num_positive_samples
-        self.num_negative_samples = num_negative_samples
+	"""
+	TODO
+	"""
+	def __init__(self, num_positive_samples, num_negative_samples, **kwargs):
+		super(HyperbolicDistanceLayer, self).__init__(**kwargs)
+		self.num_positive_samples = num_positive_samples
+		self.num_negative_samples = num_negative_samples
 
-    def build(self, input_shape):
-    	self.N = input_shape[1]
-    	self.step_size = self.N / (1 + self.num_positive_samples + self.num_negative_samples)
-    	self.built = True
+	def build(self, input_shape):
+		self.N = input_shape[1]
+		self.step_size = self.N / (1 + self.num_positive_samples + self.num_negative_samples)
+		self.built = True
 
-    def get_config(self):
-        config = super(HyperbolicDistanceLayer, self).get_config()
-        config.update({"num_positive_samples":self.num_positive_samples, 
-                       "num_negative_samples":self.num_negative_samples})
-        return config
-        
-    def safe_norm(self, x, sqrt=False):
-        x = K.sum(K.square(x), axis=-1, keepdims=False) + K.epsilon()
-        if sqrt:
-            x = K.sqrt(x)
-        return x
-        
-    def call(self, inputs):
-        '''
-        input_shape = [None, N, D]
-        '''
+	def get_config(self):
+		config = super(HyperbolicDistanceLayer, self).get_config()
+		config.update({"num_positive_samples":self.num_positive_samples, 
+					   "num_negative_samples":self.num_negative_samples})
+		return config
+		
+	def safe_norm(self, x, sqrt=False):
+		x = K.sum(K.square(x), axis=-1, keepdims=False) + K.epsilon()
+		if sqrt:
+			x = K.sqrt(x)
+		return x
+		
+	def call(self, inputs):
+		'''
+		input_shape = [None, N, D]
+		'''
 
-        inputs = inputs[:,::self.step_size]
-        u = inputs[:,:1]
-        v = inputs[:,1:]
+		inputs = inputs[:,::self.step_size]
+		u = inputs[:,:1]
+		v = inputs[:,1:]
 
 
-        d = tf.acosh(1 + 2 * self.safe_norm(u - v) / 
-                     ((1 - self.safe_norm(u)) * (1 - self.safe_norm(v))))
-        return d
+		d = tf.acosh(1 + 2 * self.safe_norm(u - v) / 
+					 ((1 - self.safe_norm(u)) * (1 - self.safe_norm(v))))
+		return d
 
-    def compute_output_shape(self, input_shape):
-    	# print "hypdist output shape ", tuple([input_shape[0], self.num_positive_samples + self.num_negative_samples])
-        return tuple([input_shape[0], self.num_positive_samples + self.num_negative_samples])
+	def compute_output_shape(self, input_shape):
+		# print "hypdist output shape ", tuple([input_shape[0], self.num_positive_samples + self.num_negative_samples])
+		return tuple([input_shape[0], self.num_positive_samples + self.num_negative_samples])
