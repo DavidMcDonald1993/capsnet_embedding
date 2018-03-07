@@ -10,7 +10,26 @@ import pickle as pkl
 
 from sklearn.preprocessing import StandardScaler
 
+def compute_label_mask(Y, num_train=20, num_val=50):
 
+	num_samples, num_classes = Y.shape
+	assignments = Y.argmax(axis=1)
+
+	nodes_in_classes = [np.random.permutation(np.where(assignments == c)[0]) for c in range(num_classes)]
+
+	train_idx = np.concatenate([nodes_in_class[:num_train] for nodes_in_class in nodes_in_classes])
+	val_idx =  np.concatenate([nodes_in_class[num_train:num_train+num_val] for nodes_in_class in nodes_in_classes])
+	test_idx = np.concatenate([nodes_in_class[num_train+num_val:] for nodes_in_class in nodes_in_classes])
+
+	train_mask = np.zeros((num_samples, 1), dtype=np.float32)
+	val_mask = np.zeros((num_samples, 1), dtype=np.float32)
+	test_mask = np.zeros((num_samples, 1), dtype=np.float32)
+
+	train_mask[train_idx] = 1
+	val_mask[val_idx] = 1
+	test_mask[test_idx] = 1
+
+	return train_mask, val_mask, test_mask
 
 def load_data_gcn(dataset_str):
 	"""Load data."""
@@ -112,7 +131,7 @@ def load_data_gcn(dataset_str):
 	val_mask = train_mask.reshape(-1, 1).astype(np.float32)
 	test_mask = train_mask.reshape(-1, 1).astype(np.float32)
 
-	return G, X, Y, val_edges, test_edges, train_mask, val_mask, test_mask
+	return adj, G, X, Y, val_edges, test_edges, train_mask, val_mask, test_mask
 
 	# if not os.path.exists("../data/labelled_attributed_networks/{}_training_idx".format(dataset_str)):
 	# 	training_idx, val_idx = split_data(G, X, Y, split=0.3)
@@ -137,12 +156,14 @@ def load_data_gcn(dataset_str):
 
 
 
-def load_citation_network(dataset_str):
+def load_collaboration_network(dataset_str):
 	assert dataset_str in ["AstroPh", "CondMat", "GrQc", "HepPh"], "dataset string is not valid"
 
 	G = nx.read_edgelist("../data/collaboration_networks/ca-{}.txt.gz".format(dataset_str))
 	G = nx.convert_node_labels_to_integers(G, label_attribute="original_name")
 	nx.set_edge_attributes(G=G, name="weight", values=1)
+
+	original_adj = nx.adjacency_matrix(G)
 
 	N = len(G)
 
@@ -174,12 +195,13 @@ def load_citation_network(dataset_str):
 		G.remove_edges_from(val_edges)
 		G.remove_edges_from(test_edges)
 
-	# not relevant for citation networks
+
+	# not relevant for collaboration networks
 	train_mask = np.zeros((N, 1))
 	val_mask = np.zeros((N, 1))
 	test_mask = np.zeros((N, 1))
 
-	return G, X, Y, val_edges, test_edges, train_mask, val_mask, test_mask
+	return original_adj, G, X, Y, val_edges, test_edges, train_mask, val_mask, test_mask
 
 	# if not os.path.exists("../data/collaboration_networks/{}_training_idx".format(dataset_str)):
 	# 	training_idx, val_idx = split_data(G, X, Y, split=0.3)
@@ -206,6 +228,8 @@ def load_karate():
 	G = nx.karate_club_graph()
 	G = nx.convert_node_labels_to_integers(G, label_attribute="original_name")
 	nx.set_edge_attributes(G=G, name="weight", values=1)
+
+	original_adj = nx.adjacency_matrix(G)
 
 	N = len(G)
 
@@ -247,7 +271,22 @@ def load_karate():
 		G.remove_edges_from(val_edges)
 		G.remove_edges_from(test_edges)
 
-	return G, X, Y, val_edges, test_edges
+	train_mask_file = "../data/karate/train_idx"
+	val_mask_file = "../data/karate/val_idx"
+	test_mask_file = "../data/karate/test_idx"
+
+	if not os.path.exist(training_idx):
+		train_mask, val_mask, test_mask = compute_label_mask(Y, num_train=3, num_val=3)
+		np.savetxt(train_mask, train_mask_file, delimiter=",", fmt="%i")
+		np.savetxt(val_mask, val_mask_file, delimiter=",", fmt="%i")
+		np.savetxt(test_mask, test_mask_file, delimiter=",", fmt="%i")
+	else:
+		train_mask = np.genfromtxt(train_mask_file, delimiter",")
+		val_mask = np.genfromtxt(val_mask_file, delimiter",")
+		test_mask = np.genfromtxt(test_mask_file, delimiter",")
+
+
+	return original_adj, G, X, Y, val_edges, test_edges, train_mask, val_mask, test_mask
 
 	# if not os.path.exists("../data/karate/training_idx"):
 	# 	training_idx, val_idx = split_data(G, X, Y, split=0.3)
@@ -322,6 +361,8 @@ def load_wordnet():
 	G = nx.convert_node_labels_to_integers(G, label_attribute="original_name")
 	nx.set_edge_attributes(G=G, name="weight", values=1)
 
+	original_adj = nx.adjacency_matrix(G)
+
 	# fasttext vectors?
 	N = len(G)
 	X = np.genfromtxt("../data/wordnet/feats.txt", delimiter=" ")
@@ -354,7 +395,12 @@ def load_wordnet():
 		G.remove_edges_from(val_edges)
 		G.remove_edges_from(test_edges)
 
-	return G, X, Y, val_edges, test_edges
+	# not relevant for wordnet
+	train_mask = np.zeros((N, 1))
+	val_mask = np.zeros((N, 1))
+	test_mask = np.zeros((N, 1))
+
+	return original_adj, G, X, Y, val_edges, test_edges, train_mask, val_mask, test_mask
 
 	# if not os.path.exists("../data/wordnet/training_idx"):
 	# 	training_idx, val_idx = split_data(G, X, Y, split=0.3)
@@ -432,6 +478,9 @@ def remove_edges(G, number_of_edges_to_remove):
 
 			if len(removed_edges) == number_of_edges_to_remove:
 				break
+
+			if u == v:
+				continue
 
 			# do not remove edges connecting leaf nodes
 			if G.degree(u) > 1 and G.degree(v) > 1:

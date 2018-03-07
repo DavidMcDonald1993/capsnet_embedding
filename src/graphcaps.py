@@ -1,7 +1,6 @@
 import numpy as np
 import networkx as nx
 
-# from keras.models import load_model
 import tensorflow as tf
 from keras import backend as K
 from keras.callbacks import TerminateOnNaN, EarlyStopping, ModelCheckpoint, TensorBoard
@@ -12,8 +11,8 @@ import pickle as pkl
 
 from models import load_models, generate_graphcaps_model
 from generators import neighbourhood_sample_generator
-from data_utils import load_karate, load_wordnet, load_citation_network, load_data_gcn, preprocess_data, remove_edges, split_data 
-from utils import load_walks, ValidationCallback
+from data_utils import load_karate, load_wordnet, load_collaboration_network, load_data_gcn, preprocess_data, remove_edges, split_data 
+from utils import load_positive_samples_and_ground_truth_negative_samples, load_walks, ValidationCallback
 from metrics import evaluate_link_prediction, make_and_evaluate_label_predictions, evaluate_lexical_entailment
 
 
@@ -25,7 +24,7 @@ config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
  
 # Only allow a total of half the GPU memory to be allocated
-config.gpu_options.per_process_gpu_memory_fraction = 0.75
+config.gpu_options.per_process_gpu_memory_fraction = 0.5
 
 # config.allow_soft_placement = True
 # config.log_device_placement=True
@@ -84,6 +83,10 @@ def parse_args():
 		help="path to save logs (default is '../logs/)'.")
 	parser.add_argument("--walks", dest="walk_path", default="../walks/", 
 		help="path to save random walks (default is '../walks/)'.")
+	parser.add_argument("--pos_samples_path", dest="pos_samples_path", default="../positive_samples/", 
+		help="path to save positive sample list (default is '../positive_samples/)'.")
+	parser.add_argument("--neg_samples_path", dest="neg_samples_path", default="../negative_samples/", 
+		help="path to save ground truth negative sample for each node (default is '../negative_samples/)'.")
 	parser.add_argument("--model", dest="model_path", default="../models/", 
 		help="path to save model after each epoch (default is '../models/)'.")
 
@@ -119,6 +122,12 @@ def main():
 	walk_path = os.path.join(args.walk_path, dataset)
 	if not os.path.exists(walk_path):
 		os.makedirs(walk_path)
+	positive_samples_path = os.path.join(args.pos_samples_path, dataset)
+	if not os.path.exists(positive_samples_path):
+		os.makedirs(positive_samples_path)
+	negative_samples_path = os.path.join(args.neg_samples_path, dataset)
+	if not os.path.exists(negative_samples_path):
+		os.makedirs(negative_samples_path)
 	model_path = os.path.join(args.model_path, dataset)
 	if not os.path.exists(model_path):
 		os.makedirs(model_path)
@@ -130,25 +139,28 @@ def main():
 		os.makedirs(model_path)
 
 	if dataset == "wordnet":
-		G, X, Y, removed_edges_val, removed_edges_test = load_wordnet()
+		original_adj, G, X, Y, removed_edges_val, removed_edges_test, train_mask, val_mask, test_mask = load_wordnet()
 	elif dataset == "karate":
-		G, X, Y, removed_edges_val, removed_edges_test = load_karate()
+		original_adj, G, X, Y, removed_edges_val, removed_edges_test, train_mask, val_mask, test_mask = load_karate()
 	elif dataset in ["citeseer", "cora", "pubmed"]:
-		G, X, Y, removed_edges_val, removed_edges_test, train_mask, val_mask, test_mask = load_data_gcn(dataset)
+		original_adj, G, X, Y, removed_edges_val, removed_edges_test, train_mask, val_mask, test_mask = load_data_gcn(dataset)
 	else:
-		G, X, Y, removed_edges_val, removed_edges_test, train_mask, val_mask, test_mask = load_citation_network(dataset)
+		original_adj, G, X, Y, removed_edges_val, removed_edges_test, train_mask, val_mask, test_mask = load_collaboration_network(dataset)
 
 
 	walk_file = os.path.join(walk_path, "walks.pkl")
 	# walk_train_file = os.path.join(walk_path, "walks_train.pkl")
 	# walk_val_file = os.path.join(walk_path, "walks_val.pkl")
 
+	positive_samples_filename = os.path.join(positive_samples_path, "positive_samples.pkl")
+	negative_samples_filename = os.path.join(negative_samples_path, "positive_samples.pkl")
 
 
 	# walks_train = load_walks(G_train, walk_train_file, args)
 	# walks_val = load_walks(G_val, walk_val_file, args)
-	walks = load_walks(G, walk_file, args)
-
+	# walks = load_walks(G, walk_file, args)
+	positive_samples, ground_truth_negative_samples = load_positive_samples_and_ground_truth_negative_samples(G, walks, args, 
+	walk_file, positive_samples_filename, negative_samples_filename)
 
 	data_dim = X.shape[1]
 	num_classes = Y.shape[1]
@@ -166,26 +178,25 @@ def main():
 
 
 
-	training_generator = neighbourhood_sample_generator(G, X, Y, train_mask, walks,
+	training_generator = neighbourhood_sample_generator(G, X, Y, train_mask, 
+		positive_samples, ground_truth_negative_samples,
 		neighbourhood_sample_sizes, num_capsules_per_layer, 
-		num_positive_samples, num_negative_samples, args.context_size, args.batch_size,)
+		num_positive_samples, num_negative_samples, args.batch_size,)
 
 	model, embedder, label_prediction_model, initial_epoch = load_models(X, Y, model_path, 
 		neighbourhood_sample_sizes, num_primary_caps_per_layer, num_filters_per_layer, agg_dim_per_layer,
 		num_capsules_per_layer, capsule_dim_per_layer, args)
 
-
-	validation_callback = ValidationCallback(G, X, Y, val_mask, 
-		removed_edges_val, neighbourhood_sample_sizes, num_capsules_per_layer,
+	validation_callback = ValidationCallback(G, X, Y, original_adj, 
+		val_mask, removed_edges_val, ground_truth_negative_samples, 
+		neighbourhood_sample_sizes, num_capsules_per_layer,
 		embedder, label_prediction_model, batch_size,
-		# annotate_idx=nodes_to_annotate, 
 		embedding_path=embedding_path, plot_path=plot_path, )
 	
 	print "BEGIN TRAINING"
-	# raise SystemExit
 
 	model.fit_generator(training_generator, 
-		steps_per_epoch=1,#len(G) / batch_size,
+		steps_per_epoch=1000,#len(G) / batch_size,
 		epochs=args.num_epochs, 
 		initial_epoch=initial_epoch,
 		# validation_data=validation_generator, validation_steps=1,
