@@ -1,0 +1,9 @@
+data/email/
+data/email_temporal/
+data/ppi/
+data/cora/
+jupyter_notebooks/
+data/reddit/
+data/reddit/reddit-G.json
+data/reddit/reddit-G_full.json
+data/reddit/reddit-walks.txt

@@ -27,15 +27,46 @@ from metrics import evaluate_link_prediction
 def load_positive_samples_and_ground_truth_negative_samples(G, args, 
 	walk_file, positive_samples_filename, negative_samples_filename):
 
+	def save_positive_samples(positive_samples, positive_samples_filename):
+
+		with open(positive_samples_filename, "w") as f:
+			for positive_sample in positive_samples:
+				f.write("{} {} ".format(positive_sample[0], positive_sample[1]))
+
+	def load_positive_samples(positive_samples_filename):
+
+		with open(positive_samples_filename, "r") as f:
+			l = f.readline().rstrip()
+			split = [int(n) for n in l.split(" ")]
+			positive_samples = zip(split[::2], split[1::2]) 
+		return positive_samples
+
+	def save_negative_samples(negative_samples, negative_samples_filename):
+
+		with open(negative_samples_filename, "w") as f:
+			for k in negative_samples:
+				f.write("{} ".format(k) + " ".join(str(v) for v in negative_samples[k]) + "\n")
+
+	def load_negative_samples(negative_samples_filename):
+
+		negative_samples = {}
+		with open(negative_samples_filename, "r") as f:
+			for l in f.readlines():
+				split = l.split(" ")
+				negative_samples.update({int(split[0]) : [int(n) for n in split[1:]]})
+		return negative_samples
+
 	
 	if os.path.exists(positive_samples_filename):
 
 		print "loading positive and negative samples from file"
 
-		with open(positive_samples_filename, "rb") as f:
-			positive_samples = pkl.load(f)
-		with open(negative_samples_filename, "rb") as f:
-			ground_truth_negative_samples = pkl.load(f)
+		# with open(positive_samples_filename, "rb") as f:
+		# 	positive_samples = pkl.load(f)
+		# with open(negative_samples_filename, "rb") as f:
+		# 	ground_truth_negative_samples = pkl.load(f)
+		positive_samples = load_positive_samples(positive_samples_filename)
+		ground_truth_negative_samples = load_negative_samples(negative_samples_filename) 
 
 	else:
 
@@ -45,10 +76,12 @@ def load_positive_samples_and_ground_truth_negative_samples(G, args,
 		determine_positive_and_groud_truth_negative_samples(G, walks, args.context_size)
 
 		print "saving positive and negative samples to file"
-		with open(positive_samples_filename, "wb") as f:
-			pkl.dump(positive_samples, f)
-		with open(negative_samples_filename, "wb") as f:
-			pkl.dump(ground_truth_negative_samples, f)
+		# with open(positive_samples_filename, "wb") as f:
+		# 	pkl.dump(positive_samples, f)
+		# with open(negative_samples_filename, "wb") as f:
+		# 	pkl.dump(ground_truth_negative_samples, f)
+		save_positive_samples(positive_samples, positive_samples_filename)
+		save_negative_samples(ground_truth_negative_samples, negative_samples_filename)
 
 
 	return positive_samples, ground_truth_negative_samples
@@ -83,17 +116,34 @@ def determine_positive_and_groud_truth_negative_samples(G, walks, context_size):
 
 def load_walks(G, walk_file, args):
 
+	def save_walks_to_file(walks, walk_file):
+		with open(walk_file, "w") as f:
+			for walk in walks:
+				for n in walk:
+					f.write("{} ".format(n))
+
+	def load_walks_from_file(walk_file, walk_length):
+
+		with open(walk_file, "r") as f:
+			l = f.readline().rstrip()
+			l = [int(n) for n in l.split(" ")]
+			walks = [l[i:i+walk_length] for i in range(0, len(l), walk_length)]
+		return walks
+
+
 	if not os.path.exists(walk_file):
 		node2vec_graph = Graph(nx_G=G, is_directed=False, p=args.p, q=args.q)
 		node2vec_graph.preprocess_transition_probs()
 		walks = node2vec_graph.simulate_walks(num_walks=args.num_walks, walk_length=args.walk_length)
-		with open(walk_file, "wb") as f:
-			pkl.dump(walks, f)
+		# with open(walk_file, "wb") as f:
+		# 	pkl.dump(walks, f)
+		save_walks_to_file(walks, walk_file)
 		print "saved walks to {}".format(walk_file)
 	else:
 		print "loading walks from {}".format(walk_file)
-		with open(walk_file, "rb") as f:
-			walks = pkl.load(f)
+		# with open(walk_file, "rb") as f:
+		# 	walks = pkl.load(f)
+		walks = load_walks_from_file(walk_file, args.walk_length)
 	return walks
 
 

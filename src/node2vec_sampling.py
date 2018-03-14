@@ -83,7 +83,7 @@ class Graph():
 			for node in nodes:
 				walks.append(self.node2vec_walk(walk_length=walk_length, start_node=node))
 				if i % 1000 == 0:
-					print "completed walk {}/{}".format(i, num_walks*len(G))
+					print "peformed walk {}/{}".format(i, num_walks*len(G))
 				i += 1
 
 		return walks

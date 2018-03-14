@@ -197,12 +197,12 @@ def main():
 		monitor = "mean_rank_reconstruction"
 		mode = "min"
 
-	walk_file = os.path.join(walk_path, "walks-{}-{}.pkl".format(args.num_walks, args.walk_length))
+	walk_file = os.path.join(walk_path, "walks-{}-{}".format(args.num_walks, args.walk_length))
 	# walk_train_file = os.path.join(walk_path, "walks_train.pkl")
 	# walk_val_file = os.path.join(walk_path, "walks_val.pkl")
 
-	positive_samples_filename = os.path.join(positive_samples_path, "positive_samples.pkl")
-	negative_samples_filename = os.path.join(negative_samples_path, "negative_samples.pkl")
+	positive_samples_filename = os.path.join(positive_samples_path, "positive_samples")
+	negative_samples_filename = os.path.join(negative_samples_path, "negative_samples")
 
 
 	# walks_train = load_walks(G_train, walk_train_file, args)
