@@ -21,8 +21,8 @@ import numpy as np
 # from keras.callbacks import Callback
 
 # from data_utils import preprocess_data
-# from node2vec_sampling import Graph 
-from metrics import evaluate_link_prediction
+from node2vec_sampling import Graph 
+# from metrics import evaluate_link_prediction
 
 def load_positive_samples_and_ground_truth_negative_samples(G, args, 
 	walk_file, positive_samples_filename, negative_samples_filename):
