@@ -616,6 +616,6 @@ def remove_edges(G, number_of_edges_to_remove):
 				i = min(u, v)
 				j = max(u, v)
 				removed_edges.append((i, j))
-				print "removed edge {}: {}".format(len(removed_edges), (i, j))
+				print ("removed edge {}: {}".format(len(removed_edges), (i, j)))
 
 	return G, removed_edges
