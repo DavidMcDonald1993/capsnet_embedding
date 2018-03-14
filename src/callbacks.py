@@ -1,11 +1,11 @@
 import numpy as np
 import scipy as sp
 
-# import matplotlib
-# matplotlib.use('agg')
+import matplotlib
+matplotlib.use('agg')
 
-# import matplotlib.pyplot as plt
-# from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 from sklearn.metrics import average_precision_score, normalized_mutual_info_score, accuracy_score, f1_score
 
@@ -122,34 +122,34 @@ class ReconstructionLinkPredictionCallback(Callback):
 			ranks_link_prediction = np.zeros(N)
 
 		for u in range(N):
-		    
-		    dists_u = hyperbolic_distance(embedding[u], embedding)
-		    y_pred = sigmoid((r - dists_u) / t) 
+			
+			dists_u = hyperbolic_distance(embedding[u], embedding)
+			y_pred = sigmoid((r - dists_u) / t) 
 		   
-		    y_pred_reconstruction = y_pred.copy()
-		    y_true_reconstruction = original_adj[u].toarray().flatten()
-		    MAPs_reconstruction[u] = average_precision_score(y_true=y_true_reconstruction, 
-		    	y_score=y_pred_reconstruction)
-		    
-		    y_pred_reconstruction[::-1].sort()
-		    ranks_reconstruction[u] = np.array([np.searchsorted(-y_pred_reconstruction, -p) 
-		                                        for p in y_pred[y_true_reconstruction.astype(np.bool)]]).mean()
-		    
-		    if removed_edges_dict is not None and removed_edges_dict.has_key(u):
-		    
-		        removed_neighbours = removed_edges_dict[u]
-		        all_negative_samples = ground_truth_negative_samples[u]
-		        y_true_link_prediction = np.append(np.ones(len(removed_neighbours)), 
-		                                           np.zeros(len(all_negative_samples)))
-		        y_pred_link_prediction = np.append(y_pred[removed_neighbours], y_pred[all_negative_samples])
-		        MAPs_link_prediction[u] = average_precision_score(y_true=y_true_link_prediction, y_score=y_pred_link_prediction)
+			y_pred_reconstruction = y_pred.copy()
+			y_true_reconstruction = original_adj[u].toarray().flatten()
+			MAPs_reconstruction[u] = average_precision_score(y_true=y_true_reconstruction, 
+				y_score=y_pred_reconstruction)
+			
+			y_pred_reconstruction[::-1].sort()
+			ranks_reconstruction[u] = np.array([np.searchsorted(-y_pred_reconstruction, -p) 
+												for p in y_pred[y_true_reconstruction.astype(np.bool)]]).mean()
+			
+			if removed_edges_dict is not None and removed_edges_dict.has_key(u):
+			
+				removed_neighbours = removed_edges_dict[u]
+				all_negative_samples = ground_truth_negative_samples[u]
+				y_true_link_prediction = np.append(np.ones(len(removed_neighbours)), 
+												   np.zeros(len(all_negative_samples)))
+				y_pred_link_prediction = np.append(y_pred[removed_neighbours], y_pred[all_negative_samples])
+				MAPs_link_prediction[u] = average_precision_score(y_true=y_true_link_prediction, y_score=y_pred_link_prediction)
 
-		        y_pred_link_prediction[::-1].sort()
-		        ranks_link_prediction[u] = np.array([np.searchsorted(-y_pred_link_prediction, -p) 
-		                                            for p in y_pred[removed_neighbours]]).mean()
+				y_pred_link_prediction[::-1].sort()
+				ranks_link_prediction[u] = np.array([np.searchsorted(-y_pred_link_prediction, -p) 
+													for p in y_pred[removed_neighbours]]).mean()
 
-		    if u % 1000 == 0:
-				print( "completed node {}/{}".format(u, N))
+			if u % 1000 == 0:
+				print ("completed node {}/{}".format(u, N))
 
 
 		# ranks = np.zeros(len(removed_edges_dict))
