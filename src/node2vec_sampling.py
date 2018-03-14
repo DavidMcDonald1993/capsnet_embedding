@@ -45,30 +45,30 @@ class Graph():
 
 		return walk
 
-	def compute_node_probs(self, node):
+	# def compute_node_probs(self, node):
 
-		A = self.A 
-		unnormalized_probs = A[node].toarray().flatten()
-		normalized_probs = unnormalized_probs / unnormalized_probs.sum()
-		return normalized_probs
+	# 	A = self.A 
+	# 	unnormalized_probs = A[node].toarray().flatten()
+	# 	normalized_probs = unnormalized_probs / unnormalized_probs.sum()
+	# 	return normalized_probs
 
 
-	def compute_edge_probs(self, prev, cur):
+	# def compute_edge_probs(self, prev, cur):
 
-		A = self.A
-		A_with_self_links = self.A_with_self_links
-		p = self.p
-		q = self.q
+	# 	A = self.A
+	# 	A_with_self_links = self.A_with_self_links
+	# 	p = self.p
+	# 	q = self.q
 
-		unnormalized_probs = A[cur].toarray().flatten()
-		unnormalized_probs[prev] /= p
+	# 	unnormalized_probs = A[cur].toarray().flatten()
+	# 	unnormalized_probs[prev] /= p
 
-		not_connected_to_prev = A_with_self_links[prev].toarray().flatten() == 0#.toarray().flatten()
-		unnormalized_probs[not_connected_to_prev] /= q
+	# 	not_connected_to_prev = A_with_self_links[prev].toarray().flatten() == 0#.toarray().flatten()
+	# 	unnormalized_probs[not_connected_to_prev] /= q
 
-		normalized_probs = unnormalized_probs / unnormalized_probs.sum()
+	# 	normalized_probs = unnormalized_probs / unnormalized_probs.sum()
 
-		return normalized_probs
+	# 	return normalized_probs
 
 	def simulate_walks(self, num_walks, walk_length):
 		'''
@@ -82,7 +82,8 @@ class Graph():
 			random.shuffle(nodes)
 			for node in nodes:
 				walks.append(self.node2vec_walk(walk_length=walk_length, start_node=node))
-				print "completed walk {}/{}".format(i, num_walks*len(G))
+				if i % 1000 == 0:
+					print "completed walk {}/{}".format(i, num_walks*len(G))
 				i += 1
 
 		return walks

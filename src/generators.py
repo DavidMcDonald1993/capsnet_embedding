@@ -10,9 +10,9 @@ from data_utils import preprocess_data
 from node2vec_sampling import Graph
 
 def neighbourhood_sample_generator(G, X, Y, train_mask, 
-	positive_samples, ground_truth_negative_samples,
-	neighbourhood_sample_sizes, num_capsules_per_layer,
-	num_positive_samples, num_negative_samples, batch_size,):
+	positive_samples, ground_truth_negative_samples, args):
+	# neighbourhood_sample_sizes, num_capsules_per_layer,
+	# num_positive_samples, num_negative_samples, batch_size,):
 	
 	'''
 	performs node2vec style neighbourhood sampling for positive samples.
@@ -21,27 +21,19 @@ def neighbourhood_sample_generator(G, X, Y, train_mask,
 
 	'''
 
-	# G = nx.convert_node_labels_to_integers(G, ordering="sorted")
+	number_of_capsules_per_layer = args.number_of_capsules_per_layer
+	neighbourhood_sample_sizes = args.neighbourhood_sample_sizes
+	batch_size = args.batch_size
+
+	num_positive_samples = args.num_positive_samples
+	num_negative_samples = args.num_negative_samples
 
 	num_classes = Y.shape[1]
-	# if num_samples_per_class is not None:
-	# 	label_mask = compute_label_mask(Y, num_patterns_to_keep=num_samples_per_class)
-	# else:
-	# 	label_mask = np.ones(Y.shape)
-	label_prediction_layers = np.where(num_capsules_per_layer==num_classes)[0] + 1
+	label_prediction_layers = np.where(number_of_capsules_per_layer==num_classes)[0] + 1
 
 	neighbours = {n : list(G.neighbors(n)) for n in G.nodes()}
 
-	num_layers = neighbourhood_sample_sizes.shape[0]
-
-	# node2vec_sampler = generate_samples_node2vec(G, walks, num_positive_samples, num_negative_samples, context_size, )
-		# p, q, num_walks, walk_length)
-	# batch_sampler = grouper(batch_size, node2vec_sampler)
-
-	# not used at the moment
-	negative_sample_targets = np.zeros((batch_size, num_positive_samples+num_negative_samples))
-	negative_sample_targets[:,0] = 1
-	negative_sample_targets = [negative_sample_targets] * num_layers
+	num_embeddings = neighbourhood_sample_sizes.shape[0]
 
 	num_steps = (len(positive_samples) + batch_size - 1) / batch_size
 	
@@ -85,6 +77,8 @@ def neighbourhood_sample_generator(G, X, Y, train_mask,
 				original_shape = list(nodes_to_evaluate_label.shape)
 				y = Y[nodes_to_evaluate_label.flatten()]#.toarray()
 				y = y.reshape(original_shape + [-1])
+				# print y.shape, sp.sparse.issparse(y)
+				# raise SystemExit
 
 
 				mask = train_mask[neighbour_list[layer]]
@@ -92,7 +86,13 @@ def neighbourhood_sample_generator(G, X, Y, train_mask,
 					# all_zero_mask = True
 					# break
 				y_masked = np.append(mask, y, axis=-1)
+				# print y_masked.shape
+				# raise SystemExit
 				masked_labels.append(y_masked)
+
+			negative_sample_targets = np.zeros((batch_nodes.shape[0], num_positive_samples+num_negative_samples))
+			negative_sample_targets[:,0] = 1
+			negative_sample_targets = [negative_sample_targets] * num_embeddings
 
 
 			# if not all_zero_mask:

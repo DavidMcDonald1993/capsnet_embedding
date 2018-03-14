@@ -3,7 +3,7 @@ import networkx as nx
 
 import tensorflow as tf
 from keras import backend as K
-from keras.callbacks import TerminateOnNaN, EarlyStopping, ModelCheckpoint, TensorBoard
+from keras.callbacks import TerminateOnNaN, EarlyStopping, ModelCheckpoint, TensorBoard, CSVLogger
 
 import argparse
 import os
@@ -11,10 +11,11 @@ import pickle as pkl
 
 from models import load_models, generate_graphcaps_model
 from generators import neighbourhood_sample_generator
-from data_utils import load_karate, load_wordnet, load_collaboration_network, load_data_gcn, preprocess_data, remove_edges, split_data 
-from utils import load_positive_samples_and_ground_truth_negative_samples, load_walks, ValidationCallback
-from metrics import evaluate_link_prediction, make_and_evaluate_label_predictions, evaluate_lexical_entailment
-
+# from data_utils import load_karate, load_wordnet, load_collaboration_network, load_data_gcn, load_reddit
+from data_utils import load_data
+from utils import load_positive_samples_and_ground_truth_negative_samples, load_walks#, ValidationCallback
+from metrics import evaluate_lexical_entailment#evaluate_link_prediction, make_and_evaluate_label_predictions, evaluate_lexical_entailment
+from callbacks import ReconstructionLinkPredictionCallback, LabelPredicitonCallback
 
 
 # TensorFlow wizardry
@@ -39,15 +40,20 @@ def parse_args():
 		help="The dataset to load. Must be one of [wordnet, cora, citeseer, pubmed,\
 		AstroPh, CondMat, GrQc, HepPh, karate]. (Default is cora)")
 
+	parser.add_argument("--use-labels", action="store_true",
+		help="Use this flag to include label prediction cross entropy in the final loss function.")
+	parser.add_argument("--no-intermediary-loss", action="store_true", 
+		help="Use this flag to not include loss from intermediary hyperbolic embeddings in final loss function.")
+
 	parser.add_argument("-e", "--num_epochs", dest="num_epochs", type=int, default=1000,
 		help="The number of epochs to train for (default is 1000).")
 	parser.add_argument("-b", "--batch_size", dest="batch_size", type=int, default=100, 
 		help="Batch size for training (default is 100).")
 	# parser.add_argument("--npos", dest="num_pos", type=int, default=1, 
 	# 	help="Number of positive samples for training (default is 1).")
-	parser.add_argument("--nneg", dest="num_neg", type=int, default=10, 
+	parser.add_argument("--nneg", dest="num_negative_samples", type=int, default=10, 
 		help="Number of negative samples for training (default is 10).")
-	parser.add_argument("--context_size", dest="context_size", type=int, default=5,
+	parser.add_argument("--context-size", dest="context_size", type=int, default=5,
 		help="Context size for generating positive samples (default is 5).")
 
 	parser.add_argument("-s", "--sample_sizes", dest="neighbourhood_sample_sizes", type=int, nargs="+",
@@ -58,11 +64,12 @@ def parse_args():
 		help="Number of filters for each layer separated by space (default is [32, 32]).", default=[32, 32])
 	parser.add_argument("-a", "--agg_dim", dest="agg_dim_per_layer", type=int, nargs="+",
 		help="Dimension of agg output for each layer separated by a space (default is [8, 8]).", default=[8, 8])
-	parser.add_argument("-n", "--num_caps", dest="num_capsules_per_layer", type=int, nargs="+",
+	parser.add_argument("-n", "--num_caps", dest="number_of_capsules_per_layer", type=int, nargs="+",
 		help="Number of capsules for each layer separated by space (default is [7, 1]).", default=[7, 1])
 	parser.add_argument("-d", "--capsule_dim", dest="capsule_dim_per_layer", type=int, nargs="+",
 		help="Dimension of capule output for each layer separated by a space (default is [8, 2]).", default=[8, 2])
-
+	parser.add_argument("--dim", dest="embedding_dim", type=int,
+		help="Dimension of embedding capsule (default is 10).", default=10)
 
 	parser.add_argument("-p", dest="p", type=float, default=1.,
 		help="node2vec return parameter (default is 1.).")
@@ -94,13 +101,46 @@ def parse_args():
 	args = parser.parse_args()
 	return args
 
+def fix_parameters(args):
+
+
+	args.neighbourhood_sample_sizes = [25, 5]
+	args.num_primary_caps_per_layer = [8, 8]
+	args.num_filters_per_layer = [8, 8]
+	args.agg_dim_per_layer = [8, 8]
+
+
+	dataset = args.dataset
+	if dataset in ["AstroPh", "CondMat", "HepPh", "GrQc", "wordnet"]:
+
+		args.number_of_capsules_per_layer = [8, 1]
+		args.capsule_dim_per_layer = [8, args.embedding_dim]
+
+	elif dataset in ["citeseer", "cora", "pubmed", "reddit"]:
+
+		if dataset == "citeseer":
+			num_classes = 6
+		elif dataset == "cora":
+			num_classes = 7
+		elif dataset == "pubmed":
+			num_classes = 3
+		else:
+			num_classes = 40
+
+		args.number_of_capsules_per_layer = [num_classes, 1]
+		args.capsule_dim_per_layer = [8, 10]
+
 def main():
 
 	args = parse_args()
+	args.num_positive_samples = 1
+
+	fix_parameters(args)
+
 
 	assert len(args.neighbourhood_sample_sizes) == len(args.num_primary_caps_per_layer) ==\
 	len(args.num_filters_per_layer) == len(args.agg_dim_per_layer) == \
-	len(args.num_capsules_per_layer) == len(args.capsule_dim_per_layer), "lengths of all input lists must be the same"
+	len(args.number_of_capsules_per_layer) == len(args.capsule_dim_per_layer), "lengths of all input lists must be the same"
 
 	dataset = args.dataset
 
@@ -113,12 +153,18 @@ def main():
 	embedding_path = os.path.join(embedding_path, 
 			"neighbourhood_sample_sizes={}_num_primary_caps={}_num_filters={}_agg_dim={}_num_caps={}_caps_dim={}".format(args.neighbourhood_sample_sizes, 
 				args.num_primary_caps_per_layer, args.num_filters_per_layer, 
-				args.agg_dim_per_layer, args.num_capsules_per_layer, args.capsule_dim_per_layer))
+				args.agg_dim_per_layer, args.number_of_capsules_per_layer, args.capsule_dim_per_layer))
 	if not os.path.exists(embedding_path):
 		os.makedirs(embedding_path)
 	log_path = os.path.join(args.log_path, dataset)
 	if not os.path.exists(log_path):
 		os.makedirs(log_path)
+	log_path = os.path.join(log_path, 
+		"neighbourhood_sample_sizes={}_num_primary_caps={}_num_filters={}_agg_dim={}_num_caps={}_caps_dim={}.log".format(args.neighbourhood_sample_sizes, 
+			args.num_primary_caps_per_layer, args.num_filters_per_layer, 
+			args.agg_dim_per_layer, args.number_of_capsules_per_layer, args.capsule_dim_per_layer))
+	# if not os.path.exists(log_path):
+	# 	os.makedirs(log_path)
 	walk_path = os.path.join(args.walk_path, dataset)
 	if not os.path.exists(walk_path):
 		os.makedirs(walk_path)
@@ -134,85 +180,112 @@ def main():
 	model_path = os.path.join(model_path, 
 		"neighbourhood_sample_sizes={}_num_primary_caps={}_num_filters={}_agg_dim={}_num_caps={}_caps_dim={}".format(args.neighbourhood_sample_sizes, 
 			args.num_primary_caps_per_layer, args.num_filters_per_layer, 
-			args.agg_dim_per_layer, args.num_capsules_per_layer, args.capsule_dim_per_layer))
+			args.agg_dim_per_layer, args.number_of_capsules_per_layer, args.capsule_dim_per_layer))
 	if not os.path.exists(model_path):
 		os.makedirs(model_path)
 
-	if dataset == "wordnet":
-		original_adj, G, X, Y, removed_edges_val, removed_edges_test, train_mask, val_mask, test_mask = load_wordnet()
-	elif dataset == "karate":
-		original_adj, G, X, Y, removed_edges_val, removed_edges_test, train_mask, val_mask, test_mask = load_karate()
-	elif dataset in ["citeseer", "cora", "pubmed"]:
-		original_adj, G, X, Y, removed_edges_val, removed_edges_test, train_mask, val_mask, test_mask = load_data_gcn(dataset)
+	reconstruction_adj, G_train, G_val, G_test,\
+	X, Y, val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx = load_data(dataset)
+
+	if dataset in ["citeseer", "cora", "pubmed", "reddit"]:
+		assert Y.shape[1] in args.number_of_capsules_per_layer, "You must have a layer with {} capsules".format(Y.shape[1])
+		args.use_labels = True
+		monitor = "classification_accuracy"
+		mode = "max"
+		print "using labels in training"
 	else:
-		original_adj, G, X, Y, removed_edges_val, removed_edges_test, train_mask, val_mask, test_mask = load_collaboration_network(dataset)
+		monitor = "mean_rank_reconstruction"
+		mode = "min"
 
-
-	walk_file = os.path.join(walk_path, "walks.pkl")
+	walk_file = os.path.join(walk_path, "walks-{}-{}.pkl".format(args.num_walks, args.walk_length))
 	# walk_train_file = os.path.join(walk_path, "walks_train.pkl")
 	# walk_val_file = os.path.join(walk_path, "walks_val.pkl")
 
 	positive_samples_filename = os.path.join(positive_samples_path, "positive_samples.pkl")
-	negative_samples_filename = os.path.join(negative_samples_path, "positive_samples.pkl")
+	negative_samples_filename = os.path.join(negative_samples_path, "negative_samples.pkl")
 
 
 	# walks_train = load_walks(G_train, walk_train_file, args)
 	# walks_val = load_walks(G_val, walk_val_file, args)
 	# walks = load_walks(G, walk_file, args)
-	positive_samples, ground_truth_negative_samples = load_positive_samples_and_ground_truth_negative_samples(G, walks, args, 
+	positive_samples, ground_truth_negative_samples =\
+	load_positive_samples_and_ground_truth_negative_samples(G_train, args, 
 	walk_file, positive_samples_filename, negative_samples_filename)
 
-	data_dim = X.shape[1]
-	num_classes = Y.shape[1]
+	# data_dim = X.shape[1]
+	# num_classes = Y.shape[1]
 
-	batch_size = args.batch_size
-	num_positive_samples = 1
-	num_negative_samples = args.num_neg
+	# batch_size = args.batch_size
+	# num_positive_samples = 1
+	# num_negative_samples = args.num_neg
 
 	neighbourhood_sample_sizes = np.array(args.neighbourhood_sample_sizes[::-1])
 	num_primary_caps_per_layer = np.array(args.num_primary_caps_per_layer)
 	num_filters_per_layer = np.array(args.num_filters_per_layer)
 	agg_dim_per_layer = np.array(args.agg_dim_per_layer)
-	num_capsules_per_layer = np.array(args.num_capsules_per_layer)
+	number_of_capsules_per_layer = np.array(args.number_of_capsules_per_layer)
 	capsule_dim_per_layer = np.array(args.capsule_dim_per_layer)
 
+	args.neighbourhood_sample_sizes = neighbourhood_sample_sizes
+	args.num_primary_caps_per_layer = num_primary_caps_per_layer
+	args.num_filters_per_layer = num_filters_per_layer
+	args.agg_dim_per_layer = agg_dim_per_layer
+	args.number_of_capsules_per_layer = number_of_capsules_per_layer
+	args.capsule_dim_per_layer = capsule_dim_per_layer
 
 
-	training_generator = neighbourhood_sample_generator(G, X, Y, train_mask, 
-		positive_samples, ground_truth_negative_samples,
-		neighbourhood_sample_sizes, num_capsules_per_layer, 
-		num_positive_samples, num_negative_samples, args.batch_size,)
+	training_generator = neighbourhood_sample_generator(G_train, X, Y, train_label_mask, 
+		positive_samples, ground_truth_negative_samples, args)
+		# neighbourhood_sample_sizes, num_capsules_per_layer, 
+		# args.num_positive_samples, args.num_negative_samples, args.batch_size,)
 
-	model, embedder, label_prediction_model, initial_epoch = load_models(X, Y, model_path, 
-		neighbourhood_sample_sizes, num_primary_caps_per_layer, num_filters_per_layer, agg_dim_per_layer,
-		num_capsules_per_layer, capsule_dim_per_layer, args)
+	model, embedder, label_prediction_model, initial_epoch = load_models(X, Y, model_path, args)
+		# neighbourhood_sample_sizes, num_primary_caps_per_layer, num_filters_per_layer, agg_dim_per_layer,
+		# num_capsules_per_layer, capsule_dim_per_layer, args)
 
-	validation_callback = ValidationCallback(G, X, Y, original_adj, 
-		val_mask, removed_edges_val, ground_truth_negative_samples, 
-		neighbourhood_sample_sizes, num_capsules_per_layer,
-		embedder, label_prediction_model, batch_size,
-		embedding_path=embedding_path, plot_path=plot_path, )
+	# validation_callback = ValidationCallback(G, X, Y, original_adj, 
+	# 	val_mask, removed_edges_val, ground_truth_negative_samples, 
+	# 	neighbourhood_sample_sizes, num_capsules_per_layer,
+	# 	embedder, label_prediction_model, args.batch_size,
+	# 	embedding_path=embedding_path, plot_path=plot_path, )
+
+	nan_terminate_callback = TerminateOnNaN()
+
+	reconstruction_callback = ReconstructionLinkPredictionCallback(G_train, X, Y, reconstruction_adj, embedder,
+		val_edges, ground_truth_negative_samples, embedding_path, plot_path, args)
+
+	label_prediction_callback = LabelPredicitonCallback(G_val, X, Y, label_prediction_model, val_label_idx, args)
+
+	early_stopping_callback = EarlyStopping(monitor=monitor, patience=10, mode=mode, verbose=1)
+	
+	checkpoint_callback = ModelCheckpoint(os.path.join(model_path, "{epoch:04d}-{mean_precision_reconstruction:.4f}-{mean_rank_reconstruction:.2f}.h5"),
+		monitor=monitor, save_weights_only=False)
+
+	logger_callback = CSVLogger(log_path, append=True)
+
+	callbacks = [nan_terminate_callback, reconstruction_callback, 
+	label_prediction_callback, early_stopping_callback, checkpoint_callback, logger_callback]
+
 	
 	print "BEGIN TRAINING"
 
+	# num_steps = (len(positive_samples) / args.num_walks + args.batch_size - 1) / args.batch_size
+	num_steps = 1000
 	model.fit_generator(training_generator, 
-		steps_per_epoch=1000,#len(G) / batch_size,
+		steps_per_epoch=num_steps,
 		epochs=args.num_epochs, 
 		initial_epoch=initial_epoch,
 		# validation_data=validation_generator, validation_steps=1,
-		verbose=1, callbacks=[validation_callback, TerminateOnNaN(), 
-		EarlyStopping(monitor="mean_rank", patience=10, mode="min", verbose=1),
-		ModelCheckpoint(os.path.join(model_path, "{epoch:04d}-{mean_precision:.4f}-{mean_rank:.2f}.h5"), 
-			monitor="mean_precision", save_weights_only=False),])
-		# TensorBoard(log_dir=log_path, batch_size=batch_size)])
+		verbose=1, callbacks=callbacks)
 
-	if label_prediction_model is not None and Y.shape[1] > 1:
-		validation_callback.make_and_evaluate_label_predictions()
+	if test_label_idx is not None:
+		label_prediction_callback.make_and_evaluate_label_predictions(G_test, test_label_idx)
 
-	embedding = validation_callback.perform_embedding()
-
-	mean_rank, MAP = validation_callback.evaluate_rank_and_MAP(embedding, )
-	print "Mean rank:", mean_rank, "MAP:", MAP
+	embedding = reconstruction_callback.perform_embedding()
+	metrics = reconstruction_callback.evaluate_rank_and_MAP(embedding, test_edges)
+	print "Mean rank reconstruction:", metrics[0], "MAP reconstruction:", metrics[1]
+	if test_edges is not None:
+		print "Mean rank link predicion:", metrics[2], "MAP link prediction:", metrics[3]
 
 	if dataset == "wordnet":
 		evaluate_lexical_entailment(embedding)

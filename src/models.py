@@ -22,16 +22,12 @@ def connect_layers(layer_tuples, x):
 
 	return y
 
-def load_models(X, Y, model_path, neighbourhood_sample_sizes, num_primary_caps_per_layer, 
-	num_filters_per_layer, agg_dim_per_layer,
-	num_capsules_per_layer, capsule_dim_per_layer, args):
+def load_models(X, Y, model_path, args):
+	# neighbourhood_sample_sizes, num_primary_caps_per_layer, 
+	# num_filters_per_layer, agg_dim_per_layer,
+	# num_capsules_per_layer, capsule_dim_per_layer, args):
 
-	def model_to_dict(model):
-		layer_dict = {}
-		for layer in model.layers:
-			layer_name = layer.name.split("_layer")[0]
-			layer_dict.setdefault(layer_name, []).append(layer)
-		return layer_dict
+
 
 	# def get_model_memory_usage(batch_size, model):
 
@@ -70,15 +66,14 @@ def load_models(X, Y, model_path, neighbourhood_sample_sizes, num_primary_caps_p
 
 		print "Creating new model"
 
-		batch_size = args.batch_size
-		num_positive_samples = 1
-		num_negative_samples = args.num_neg
+		# batch_size = args.batch_size
+		# num_positive_samples = 1
+		# num_negative_samples = args.num_neg
 
 
-		model = generate_graphcaps_model(X, Y, batch_size, 
-		num_positive_samples, num_negative_samples,
-		neighbourhood_sample_sizes, num_primary_caps_per_layer, num_filters_per_layer, agg_dim_per_layer,
-		num_capsules_per_layer, capsule_dim_per_layer)
+		model = generate_graphcaps_model(data_dim, num_classes, args)
+		# neighbourhood_sample_sizes, num_primary_caps_per_layer, num_filters_per_layer, agg_dim_per_layer,
+		# num_capsules_per_layer, capsule_dim_per_layer, args)
 
 
 	else:
@@ -119,12 +114,28 @@ def load_models(X, Y, model_path, neighbourhood_sample_sizes, num_primary_caps_p
 	# 	[1./2]*2)
 
 	model.summary()
-	# raise SystemExit
+	raise SystemExit
 
 	# model_memory_usage = get_model_memory_usage(args.batch_size, model)
 	# print "Memory usage: {}Gb".format(model_memory_usage)
 	# assert model_memory_usage < 2, "This model will use {}Gb of memory. Consider decreasing the batch_size".format(model_memory_usage)
 	# raise SystemExit
+
+	embedder, label_prediction_model = build_embedder_and_prediction_model(data_dim, num_classes, model, args)
+
+	return model, embedder, label_prediction_model, initial_epoch
+
+def build_embedder_and_prediction_model(data_dim, num_classes, model, args):
+
+	neighbourhood_sample_sizes = args.neighbourhood_sample_sizes
+	number_of_capsules_per_layer = args.number_of_capsules_per_layer
+
+	def model_to_dict(model):
+		layer_dict = {}
+		for layer in model.layers:
+			layer_name = layer.name.split("_layer")[0]
+			layer_dict.setdefault(layer_name, []).append(layer)
+		return layer_dict
 
 	layer_dict = model_to_dict(model)
 	num_layers = len(neighbourhood_sample_sizes)
@@ -145,7 +156,7 @@ def load_models(X, Y, model_path, neighbourhood_sample_sizes, num_primary_caps_p
 	# embedder.summary()
 	# raise SystemExit
 
-	label_prediction_layers = np.where(num_capsules_per_layer==num_classes)[0] + 1
+	label_prediction_layers = np.where(number_of_capsules_per_layer==num_classes)[0] + 1
 	if num_classes > 1 and len(label_prediction_layers) > 0:
 		label_prediction_layer = label_prediction_layers[-1]
 		label_prediction_input_num_neighbours = np.prod(neighbourhood_sample_sizes[:label_prediction_layer] + 1)
@@ -160,19 +171,25 @@ def load_models(X, Y, model_path, neighbourhood_sample_sizes, num_primary_caps_p
 	else: 
 		label_prediction_model = None
 
-	return model, embedder, label_prediction_model, initial_epoch
+	return embedder, label_prediction_model
+
+def generate_graphcaps_model(data_dim, num_classes, args):
+	# neighbourhood_sample_sizes, num_primary_caps_per_layer, num_filters_per_layer, agg_dim_per_layer,
+	# number_of_capsules_per_layer, capsule_dim_per_layer, args):
+
+	neighbourhood_sample_sizes = args.neighbourhood_sample_sizes
+	num_primary_caps_per_layer = args.num_primary_caps_per_layer
+	num_filters_per_layer = args.num_filters_per_layer
+	agg_dim_per_layer = args.agg_dim_per_layer
+	number_of_capsules_per_layer = args.number_of_capsules_per_layer
+	capsule_dim_per_layer = args.capsule_dim_per_layer
+
+	num_positive_samples = args.num_positive_samples
+	num_negative_samples = args.num_negative_samples
 
 
-
-
-def generate_graphcaps_model(X, Y, batch_size, num_positive_samples, num_negative_samples,
-	neighbourhood_sample_sizes, num_primary_caps_per_layer, num_filters_per_layer, agg_dim_per_layer,
-	number_of_capsules_per_layer, capsule_dim_per_layer):
-
-
-
-	N, data_dim = X.shape
-	_, num_classes = Y.shape
+	# N, data_dim = X.shape
+	# _, num_classes = Y.shape
 
 	num_layers = len(neighbourhood_sample_sizes)
 	output_size = 1 + num_positive_samples + num_negative_samples
@@ -182,7 +199,6 @@ def generate_graphcaps_model(X, Y, batch_size, num_positive_samples, num_negativ
 
 	x = layers.Input(shape=(num_neighbours_per_layer[0], 1, data_dim), 
 		name="input_layer")
-	# print "x", x.shape
 	y = x
 
 	embeddings = []
@@ -279,15 +295,22 @@ def generate_graphcaps_model(X, Y, batch_size, num_positive_samples, num_negativ
 	# capsnet_distance_outputs = [hyperbolic_distance(embedding) for 
 	# 	hyperbolic_distance, embedding in zip(hyperbolic_distances, capsnet_embedding_outputs)]
 
+	losses = [masked_margin_loss]*len(label_predictions) +\
+	[hyperbolic_negative_sampling_loss]*len(hyperbolic_distances)
+	
+	loss_weights = []
+	if args.use_labels:
+		loss_weights += [1./len(label_predictions)] * len(label_predictions)
+	else:
+		loss_weights += [0.] * len(label_predictions)
+	if args.no_intermediary_loss:
+		loss_weights += [0.] * (len(hyperbolic_distances) - 1)  + [1.]
+	else:
+		loss_weights += [1./len(hyperbolic_distances)]*len(hyperbolic_distances)
 
 	graphcaps = Model(x,  label_predictions + hyperbolic_distances)
-	adam = Adam(lr=1e-5, clipnorm=1.)
-	graphcaps.compile(optimizer=adam, 
-		loss=[masked_crossentropy]*len(label_predictions) + 
-		[hyperbolic_negative_sampling_loss]*len(hyperbolic_distances), 
-		loss_weights=[0.]*len(label_predictions) + 
-		# [0]*(len(capsnet_distance_outputs)-1)+[1])
-		[1./len(hyperbolic_distances)]*len(hyperbolic_distances))
+	adam = Adam(clipnorm=1.)
+	graphcaps.compile(optimizer=adam, loss=losses, loss_weights=loss_weights)
 
 	# graphcaps.summary()
 	# raise SystemExit

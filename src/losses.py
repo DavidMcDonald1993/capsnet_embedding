@@ -41,15 +41,16 @@ def masked_margin_loss(y_true, y_pred):
     :return: a scalar loss value.
     """
 
-    mask, y_true = tf.split(y_true, num_or_size_splits=2, axis=-1)
-    mask /= K.mean(mask)
-
+    # mask, y_true = tf.split(y_true, num_or_size_splits=2, axis=-1)
+    # mask /= K.mean(mask)
+    mask = y_true[:,:,:1]
+    y_true = y_true[:,:,1:]
+    
     # combine neighbours and batch dimension
     # num_classes = K.shape(y_true)[-1]
     # mask = K.reshape(mask, [-1, num_classes])
     # y_pred = K.reshape(y_pred, [-1, num_classes])
     # y_true = K.reshape(y_true, [-1, num_classes])
-
 
     L = y_true * K.square(K.maximum(0., 0.9 - y_pred)) + \
         0.5 * (1 - y_true) * K.square(K.maximum(0., y_pred - 0.1))
@@ -88,8 +89,8 @@ def hyperbolic_negative_sampling_loss(y_true, y_pred):
     # def sigmoid(x):
     #     return 1. / (1 + K.exp(-x))
 
-    # P = K.softmax(-y_pred)
-    P = K.softmax(-K.square(y_pred))
+    P = K.softmax(-y_pred)
+    # P = K.softmax(-K.square(y_pred))
 
     # r = 1.
     # t = 1.
@@ -97,6 +98,6 @@ def hyperbolic_negative_sampling_loss(y_true, y_pred):
     
     P = K.clip(P, min_value=K.epsilon(), max_value=1-K.epsilon())
     
-    return K.categorical_crossentropy(y_true, P)
-    # return -K.mean(K.log(pos))
+    # return K.categorical_crossentropy(y_true, P)
+    return -K.mean(K.log(P[:,0]))
     # return - K.mean( K.log(P[:,0]) + K.mean(K.log(1 - P[:,1:]), axis=1) )

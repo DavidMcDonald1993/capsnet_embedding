@@ -136,13 +136,12 @@ class GraphCapsuleLayer(layers.Layer):
 		# W shape is [input num caps, input cap dim, num_caps * cap dim]
 		inputs_hat = K.batch_dot(inputs, self.W, axes=[2,1])
 		# shape is now [input num caps, None*N, num caps * cap dim]
-		inputs_hat = K.permute_dimensions(inputs_hat, [1,0, 2])
+		inputs_hat = K.permute_dimensions(inputs_hat, [1, 0, 2])
 		# shape is now [None*N, input num caps, num_caps * caps dim]
 		inputs_hat = K.reshape(inputs_hat, tf.stack([batch_size, -1, self.input_num_capsule, 
 													self.num_capsule, self.dim_capsule]))
 
 		# shape is now [None, N, input num caps, num caps, cap dim]
-		# print "inputs_hat", inputs_hat.shape
 
 		inputs_hat = K.permute_dimensions(inputs_hat, pattern=[0,1,3,2,4])
 		# shape is now [None, N, num_caps, num_input_caps, cap_dim]
