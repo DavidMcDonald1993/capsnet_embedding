@@ -250,7 +250,7 @@ class ReconstructionLinkPredictionCallback(Callback):
 
 	def plot_embedding(self, embedding, path):
 
-		print "plotting embedding and saving to {}".format(path)
+		print ("plotting embedding and saving to {}".format(path))
 
 		Y = self.Y
 		y = Y.argmax(axis=1)
