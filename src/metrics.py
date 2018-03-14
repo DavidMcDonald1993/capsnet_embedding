@@ -3,14 +3,14 @@ import gzip
 import numpy as np
 import pandas as pd
 from scipy.stats import spearmanr
-from sklearn.metrics import normalized_mutual_info_score, precision_recall_curve, average_precision_score
+from sklearn.metrics import precision_recall_curve, average_precision_score
 # from sklearn.metrics.pairwise import pairwise_distances
 
-import matplotlib
-matplotlib.use('agg')
+# import matplotlib
+# matplotlib.use('agg')
 
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
+# import matplotlib.pyplot as plt
+# from mpl_toolkits.mplot3d import Axes3D
 
 # from utils import create_neighbourhood_sample_list
 

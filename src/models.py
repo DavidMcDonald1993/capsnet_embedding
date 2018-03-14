@@ -2,12 +2,12 @@
 import os
 import numpy as np
 
-import tensorflow as tf
+# import tensorflow as tf
 from keras import layers
 from keras.models import Model, load_model
-from keras.regularizers import l2
+# from keras.regularizers import l2
 from keras.optimizers import Adam
-from keras import backend as K
+# from keras import backend as K
 
 from graphcaps_layers import AggregateLayer, GraphCapsuleLayer, HyperbolicDistanceLayer, Length, squash
 from losses import masked_crossentropy, masked_margin_loss, hyperbolic_negative_sampling_loss

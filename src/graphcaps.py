@@ -1,19 +1,19 @@
 import numpy as np
-import networkx as nx
+# import networkx as nx
 
 import tensorflow as tf
 from keras import backend as K
-from keras.callbacks import TerminateOnNaN, EarlyStopping, ModelCheckpoint, TensorBoard, CSVLogger
+from keras.callbacks import TerminateOnNaN, EarlyStopping, ModelCheckpoint, CSVLogger
 
 import argparse
 import os
-import pickle as pkl
+# import pickle as pkl
 
-from models import load_models, generate_graphcaps_model
+from models import load_models#, generate_graphcaps_model
 from generators import neighbourhood_sample_generator
 # from data_utils import load_karate, load_wordnet, load_collaboration_network, load_data_gcn, load_reddit
 from data_utils import load_data
-from utils import load_positive_samples_and_ground_truth_negative_samples, load_walks#, ValidationCallback
+from utils import load_positive_samples_and_ground_truth_negative_samples#, load_walks#, ValidationCallback
 from metrics import evaluate_lexical_entailment#evaluate_link_prediction, make_and_evaluate_label_predictions, evaluate_lexical_entailment
 from callbacks import ReconstructionLinkPredictionCallback, LabelPredicitonCallback
 

@@ -1,13 +1,13 @@
 import random
 import numpy as np
 import scipy as sp
-import networkx as nx
+# import networkx as nx
 
-from itertools import izip_longest
+# from itertools import izip_longest
 
 from utils import create_neighbourhood_sample_list
 from data_utils import preprocess_data
-from node2vec_sampling import Graph
+# from node2vec_sampling import Graph
 
 def neighbourhood_sample_generator(G, X, Y, train_mask, 
 	positive_samples, ground_truth_negative_samples, args):

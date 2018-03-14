@@ -3,11 +3,11 @@
 Much of this code is adapted from code written by 
 Xifeng Guo, E-mail: `guoxifeng1990@163.com`, Github: `https://github.com/XifengGuo/CapsNet-Keras`
 '''
-import numpy as np
+# import numpy as np
 
 import keras.backend as K
 import tensorflow as tf
-from keras import initializers, layers, activations, regularizers
+from keras import initializers, layers, activations#, regularizers
 from keras.regularizers import l2
 # from keras.initializers import RandomUniform
 

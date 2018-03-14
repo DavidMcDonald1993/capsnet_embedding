@@ -1,11 +1,11 @@
 import numpy as np
 import scipy as sp
 
-import matplotlib
-matplotlib.use('agg')
+# import matplotlib
+# matplotlib.use('agg')
 
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
+# import matplotlib.pyplot as plt
+# from mpl_toolkits.mplot3d import Axes3D
 
 from sklearn.metrics import average_precision_score, normalized_mutual_info_score, accuracy_score, f1_score
 

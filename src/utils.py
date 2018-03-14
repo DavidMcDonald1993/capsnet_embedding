@@ -1,27 +1,27 @@
 import os
-import gzip
+# import gzip
 import random
 import numpy as np
-import networkx as nx
-import scipy as sp
-import pandas as pd 
+# import networkx as nx
+# import scipy as sp
+# import pandas as pd 
 
-import pickle as pkl
+# import pickle as pkl
 
-from sklearn.feature_selection import VarianceThreshold
-from sklearn.preprocessing import StandardScaler
+# from sklearn.feature_selection import VarianceThreshold
+# from sklearn.preprocessing import StandardScaler
 # from sklearn.metrics import average_precision_score, normalized_mutual_info_score, accuracy_score
 
-import matplotlib
-matplotlib.use('agg')
+# import matplotlib
+# matplotlib.use('agg')
 
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
+# import matplotlib.pyplot as plt
+# from mpl_toolkits.mplot3d import Axes3D
 
-from keras.callbacks import Callback
+# from keras.callbacks import Callback
 
-from data_utils import preprocess_data
-from node2vec_sampling import Graph 
+# from data_utils import preprocess_data
+# from node2vec_sampling import Graph 
 from metrics import evaluate_link_prediction
 
 def load_positive_samples_and_ground_truth_negative_samples(G, args, 
