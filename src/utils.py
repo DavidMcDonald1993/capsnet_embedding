@@ -59,7 +59,7 @@ def load_positive_samples_and_ground_truth_negative_samples(G, args,
 	
 	if os.path.exists(positive_samples_filename):
 
-		print "loading positive and negative samples from file"
+		print ("loading positive and negative samples from file")
 
 		# with open(positive_samples_filename, "rb") as f:
 		# 	positive_samples = pkl.load(f)
@@ -70,12 +70,12 @@ def load_positive_samples_and_ground_truth_negative_samples(G, args,
 
 	else:
 
-		print "generating positive and negative samples"
+		print ("generating positive and negative samples")
 		walks = load_walks(G, walk_file, args)
 		positive_samples, ground_truth_negative_samples =\
 		determine_positive_and_groud_truth_negative_samples(G, walks, args.context_size)
 
-		print "saving positive and negative samples to file"
+		print ("saving positive and negative samples to file")
 		# with open(positive_samples_filename, "wb") as f:
 		# 	pkl.dump(positive_samples, f)
 		# with open(negative_samples_filename, "wb") as f:
@@ -88,7 +88,7 @@ def load_positive_samples_and_ground_truth_negative_samples(G, args,
 
 def determine_positive_and_groud_truth_negative_samples(G, walks, context_size):
 
-	print "determining positive and negative samples"
+	print ("determining positive and negative samples")
 	
 	N = len(G)
 	nodes = set(G.nodes())
@@ -108,7 +108,7 @@ def determine_positive_and_groud_truth_negative_samples(G, walks, context_size):
 				all_positive_samples[v].add(u)
  
 		if num_walk % 1000 == 0:  
-			print "processed walk {}/{}".format(num_walk, len(walks))
+			print ("processed walk {}/{}".format(num_walk, len(walks)))
 			
 	ground_truth_negative_samples = {n: sorted(list(nodes.difference(all_positive_samples[n]))) for n in G.nodes()}
 	
@@ -138,9 +138,9 @@ def load_walks(G, walk_file, args):
 		# with open(walk_file, "wb") as f:
 		# 	pkl.dump(walks, f)
 		save_walks_to_file(walks, walk_file)
-		print "saved walks to {}".format(walk_file)
+		print ("saved walks to {}".format(walk_file))
 	else:
-		print "loading walks from {}".format(walk_file)
+		print ("loading walks from {}".format(walk_file))
 		# with open(walk_file, "rb") as f:
 		# 	walks = pkl.load(f)
 		walks = load_walks_from_file(walk_file, args.walk_length)

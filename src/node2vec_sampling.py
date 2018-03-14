@@ -83,7 +83,7 @@ class Graph():
 			for node in nodes:
 				walks.append(self.node2vec_walk(walk_length=walk_length, start_node=node))
 				if i % 1000 == 0:
-					print "peformed walk {}/{}".format(i, num_walks*len(G))
+					print ("peformed walk {}/{}".format(i, num_walks*len(G)))
 				i += 1
 
 		return walks
@@ -125,7 +125,7 @@ class Graph():
 		'''
 		Preprocessing of transition probabilities for guiding the random walks.
 		'''
-		print "preprocessing transition probs"
+		print ("preprocessing transition probs")
 		G = self.G
 		is_directed = self.is_directed
 
@@ -141,13 +141,13 @@ class Graph():
 			# alias_nodes[node] = normalized_probs
 			alias_nodes[node] = alias_setup(normalized_probs)
 			if i % 1000 == 0:
-				print "completed node {}/{}".format(i, len(G))
+				print ("completed node {}/{}".format(i, len(G)))
 			i += 1
 
 		alias_edges = {}
 		# triads = {}
 
-		print "DONE nodes"
+		print ("DONE nodes")
 
 		if is_directed:
 			for edge in G.edges():
@@ -156,7 +156,7 @@ class Graph():
 			i = 0
 			for edge in G.edges():
 				if i % 1000 == 0:
-					print "completed edge {}/{}".format(i, 2*len(G.edges()))
+					print ("completed edge {}/{}".format(i, 2*len(G.edges())))
 				alias_edges[edge] = self.get_alias_edge(edge[0], edge[1])
 				i += 1
 				alias_edges[(edge[1], edge[0])] = self.get_alias_edge(edge[1], edge[0])
@@ -165,7 +165,7 @@ class Graph():
 		self.alias_nodes = alias_nodes
 		self.alias_edges = alias_edges
 
-		print "DONE edges "
+		print ("DONE edges")
 
 		return
 

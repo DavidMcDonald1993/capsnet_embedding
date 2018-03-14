@@ -36,26 +36,26 @@ def evaluate_link_prediction(G, embedding, removed_edges, epoch, path, candidate
 
 	removed_edges = removed_edges[:]
 	removed_edges.sort(key=lambda (u, v): (u, v))
-	print "loading candidate edges"
+	print ("loading candidate edges")
 	candidate_edges = np.genfromtxt(candidate_edges_path, dtype=np.int)
 	# print  "determining candidate edges"
 	# candidate_edges = [(u, v)for u in range(N) for v in range(u+1, N) if (u, v) not in G.edges() and (v, u) not in G.edges()]
 	# candidate_edges.extend(removed_edges)
 	# zipped_candidate_edges = zip(*candidate_edges)
 
-	print "computing hyperbolic distance between all points"
+	print ("computing hyperbolic distance between all points")
 	hyperbolic_distances = hyperbolic_distance(embedding[candidate_edges[:,0]], 
 		embedding[candidate_edges[:,1]])
 	r = 1
 	t = 1
-	print "converting distances into probabilities"
+	print ("converting distances into probabilities")
 	y_pred = sigmoid((r - hyperbolic_distances) / t)
-	print "determining labels"
+	print ("determining labels")
 	y_true = np.array([1. if check_edge_in_edgelist(edge, removed_edges) else 0 for edge in candidate_edges])
 
-	print "computing precision and recalls"
+	print ("computing precision and recalls")
 	average_precision = average_precision_score(y_true, y_pred)
-	print "MAP", average_precision
+	print ("MAP", average_precision)
 	precisions, recalls, thresholds = precision_recall_curve(y_true, y_pred)
 	f1_scores = 2 * precisions * recalls / (precisions + recalls + 1e-8)
 
@@ -85,7 +85,7 @@ def evaluate_lexical_entailment(embedding):
 	def is_a_score(u, v, alpha=1e3):
 		return -(1 + alpha * (np.linalg.norm(v, axis=-1) - np.linalg.norm(u, axis=-1))) * hyperbolic_distance(u, v)
 
-	print "evaluating lexical entailment"
+	print ("evaluating lexical entailment")
 
 	hyperlex_noun_idx_df = pd.read_csv("../data/wordnet/hyperlex_idx_ranks.txt", index_col=0, sep=" ")
 
@@ -97,7 +97,7 @@ def evaluate_lexical_entailment(embedding):
 
 	r, p = spearmanr(true_is_a_score, predicted_is_a_score)
 
-	print r, p
+	print (r, p)
 
 	return r, p
 
@@ -108,37 +108,37 @@ def evaluate_reconstruction(G, embedding):
 
 
 	
-def make_and_evaluate_label_predictions(G, X, Y, predictor, num_capsules_per_layer, neighbourhood_sample_sizes, batch_size):
+# def make_and_evaluate_label_predictions(G, X, Y, predictor, num_capsules_per_layer, neighbourhood_sample_sizes, batch_size):
 
-	print "evaluating label predictions"
-
-
-	def prediction_generator(X, input_nodes, batch_size=batch_size):
-		num_steps = (input_nodes.shape[0] + batch_size - 1) / batch_size
-		for step in range(num_steps):
-			batch_nodes = input_nodes[batch_size*step : batch_size*(step+1)]
-			x = X[batch_nodes]
-			yield x.reshape([-1, input_nodes.shape[1], 1, X.shape[-1]])
+# 	print ("evaluating label predictions")
 
 
-	_, num_classes = Y.shape
-	label_prediction_layers = np.where(num_capsules_per_layer==num_classes)[0] + 1
+# 	def prediction_generator(X, input_nodes, batch_size=batch_size):
+# 		num_steps = (input_nodes.shape[0] + batch_size - 1) / batch_size
+# 		for step in range(num_steps):
+# 			batch_nodes = input_nodes[batch_size*step : batch_size*(step+1)]
+# 			x = X[batch_nodes]
+# 			yield x.reshape([-1, input_nodes.shape[1], 1, X.shape[-1]])
 
-	nodes = np.arange(len(G)).reshape(-1, 1)
-	neighbours = {n: list(G.neighbors(n)) for n in G.nodes()}
-	neighbour_list = create_neighbourhood_sample_list(nodes, neighbourhood_sample_sizes[:label_prediction_layers[-1]], neighbours)
 
-	input_nodes = neighbour_list[0]
+# 	_, num_classes = Y.shape
+# 	label_prediction_layers = np.where(num_capsules_per_layer==num_classes)[0] + 1
 
-	batch_size = 10
-	num_steps = (input_nodes.shape[0] + batch_size - 1) / batch_size
-	prediction_gen = prediction_generator(X, input_nodes, batch_size=batch_size)
+# 	nodes = np.arange(len(G)).reshape(-1, 1)
+# 	neighbours = {n: list(G.neighbors(n)) for n in G.nodes()}
+# 	neighbour_list = create_neighbourhood_sample_list(nodes, neighbourhood_sample_sizes[:label_prediction_layers[-1]], neighbours)
 
-	predictions = predictor.predict_generator(prediction_gen, steps=num_steps)
-	predictions = predictions.reshape(-1, predictions.shape[-1])
+# 	input_nodes = neighbour_list[0]
 
-	true_labels = Y.argmax(axis=-1)
-	predicted_labels = predictions.argmax(axis=-1)
+# 	batch_size = 10
+# 	num_steps = (input_nodes.shape[0] + batch_size - 1) / batch_size
+# 	prediction_gen = prediction_generator(X, input_nodes, batch_size=batch_size)
 
-	print "NMI of predictions: {}".format(normalized_mutual_info_score(true_labels, predicted_labels))
-	print "Classification accuracy: {}".format((true_labels==predicted_labels).sum() / float(true_labels.shape[0]))
+# 	predictions = predictor.predict_generator(prediction_gen, steps=num_steps)
+# 	predictions = predictions.reshape(-1, predictions.shape[-1])
+
+# 	true_labels = Y.argmax(axis=-1)
+# 	predicted_labels = predictions.argmax(axis=-1)
+
+# 	print ("NMI of predictions: {}".format(normalized_mutual_info_score(true_labels, predicted_labels)))
+# 	print ("Classification accuracy: {}".format((true_labels==predicted_labels).sum() / float(true_labels.shape[0])))

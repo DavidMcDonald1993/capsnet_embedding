@@ -64,7 +64,7 @@ def load_models(X, Y, model_path, args):
 
 	if initial_epoch == 0:
 
-		print "Creating new model"
+		print ("Creating new model")
 
 		# batch_size = args.batch_size
 		# num_positive_samples = 1
@@ -78,7 +78,7 @@ def load_models(X, Y, model_path, args):
 
 	else:
 
-		print "Loading model from file"
+		print ("Loading model from file")
 
 		# batch_size = args.batch_size
 		# num_positive_samples = 1

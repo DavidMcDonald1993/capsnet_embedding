@@ -59,7 +59,7 @@ class ReconstructionLinkPredictionCallback(Callback):
 		logs.update({"mean_rank_reconstruction" : mean_rank_reconstruction, 
 			"mean_precision_reconstruction" : mean_precision_reconstruction,})
 		if self.removed_edges_dict is not None:
-			mean_rank_link_prediction, mean_precision_link_prediction = metrics[2:]
+			mean_rank_link_prediction, mean_precision_link_prediction = metrics[2:4]
 			logs.update({"mean_rank_link_prediction": mean_rank_link_prediction,
 			"mean_precision_link_prediction": mean_precision_link_prediction})
 			
@@ -96,15 +96,15 @@ class ReconstructionLinkPredictionCallback(Callback):
 		# 			edgelist.remove((u, v))
 		# 			return True
 		
-		print "evaluating rank and MAP"
+		print ("evaluating rank and MAP")
 
 		original_adj = self.original_adj
 		if test_edges is None:
 			removed_edges_dict = self.removed_edges_dict
-			print "evaluating on validation edges"
+			print ("evaluating on validation edges")
 		else:
 			removed_edges_dict = self.convert_edgelist_to_dict(test_edges)
-			print "evaluating on test edges"
+			print ("evaluating on test edges")
 
 		ground_truth_negative_samples = self.ground_truth_negative_samples
 
@@ -149,7 +149,7 @@ class ReconstructionLinkPredictionCallback(Callback):
 		                                            for p in y_pred[removed_neighbours]]).mean()
 
 		    if u % 1000 == 0:
-				print "completed node {}/{}".format(u, N)
+				print( "completed node {}/{}".format(u, N))
 
 
 		# ranks = np.zeros(len(removed_edges_dict))
@@ -199,7 +199,7 @@ class ReconstructionLinkPredictionCallback(Callback):
 
 	def perform_embedding(self):
 
-		print "performing embedding"
+		print ("performing embedding")
 
 		def embedding_generator(X, input_nodes, batch_size=100):
 			num_steps = (input_nodes.shape[0] + batch_size - 1) / batch_size
@@ -323,14 +323,14 @@ class LabelPredicitonCallback(Callback):
 		if test_G is None:
 			idx = self.val_idx
 			G = self.val_G
-			print "evaluating label predictions on validation set"
+			print ("evaluating label predictions on validation set")
 		else:
 			idx = test_idx
 			G = test_G
-			print "evaluating label predictions on test set"
+			print ("evaluating label predictions on test set")
 
 		if idx is None:
-			print "no labels to predict"
+			print ("no labels to predict")
 			return None
 
 		_, num_classes = Y.shape
@@ -361,8 +361,8 @@ class LabelPredicitonCallback(Callback):
 		NMI = normalized_mutual_info_score(true_labels, predicted_labels)
 		classification_accuracy = accuracy_score(true_labels, predicted_labels, normalize=True)
 
-		print "f1_micro={}, f1_macro={}".format(f1_micro, f1_macro)
-		print "NMI of predictions: {}".format(NMI)
-		print "Classification accuracy: {}".format(classification_accuracy)
+		print ("f1_micro={}, f1_macro={}".format(f1_micro, f1_macro))
+		print ("NMI of predictions: {}".format(NMI))
+		print ("Classification accuracy: {}".format(classification_accuracy))
 		
 		return f1_micro, f1_macro, NMI, classification_accuracy

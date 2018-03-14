@@ -192,7 +192,7 @@ def main():
 		args.use_labels = True
 		monitor = "classification_accuracy"
 		mode = "max"
-		print "using labels in training"
+		print ("using labels in training")
 	else:
 		monitor = "mean_rank_reconstruction"
 		mode = "min"
@@ -267,7 +267,7 @@ def main():
 	label_prediction_callback, early_stopping_callback, checkpoint_callback, logger_callback]
 
 	
-	print "BEGIN TRAINING"
+	print ("BEGIN TRAINING")
 
 	# num_steps = (len(positive_samples) / args.num_walks + args.batch_size - 1) / args.batch_size
 	num_steps = 1000
@@ -283,9 +283,9 @@ def main():
 
 	embedding = reconstruction_callback.perform_embedding()
 	metrics = reconstruction_callback.evaluate_rank_and_MAP(embedding, test_edges)
-	print "Mean rank reconstruction:", metrics[0], "MAP reconstruction:", metrics[1]
+	print ("Mean rank reconstruction:", metrics[0], "MAP reconstruction:", metrics[1])
 	if test_edges is not None:
-		print "Mean rank link predicion:", metrics[2], "MAP link prediction:", metrics[3]
+		print ("Mean rank link predicion:", metrics[2], "MAP link prediction:", metrics[3])
 
 	if dataset == "wordnet":
 		evaluate_lexical_entailment(embedding)
