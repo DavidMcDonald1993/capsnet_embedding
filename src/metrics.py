@@ -1,9 +1,9 @@
-import os
-import gzip
+# import os
+# import gzip
 import numpy as np
 import pandas as pd
 from scipy.stats import spearmanr
-from sklearn.metrics import precision_recall_curve, average_precision_score
+# from sklearn.metrics import precision_recall_curve, average_precision_score
 # from sklearn.metrics.pairwise import pairwise_distances
 
 # import matplotlib
@@ -21,64 +21,64 @@ def sigmoid(x):
 	return 1. / (1 + np.exp(-x))
 
 
-def evaluate_link_prediction(G, embedding, removed_edges, epoch, path, candidate_edges_path):
+# def evaluate_link_prediction(G, embedding, removed_edges, epoch, path, candidate_edges_path):
 
-	def check_edge_in_edgelist((u, v), edgelist):
-		for u_prime, v_prime in edgelist:
-			if u_prime > u:
-				return False
-			if u_prime == u and v_prime == v:
-				edgelist.remove((u, v))
-				return True
+# 	def check_edge_in_edgelist((u, v), edgelist):
+# 		for u_prime, v_prime in edgelist:
+# 			if u_prime > u:
+# 				return False
+# 			if u_prime == u and v_prime == v:
+# 				edgelist.remove((u, v))
+# 				return True
 
 
-	N = len(G)
+# 	N = len(G)
 
-	removed_edges = removed_edges[:]
-	removed_edges.sort(key=lambda (u, v): (u, v))
-	print ("loading candidate edges")
-	candidate_edges = np.genfromtxt(candidate_edges_path, dtype=np.int)
-	# print  "determining candidate edges"
-	# candidate_edges = [(u, v)for u in range(N) for v in range(u+1, N) if (u, v) not in G.edges() and (v, u) not in G.edges()]
-	# candidate_edges.extend(removed_edges)
-	# zipped_candidate_edges = zip(*candidate_edges)
+# 	removed_edges = removed_edges[:]
+# 	removed_edges.sort(key=lambda (u, v): (u, v))
+# 	print ("loading candidate edges")
+# 	candidate_edges = np.genfromtxt(candidate_edges_path, dtype=np.int)
+# 	# print  "determining candidate edges"
+# 	# candidate_edges = [(u, v)for u in range(N) for v in range(u+1, N) if (u, v) not in G.edges() and (v, u) not in G.edges()]
+# 	# candidate_edges.extend(removed_edges)
+# 	# zipped_candidate_edges = zip(*candidate_edges)
 
-	print ("computing hyperbolic distance between all points")
-	hyperbolic_distances = hyperbolic_distance(embedding[candidate_edges[:,0]], 
-		embedding[candidate_edges[:,1]])
-	r = 1
-	t = 1
-	print ("converting distances into probabilities")
-	y_pred = sigmoid((r - hyperbolic_distances) / t)
-	print ("determining labels")
-	y_true = np.array([1. if check_edge_in_edgelist(edge, removed_edges) else 0 for edge in candidate_edges])
+# 	print ("computing hyperbolic distance between all points")
+# 	hyperbolic_distances = hyperbolic_distance(embedding[candidate_edges[:,0]], 
+# 		embedding[candidate_edges[:,1]])
+# 	r = 1
+# 	t = 1
+# 	print ("converting distances into probabilities")
+# 	y_pred = sigmoid((r - hyperbolic_distances) / t)
+# 	print ("determining labels")
+# 	y_true = np.array([1. if check_edge_in_edgelist(edge, removed_edges) else 0 for edge in candidate_edges])
 
-	print ("computing precision and recalls")
-	average_precision = average_precision_score(y_true, y_pred)
-	print ("MAP", average_precision)
-	precisions, recalls, thresholds = precision_recall_curve(y_true, y_pred)
-	f1_scores = 2 * precisions * recalls / (precisions + recalls + 1e-8)
+# 	print ("computing precision and recalls")
+# 	average_precision = average_precision_score(y_true, y_pred)
+# 	print ("MAP", average_precision)
+# 	precisions, recalls, thresholds = precision_recall_curve(y_true, y_pred)
+# 	f1_scores = 2 * precisions * recalls / (precisions + recalls + 1e-8)
 
-	plt.figure(figsize=(10, 10))
-	plt.step(recalls[:-1], precisions[:-1], c="b", where="post")
-	plt.fill_between(recalls[:-1], precisions[:-1], step='post', alpha=0.2,
-					 color='b')
-	plt.xlabel('Recall')
-	plt.ylabel('Precision')
-	# plt.ylim([0.0, 1.05])
-	# plt.xlim([0.0, 1.0])
-	plt.title('2-class Precision-Recall curve: AP={0:0.2f}'.format(average_precision))
-	plt.savefig(os.path.join(path, "recall-precision-epoch-{:04}.png".format(epoch)))
-	plt.close()
+# 	plt.figure(figsize=(10, 10))
+# 	plt.step(recalls[:-1], precisions[:-1], c="b", where="post")
+# 	plt.fill_between(recalls[:-1], precisions[:-1], step='post', alpha=0.2,
+# 					 color='b')
+# 	plt.xlabel('Recall')
+# 	plt.ylabel('Precision')
+# 	# plt.ylim([0.0, 1.05])
+# 	# plt.xlim([0.0, 1.0])
+# 	plt.title('2-class Precision-Recall curve: AP={0:0.2f}'.format(average_precision))
+# 	plt.savefig(os.path.join(path, "recall-precision-epoch-{:04}.png".format(epoch)))
+# 	plt.close()
 
-	plt.figure(figsize=(10, 10))
-	plt.plot(thresholds, f1_scores[:-1], c="r")
-	plt.xlabel("threshold")
-	plt.ylabel("F1 score")
-	plt.savefig(os.path.join(path, "F1-epoch-{:04}.png".format(epoch)))
-	plt.close()
+# 	plt.figure(figsize=(10, 10))
+# 	plt.plot(thresholds, f1_scores[:-1], c="r")
+# 	plt.xlabel("threshold")
+# 	plt.ylabel("F1 score")
+# 	plt.savefig(os.path.join(path, "F1-epoch-{:04}.png".format(epoch)))
+# 	plt.close()
 
-	return average_precision
+# 	return average_precision
 
 def evaluate_lexical_entailment(embedding):
 
