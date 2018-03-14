@@ -119,7 +119,7 @@ def load_labelled_attributed_network(dataset_str):
 
 	# return adj, features, y_train, y_val, y_test, train_mask, val_mask, test_mask, labels
 
-	G = nx.from_numpy_array(reconstruction_adj.toarray())
+	G = nx.from_numpy_matrix(reconstruction_adj.toarray())
 	G = nx.convert_node_labels_to_integers(G, label_attribute="original_name")
 	nx.set_edge_attributes(G=G, name="weight", values=1)
 
