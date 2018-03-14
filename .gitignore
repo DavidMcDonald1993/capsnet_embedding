@@ -1,9 +1,5 @@
-data/email/
-data/email_temporal/
-data/ppi/
-data/cora/
+data/
 jupyter_notebooks/
-data/reddit/
-data/reddit/reddit-G.json
-data/reddit/reddit-G_full.json
-data/reddit/reddit-walks.txt
+walks/
+positive_samples/
+negative_samples/
