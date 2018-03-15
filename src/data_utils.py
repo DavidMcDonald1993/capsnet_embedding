@@ -448,9 +448,10 @@ def load_reddit():
 	
 	num_classes = max(class_map.values()) + 1
 	class_map = {id_map[k]: v for k, v in class_map.items()}
-	print (class_map.keys(), type(class_map.keys()))
-	print (class_map.values(), type(class_map.values()))
-	Y = csr_matrix(([1] * len(class_map), (class_map.keys(), class_map.values())), shape=(len(class_map), num_classes))
+	# print (class_map.keys(), type(class_map.keys()))
+	# print (class_map.values(), type(class_map.values()))
+	Y = csr_matrix(([1] * len(class_map), (list(class_map.keys()), list(class_map.values()))), 
+		shape=(len(class_map), num_classes))
 		
 	G_train = G.subgraph(train_label_idx)
 	G_val = G.subgraph(train_label_idx + val_label_idx)
