@@ -446,7 +446,7 @@ def load_reddit():
 		lab_conversion = lambda n : int(n)
 	class_map = {conversion(k):lab_conversion(v) for k,v in class_map.items()}
 	
-	num_classes = max(class_map.values())
+	num_classes = max(class_map.values()) + 1
 	class_map = {id_map[k]: v for k, v in class_map.items()}
 	
 	Y = csr_matrix(([1] * len(class_map), (class_map.keys(), class_map.values())), shape=(len(class_map), num_classes))
