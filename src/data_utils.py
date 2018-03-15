@@ -488,7 +488,7 @@ def load_wordnet():
 	Y = np.ones((N, 1))
 
 
-	X = preprocess_data(X)
+	# X = preprocess_data(X)
 
 	val_file = "../data/wordnet/val_edges.pkl"
 	test_file = "../data/wordnet/test_edges.pkl"
