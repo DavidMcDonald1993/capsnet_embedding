@@ -167,13 +167,13 @@ def main():
 	# 	os.makedirs(log_path)
 	walk_path = os.path.join(args.walk_path, dataset)
 	if not os.path.exists(walk_path):
-	# 	os.makedirs(walk_path)
+		os.makedirs(walk_path)
 	# positive_samples_path = os.path.join(args.pos_samples_path, dataset)
 	# if not os.path.exists(positive_samples_path):
 	# 	os.makedirs(positive_samples_path)
 	# negative_samples_path = os.path.join(args.neg_samples_path, dataset)
 	# if not os.path.exists(negative_samples_path):
-		os.makedirs(negative_samples_path)
+		# os.makedirs(negative_samples_path)
 	model_path = os.path.join(args.model_path, dataset)
 	if not os.path.exists(model_path):
 		os.makedirs(model_path)
