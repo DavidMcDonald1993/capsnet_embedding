@@ -24,65 +24,70 @@ import numpy as np
 from node2vec_sampling import Graph 
 # from metrics import evaluate_link_prediction
 
-def load_positive_samples_and_ground_truth_negative_samples(G, args, 
-	walk_file, positive_samples_filename, negative_samples_filename):
+def load_positive_samples_and_ground_truth_negative_samples(G, args, walk_file,):# positive_samples_filename, negative_samples_filename):
 
-	def save_positive_samples(positive_samples, positive_samples_filename):
+	# def save_positive_samples(positive_samples, positive_samples_filename):
 
-		with open(positive_samples_filename, "w") as f:
-			for positive_sample in positive_samples:
-				f.write("{} {} ".format(positive_sample[0], positive_sample[1]))
+	# 	with open(positive_samples_filename, "w") as f:
+	# 		for positive_sample in positive_samples:
+	# 			f.write("{} {} ".format(positive_sample[0], positive_sample[1]))
 
-	def load_positive_samples(positive_samples_filename):
+	# def load_positive_samples(positive_samples_filename):
 
-		with open(positive_samples_filename, "r") as f:
-			l = f.readline().rstrip()
-			split = [int(n) for n in l.split(" ")]
-			positive_samples = zip(split[::2], split[1::2]) 
-		return positive_samples
+	# 	with open(positive_samples_filename, "r") as f:
+	# 		l = f.readline().rstrip()
+	# 		split = [int(n) for n in l.split(" ")]
+	# 		positive_samples = zip(split[::2], split[1::2]) 
+	# 	return positive_samples
 
-	def save_negative_samples(negative_samples, negative_samples_filename):
+	# def save_negative_samples(negative_samples, negative_samples_filename):
 
-		with open(negative_samples_filename, "w") as f:
-			for k in negative_samples:
-				f.write("{} ".format(k) + " ".join(str(v) for v in negative_samples[k]) + "\n")
+	# 	with open(negative_samples_filename, "w") as f:
+	# 		for k in negative_samples:
+	# 			f.write("{} ".format(k) + " ".join(str(v) for v in negative_samples[k]) + "\n")
 
-	def load_negative_samples(negative_samples_filename):
+	# def load_negative_samples(negative_samples_filename):
 
-		negative_samples = {}
-		with open(negative_samples_filename, "r") as f:
-			for l in f.readlines():
-				split = l.split(" ")
-				negative_samples.update({int(split[0]) : [int(n) for n in split[1:]]})
-		return negative_samples
+	# 	negative_samples = {}
+	# 	with open(negative_samples_filename, "r") as f:
+	# 		for l in f.readlines():
+	# 			split = l.split(" ")
+	# 			negative_samples.update({int(split[0]) : [int(n) for n in split[1:]]})
+	# 	return negative_samples
 
 	
-	if os.path.exists(positive_samples_filename):
+	# if os.path.exists(positive_samples_filename):
 
-		print ("loading positive and negative samples from file")
+	# 	print ("loading positive and negative samples from file")
 
-		# with open(positive_samples_filename, "rb") as f:
-		# 	positive_samples = pkl.load(f)
-		# with open(negative_samples_filename, "rb") as f:
-		# 	ground_truth_negative_samples = pkl.load(f)
-		positive_samples = load_positive_samples(positive_samples_filename)
-		ground_truth_negative_samples = load_negative_samples(negative_samples_filename) 
+	# 	# with open(positive_samples_filename, "rb") as f:
+	# 	# 	positive_samples = pkl.load(f)
+	# 	# with open(negative_samples_filename, "rb") as f:
+	# 	# 	ground_truth_negative_samples = pkl.load(f)
+	# 	positive_samples = load_positive_samples(positive_samples_filename)
+	# 	ground_truth_negative_samples = load_negative_samples(negative_samples_filename) 
 
-	else:
+	# else:
 
-		print ("generating positive and negative samples")
-		walks = load_walks(G, walk_file, args)
-		positive_samples, ground_truth_negative_samples =\
-		determine_positive_and_groud_truth_negative_samples(G, walks, args.context_size)
+	# 	print ("generating positive and negative samples")
+	# 	walks = load_walks(G, walk_file, args)
+	# 	positive_samples, ground_truth_negative_samples =\
+	# 	determine_positive_and_groud_truth_negative_samples(G, walks, args.context_size)
 
-		print ("saving positive and negative samples to file")
-		# with open(positive_samples_filename, "wb") as f:
-		# 	pkl.dump(positive_samples, f)
-		# with open(negative_samples_filename, "wb") as f:
-		# 	pkl.dump(ground_truth_negative_samples, f)
-		save_positive_samples(positive_samples, positive_samples_filename)
-		save_negative_samples(ground_truth_negative_samples, negative_samples_filename)
+	# 	print ("saving positive and negative samples to file")
+	# 	# with open(positive_samples_filename, "wb") as f:
+	# 	# 	pkl.dump(positive_samples, f)
+	# 	# with open(negative_samples_filename, "wb") as f:
+	# 	# 	pkl.dump(ground_truth_negative_samples, f)
+	# 	save_positive_samples(positive_samples, positive_samples_filename)
+	# 	save_negative_samples(ground_truth_negative_samples, negative_samples_filename)
 
+
+
+	print ("generating positive and negative samples")
+	walks = load_walks(G, walk_file, args)
+	positive_samples, ground_truth_negative_samples =\
+	determine_positive_and_groud_truth_negative_samples(G, walks, args.context_size)
 
 	return positive_samples, ground_truth_negative_samples
 

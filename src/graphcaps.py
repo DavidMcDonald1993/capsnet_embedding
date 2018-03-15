@@ -90,10 +90,10 @@ def parse_args():
 		help="path to save logs (default is '../logs/)'.")
 	parser.add_argument("--walks", dest="walk_path", default="../walks/", 
 		help="path to save random walks (default is '../walks/)'.")
-	parser.add_argument("--pos_samples_path", dest="pos_samples_path", default="../positive_samples/", 
-		help="path to save positive sample list (default is '../positive_samples/)'.")
-	parser.add_argument("--neg_samples_path", dest="neg_samples_path", default="../negative_samples/", 
-		help="path to save ground truth negative sample for each node (default is '../negative_samples/)'.")
+	# parser.add_argument("--pos_samples_path", dest="pos_samples_path", default="../positive_samples/", 
+	# 	help="path to save positive sample list (default is '../positive_samples/)'.")
+	# parser.add_argument("--neg_samples_path", dest="neg_samples_path", default="../negative_samples/", 
+	# 	help="path to save ground truth negative sample for each node (default is '../negative_samples/)'.")
 	parser.add_argument("--model", dest="model_path", default="../models/", 
 		help="path to save model after each epoch (default is '../models/)'.")
 
@@ -167,12 +167,12 @@ def main():
 	# 	os.makedirs(log_path)
 	walk_path = os.path.join(args.walk_path, dataset)
 	if not os.path.exists(walk_path):
-		os.makedirs(walk_path)
-	positive_samples_path = os.path.join(args.pos_samples_path, dataset)
-	if not os.path.exists(positive_samples_path):
-		os.makedirs(positive_samples_path)
-	negative_samples_path = os.path.join(args.neg_samples_path, dataset)
-	if not os.path.exists(negative_samples_path):
+	# 	os.makedirs(walk_path)
+	# positive_samples_path = os.path.join(args.pos_samples_path, dataset)
+	# if not os.path.exists(positive_samples_path):
+	# 	os.makedirs(positive_samples_path)
+	# negative_samples_path = os.path.join(args.neg_samples_path, dataset)
+	# if not os.path.exists(negative_samples_path):
 		os.makedirs(negative_samples_path)
 	model_path = os.path.join(args.model_path, dataset)
 	if not os.path.exists(model_path):
@@ -201,16 +201,15 @@ def main():
 	# walk_train_file = os.path.join(walk_path, "walks_train.pkl")
 	# walk_val_file = os.path.join(walk_path, "walks_val.pkl")
 
-	positive_samples_filename = os.path.join(positive_samples_path, "positive_samples")
-	negative_samples_filename = os.path.join(negative_samples_path, "negative_samples")
+	# positive_samples_filename = os.path.join(positive_samples_path, "positive_samples")
+	# negative_samples_filename = os.path.join(negative_samples_path, "negative_samples")
 
 
 	# walks_train = load_walks(G_train, walk_train_file, args)
 	# walks_val = load_walks(G_val, walk_val_file, args)
 	# walks = load_walks(G, walk_file, args)
 	positive_samples, ground_truth_negative_samples =\
-	load_positive_samples_and_ground_truth_negative_samples(G_train, args, 
-	walk_file, positive_samples_filename, negative_samples_filename)
+	load_positive_samples_and_ground_truth_negative_samples(G_train, args, walk_file,)# positive_samples_filename, negative_samples_filename)
 
 	# data_dim = X.shape[1]
 	# num_classes = Y.shape[1]
