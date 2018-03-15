@@ -15,7 +15,6 @@ module load apps/cudnn/6.0
 -I${CUDNN_ROOT}/include/cudnn.h -L${CUDNN_ROOT}/lib64/libcudnn.so
 module load apps/tensorflow/1.3.1-python-3.5.2-cuda-8.0.44
 module load apps/keras/2.0.8-python-3.5.2-cuda-8.0.44
-module load apps/h5py/2.7.0-python-3.5.2
 
 cd src/
 
