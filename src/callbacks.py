@@ -3,9 +3,8 @@ import scipy as sp
 
 import matplotlib
 matplotlib.use('agg')
-
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
+# from mpl_toolkits.mplot3d import Axes3D
 
 from sklearn.metrics import average_precision_score, normalized_mutual_info_score, accuracy_score, f1_score
 
@@ -63,8 +62,8 @@ class ReconstructionLinkPredictionCallback(Callback):
 			logs.update({"mean_rank_link_prediction": mean_rank_link_prediction,
 			"mean_precision_link_prediction": mean_precision_link_prediction})
 			
-
-		self.plot_embedding(embedding, path="{}/embedding_epoch_{:04}".format(self.embedding_path, epoch))
+		self.save_embedding(embedding, path="{}/embedding_epoch_{:04}.npy".format(self.embedding_path, epoch))
+		self.plot_embedding(embedding, path="{}/embedding_epoch_{:04}.fig".format(self.plot_path, epoch))
 	
 	def convert_edgelist_to_dict(self, edgelist, undirected=True, self_edges=False):
 			sorts = [lambda x: sorted(x)]
@@ -248,6 +247,9 @@ class ReconstructionLinkPredictionCallback(Callback):
 
 		return embedding
 
+	def save_embedding(self, embedding, path):
+		np.save(path, embedding)
+
 	def plot_embedding(self, embedding, path):
 
 		print ("plotting embedding and saving to {}".format(path))
@@ -260,15 +262,16 @@ class ReconstructionLinkPredictionCallback(Callback):
 		embedding_dim = embedding.shape[-1]
 
 		fig = plt.figure(figsize=(10, 10))
-		if embedding_dim == 3:
-			ax = fig.add_subplot(111, projection='3d')
-			ax.scatter(embedding[:,0], embedding[:,1], embedding[:,2], c=y)
-		else:
-			# if self.annotate_idx and embedding.shape[0] == self.annotate_idx.shape[0]:
-			# 	y = y[annotate_idx]
-			plt.scatter(embedding[:,0], embedding[:,1], c=y)
-			# if self.annotate_idx is not None:
-			# 	H = self.G.subgraph(annotate_idx)
+		plt.scatter(embedding[:,0], embedding[:,1], c=y)
+		# if embedding_dim == 3:
+		# 	ax = fig.add_subplot(111, projection='3d')
+		# 	ax.scatter(embedding[:,0], embedding[:,1], embedding[:,2], c=y)
+		# else:
+		# 	# if self.annotate_idx and embedding.shape[0] == self.annotate_idx.shape[0]:
+		# 	# 	y = y[annotate_idx]
+		# 	plt.scatter(embedding[:,0], embedding[:,1], c=y)
+		# 	# if self.annotate_idx is not None:
+		# 	# 	H = self.G.subgraph(annotate_idx)
 			# 	original_names = nx.get_node_attributes(H, "original_name").values()
 			# 	if embedding.shape[0] == self.annotate_idx.shape[0]:
 			# 		annotation_points = embedding

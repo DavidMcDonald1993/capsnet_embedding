@@ -147,6 +147,10 @@ def main():
 	plot_path = os.path.join(args.plot_path, dataset)
 	if not os.path.exists(plot_path):
 		os.makedirs(plot_path)
+	plot_path = os.path.join(plot_path, 
+			"neighbourhood_sample_sizes={}_num_primary_caps={}_num_filters={}_agg_dim={}_num_caps={}_caps_dim={}".format(args.neighbourhood_sample_sizes, 
+				args.num_primary_caps_per_layer, args.num_filters_per_layer, 
+				args.agg_dim_per_layer, args.number_of_capsules_per_layer, args.capsule_dim_per_layer))
 	embedding_path = os.path.join(args.embedding_path, dataset)
 	if not os.path.exists(embedding_path):
 		os.makedirs(embedding_path)
