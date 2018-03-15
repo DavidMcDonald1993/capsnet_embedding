@@ -125,7 +125,7 @@ def fix_parameters(args):
 		elif dataset == "pubmed":
 			num_classes = 3
 		else:
-			num_classes = 40
+			num_classes = 41
 
 		args.number_of_capsules_per_layer = [num_classes, 1]
 		args.capsule_dim_per_layer = [8, 10]
