@@ -307,7 +307,7 @@ class HyperbolicDistanceLayer(layers.Layer):
 
 	def build(self, input_shape):
 		self.N = input_shape[1]
-		self.step_size = self.N / (1 + self.num_positive_samples + self.num_negative_samples)
+		self.step_size = int(self.N / (1 + self.num_positive_samples + self.num_negative_samples))
 		self.built = True
 
 	def get_config(self):
