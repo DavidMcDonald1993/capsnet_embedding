@@ -114,7 +114,7 @@ def load_models(X, Y, model_path, args):
 	# 	[1./2]*2)
 
 	model.summary()
-	raise SystemExit
+	# raise SystemExit
 
 	# model_memory_usage = get_model_memory_usage(args.batch_size, model)
 	# print "Memory usage: {}Gb".format(model_memory_usage)

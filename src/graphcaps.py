@@ -151,6 +151,8 @@ def main():
 			"neighbourhood_sample_sizes={}_num_primary_caps={}_num_filters={}_agg_dim={}_num_caps={}_caps_dim={}".format(args.neighbourhood_sample_sizes, 
 				args.num_primary_caps_per_layer, args.num_filters_per_layer, 
 				args.agg_dim_per_layer, args.number_of_capsules_per_layer, args.capsule_dim_per_layer))
+	if not os.path.exists(plot_path):
+		os.makedirs(plot_path)
 	embedding_path = os.path.join(args.embedding_path, dataset)
 	if not os.path.exists(embedding_path):
 		os.makedirs(embedding_path)
@@ -273,7 +275,7 @@ def main():
 	print ("BEGIN TRAINING")
 
 	# num_steps = (len(positive_samples) / args.num_walks + args.batch_size - 1) / args.batch_size
-	num_steps = 1000
+	num_steps = 10
 	model.fit_generator(training_generator, 
 		steps_per_epoch=num_steps,
 		epochs=args.num_epochs, 

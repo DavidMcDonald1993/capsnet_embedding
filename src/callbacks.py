@@ -63,7 +63,7 @@ class ReconstructionLinkPredictionCallback(Callback):
 			"mean_precision_link_prediction": mean_precision_link_prediction})
 			
 		self.save_embedding(embedding, path="{}/embedding_epoch_{:04}.npy".format(self.embedding_path, epoch))
-		self.plot_embedding(embedding, path="{}/embedding_epoch_{:04}.fig".format(self.plot_path, epoch))
+		self.plot_embedding(embedding, path="{}/embedding_epoch_{:04}.png".format(self.plot_path, epoch))
 	
 	def convert_edgelist_to_dict(self, edgelist, undirected=True, self_edges=False):
 			sorts = [lambda x: sorted(x)]
