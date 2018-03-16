@@ -2,7 +2,9 @@
 #SBATCH --qos bbgpu
 #SBATCH --ntasks 1
 #SBATCH --time 10-00:00:00
-#SBATCH --mem 16gb
+#SBATCH --mem 32gb
+#SBATCH --array 10,20,50,100
+#SBATCH --output condmat-%a.out
 
 set -e
 
@@ -16,4 +18,4 @@ module load apps/keras/2.0.8-python-3.5.2-cuda-8.0.44
 
 cd src/
 
-python graphcaps.py --dataset CondMat
+python graphcaps.py --dataset CondMat --dim ${SLURM_ARRAY_TASK_ID}

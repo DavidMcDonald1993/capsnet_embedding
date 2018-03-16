@@ -2,8 +2,8 @@
 #SBATCH --qos bbgpu
 #SBATCH --ntasks 1
 #SBATCH --time 10-00:00:00
-#SBATCH --mem 16gb
-#SBATCH --array 10,20,50,100
+#SBATCH --mem 32gb
+#SBATCH --output cora.out
 
 set -e
 
@@ -17,4 +17,4 @@ module load apps/keras/2.0.8-python-3.5.2-cuda-8.0.44
 
 cd src/
 
-python graphcaps.py --dataset cora --dim ${SLURM_ARRAY_TASK_ID}
+python graphcaps.py --dataset cora 

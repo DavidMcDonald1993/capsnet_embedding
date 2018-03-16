@@ -142,8 +142,8 @@ def build_embedder_and_prediction_model(data_dim, num_classes, model, args):
 
 	embedding_layer = num_layers - 1
 	embedder_lambda = lambda x, l=embedding_layer:\
-	connect_layers(zip(layer_dict["agg"][:l], layer_dict["batch_normalization"][:l],\
-	layer_dict["cap_input"][:l], layer_dict["cap"][:l], layer_dict["squash"][:l]) +\
+	connect_layers(list(zip(layer_dict["agg"][:l], layer_dict["batch_normalization"][:l],\
+	layer_dict["cap_input"][:l], layer_dict["cap"][:l], layer_dict["squash"][:l])) +\
 	[(layer_dict["agg"][l], layer_dict["batch_normalization"][l], layer_dict["cap_input"][l], layer_dict["cap"][l]),\
 	(layer_dict["embedding_reshape"][l], layer_dict["embedding_squash"][l])], x)
 
