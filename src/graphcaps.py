@@ -15,7 +15,7 @@ from generators import neighbourhood_sample_generator
 from data_utils import load_data
 from utils import load_positive_samples_and_ground_truth_negative_samples#, load_walks#, ValidationCallback
 from metrics import evaluate_lexical_entailment#evaluate_link_prediction, make_and_evaluate_label_predictions, evaluate_lexical_entailment
-from callbacks import ReconstructionLinkPredictionCallback, LabelPredicitonCallback
+from callbacks import ReconstructionLinkPredictionCallback, LabelPredictionCallback
 
 
 # TensorFlow wizardry
@@ -104,9 +104,13 @@ def parse_args():
 def fix_parameters(args):
 
 
-	args.neighbourhood_sample_sizes = [25, 5]
-	args.num_primary_caps_per_layer = [32, 16]
-	args.num_filters_per_layer = [32, 16]
+	# args.neighbourhood_sample_sizes = [25, 5]
+	# args.num_primary_caps_per_layer = [32, 16]
+	# args.num_filters_per_layer = [32, 16]
+	# args.agg_dim_per_layer = [8, 8]
+	args.neighbourhood_sample_sizes = [5, 5 ]
+	args.num_primary_caps_per_layer = [8, 8]
+	args.num_filters_per_layer = [8, 8]
 	args.agg_dim_per_layer = [8, 8]
 
 
@@ -259,7 +263,7 @@ def main():
 	reconstruction_callback = ReconstructionLinkPredictionCallback(G_train, X, Y, reconstruction_adj, embedder,
 		val_edges, ground_truth_negative_samples, embedding_path, plot_path, args)
 
-	label_prediction_callback = LabelPredicitonCallback(G_val, X, Y, label_prediction_model, val_label_idx, args)
+	label_prediction_callback = LabelPredictionCallback(G_val, X, Y, label_prediction_model, val_label_idx, args)
 
 	early_stopping_callback = EarlyStopping(monitor=monitor, patience=10, mode=mode, verbose=1)
 	
@@ -268,8 +272,10 @@ def main():
 
 	logger_callback = CSVLogger(log_path, append=True)
 
-	callbacks = [nan_terminate_callback, reconstruction_callback, 
-	label_prediction_callback, early_stopping_callback, checkpoint_callback, logger_callback]
+	callbacks = [nan_terminate_callback, 
+	reconstruction_callback, 
+	label_prediction_callback, 
+	early_stopping_callback, checkpoint_callback, logger_callback]
 
 	
 	print ("BEGIN TRAINING")
@@ -281,7 +287,8 @@ def main():
 		epochs=args.num_epochs, 
 		initial_epoch=initial_epoch,
 		# validation_data=validation_generator, validation_steps=1,
-		verbose=1, callbacks=callbacks)
+		verbose=1, #)
+		callbacks=callbacks)
 
 	if test_label_idx is not None:
 		label_prediction_callback.make_and_evaluate_label_predictions(G_test, test_label_idx)

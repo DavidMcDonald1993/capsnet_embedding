@@ -200,9 +200,10 @@ class ReconstructionLinkPredictionCallback(Callback):
 
 		print ("performing embedding")
 
-		def embedding_generator(X, input_nodes, batch_size=100):
-			num_steps = int((input_nodes.shape[0] + batch_size - 1) // batch_size)
-			for step in range(num_steps):
+		def embedding_generator(X, input_nodes, num_steps, batch_size=100):
+			step = 0
+			# for step in range(num_steps):
+			while True:
 				batch_nodes = input_nodes[batch_size*step : batch_size*(step+1)]
 				if sp.sparse.issparse(X):
 					x = X[batch_nodes.flatten()].toarray()
@@ -210,6 +211,7 @@ class ReconstructionLinkPredictionCallback(Callback):
 				else:
 					x = X[batch_nodes]
 				yield x.reshape([-1, input_nodes.shape[1], 1, X.shape[-1]])
+				step = (step + 1) % num_steps
 
 		G = self.G
 		X = self.X
@@ -217,7 +219,7 @@ class ReconstructionLinkPredictionCallback(Callback):
 		embedder = self.embedder
 		batch_size = self.args.batch_size
 
-		nodes_to_embed = np.array(sorted(list(G.nodes()))).reshape(-1, 1)
+		nodes_to_embed = np.array(sorted(G.nodes())).reshape(-1, 1)
 
 		# nodes = nodes.reshape(-1, 1)
 		neighbours = {n: list(G.neighbors(n)) for n in G.nodes()}
@@ -240,8 +242,8 @@ class ReconstructionLinkPredictionCallback(Callback):
 
 		# embedding = embedder.predict(x)
 		num_steps = int((input_nodes.shape[0] + batch_size - 1) // batch_size)
-		embedding_gen = embedding_generator(X, input_nodes, batch_size=batch_size)
-		embedding = embedder.predict_generator(embedding_gen, steps=num_steps)
+		embedding_gen = embedding_generator(X, input_nodes, num_steps=num_steps, batch_size=batch_size)
+		embedding = embedder.predict_generator(embedding_gen, steps=num_steps, )
 		dim = embedding.shape[-1]
 		embedding = embedding.reshape(-1, dim)
 
@@ -284,7 +286,7 @@ class ReconstructionLinkPredictionCallback(Callback):
 		plt.close()
 
 	
-class LabelPredicitonCallback(Callback):
+class LabelPredictionCallback(Callback):
 
 	def __init__(self, val_G, X, Y, predictor, val_idx, args):
 		self.val_G = val_G
@@ -305,9 +307,10 @@ class LabelPredicitonCallback(Callback):
 
 
 
-		def prediction_generator(X, input_nodes, batch_size=100):
-			num_steps = int((input_nodes.shape[0] + batch_size - 1) // batch_size)
-			for step in range(num_steps):
+		def prediction_generator(X, input_nodes, num_steps, batch_size=100):
+			step = 0 
+			while True:
+			# for step in range(num_steps):
 				batch_nodes = input_nodes[batch_size*step : batch_size*(step+1)]
 				if sp.sparse.issparse(X):
 					x = X[batch_nodes.flatten()].toarray()
@@ -315,6 +318,7 @@ class LabelPredicitonCallback(Callback):
 				else:
 					x = X[batch_nodes]
 				yield x.reshape([-1, input_nodes.shape[1], 1, X.shape[-1]])
+				step = (step + 1) % num_steps
 
 		X = self.X
 		Y = self.Y
@@ -347,8 +351,8 @@ class LabelPredicitonCallback(Callback):
 		input_nodes = neighbour_list[0]
 
 		num_steps = int((input_nodes.shape[0] + batch_size - 1) // batch_size)
-		prediction_gen = prediction_generator(X, input_nodes, batch_size=batch_size)
-		predictions = predictor.predict_generator(prediction_gen, steps=num_steps)
+		prediction_gen = prediction_generator(X, input_nodes, num_steps=num_steps, batch_size=batch_size)
+		predictions = predictor.predict_generator(prediction_gen, steps=num_steps, )
 		predictions = predictions.reshape(-1, predictions.shape[-1])
 
 		# only consider validation labels

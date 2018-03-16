@@ -98,7 +98,7 @@ def load_models(X, Y, model_path, args):
 							 "HyperbolicDistanceLayer":HyperbolicDistanceLayer, 
 							 "GraphCapsuleLayer": GraphCapsuleLayer,
 							 "hyperbolic_negative_sampling_loss": hyperbolic_negative_sampling_loss, 
-							 "masked_crossentropy": masked_crossentropy})
+							 "masked_margin_loss": masked_margin_loss})
 		# for l in model.layers:
 		# 	print l.name
 		# 	print l.get_weights()
