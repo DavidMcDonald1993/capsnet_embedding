@@ -82,7 +82,7 @@ class ReconstructionLinkPredictionCallback(Callback):
 	def evaluate_rank_and_MAP(self, embedding, test_edges=None):
 
 		def hyperbolic_distance(u, v):
-			return np.arccosh(1 + 2 * np.linalg.norm(u - v, axis=-1)**2 / ((1 - np.linalg.norm(u, axis=-1)**2) * (1 - np.linalg.norm(v, axis=-1)**2)))
+			return np.arccosh(1. + 2. * np.linalg.norm(u - v, axis=-1)**2 / ((1. - np.linalg.norm(u, axis=-1)**2) * (1. - np.linalg.norm(v, axis=-1)**2)))
 
 		def sigmoid(x):
 			return 1. / (1 + np.exp(-x))
@@ -201,7 +201,7 @@ class ReconstructionLinkPredictionCallback(Callback):
 		print ("performing embedding")
 
 		def embedding_generator(X, input_nodes, batch_size=100):
-			num_steps = (input_nodes.shape[0] + batch_size - 1) // batch_size
+			num_steps = int((input_nodes.shape[0] + batch_size - 1) // batch_size)
 			for step in range(num_steps):
 				batch_nodes = input_nodes[batch_size*step : batch_size*(step+1)]
 				if sp.sparse.issparse(X):
@@ -239,7 +239,7 @@ class ReconstructionLinkPredictionCallback(Callback):
 		# x = np.expand_dims(x, 2)
 
 		# embedding = embedder.predict(x)
-		num_steps = (input_nodes.shape[0] + batch_size - 1) // batch_size
+		num_steps = int((input_nodes.shape[0] + batch_size - 1) // batch_size)
 		embedding_gen = embedding_generator(X, input_nodes, batch_size=batch_size)
 		embedding = embedder.predict_generator(embedding_gen, steps=num_steps)
 		dim = embedding.shape[-1]
@@ -306,7 +306,7 @@ class LabelPredicitonCallback(Callback):
 
 
 		def prediction_generator(X, input_nodes, batch_size=100):
-			num_steps = (input_nodes.shape[0] + batch_size - 1) // batch_size
+			num_steps = int((input_nodes.shape[0] + batch_size - 1) // batch_size)
 			for step in range(num_steps):
 				batch_nodes = input_nodes[batch_size*step : batch_size*(step+1)]
 				if sp.sparse.issparse(X):
@@ -346,9 +346,8 @@ class LabelPredicitonCallback(Callback):
 
 		input_nodes = neighbour_list[0]
 
-		num_steps = (input_nodes.shape[0] + batch_size - 1) // batch_size
+		num_steps = int((input_nodes.shape[0] + batch_size - 1) // batch_size)
 		prediction_gen = prediction_generator(X, input_nodes, batch_size=batch_size)
-
 		predictions = predictor.predict_generator(prediction_gen, steps=num_steps)
 		predictions = predictions.reshape(-1, predictions.shape[-1])
 

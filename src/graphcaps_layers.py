@@ -307,7 +307,7 @@ class HyperbolicDistanceLayer(layers.Layer):
 
 	def build(self, input_shape):
 		self.N = input_shape[1]
-		self.step_size = int(self.N / (1 + self.num_positive_samples + self.num_negative_samples))
+		self.step_size = int(self.N // (1 + self.num_positive_samples + self.num_negative_samples))
 		self.built = True
 
 	def get_config(self):
@@ -332,8 +332,8 @@ class HyperbolicDistanceLayer(layers.Layer):
 		v = inputs[:,1:]
 
 
-		d = tf.acosh(1 + 2 * self.safe_norm(u - v) / 
-					 ((1 - self.safe_norm(u)) * (1 - self.safe_norm(v))))
+		d = tf.acosh(1. + 2. * self.safe_norm(u - v) / 
+					 ((1. - self.safe_norm(u)) * (1. - self.safe_norm(v))))
 		return d
 
 	def compute_output_shape(self, input_shape):

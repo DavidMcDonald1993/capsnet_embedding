@@ -274,7 +274,7 @@ def main():
 	
 	print ("BEGIN TRAINING")
 
-	# num_steps = (len(positive_samples) // args.num_walks + args.batch_size - 1) // args.batch_size
+	# num_steps = int((len(positive_samples) // args.num_walks + args.batch_size - 1) // args.batch_size)
 	num_steps = 10
 	model.fit_generator(training_generator, 
 		steps_per_epoch=num_steps,
