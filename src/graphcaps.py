@@ -104,14 +104,14 @@ def parse_args():
 def fix_parameters(args):
 
 
-	# args.neighbourhood_sample_sizes = [25, 5]
-	# args.num_primary_caps_per_layer = [32, 16]
-	# args.num_filters_per_layer = [32, 16]
-	# args.agg_dim_per_layer = [8, 8]
-	args.neighbourhood_sample_sizes = [5, 5 ]
-	args.num_primary_caps_per_layer = [8, 8]
-	args.num_filters_per_layer = [8, 8]
+	args.neighbourhood_sample_sizes = [25, 5]
+	args.num_primary_caps_per_layer = [32, 16]
+	args.num_filters_per_layer = [32, 16]
 	args.agg_dim_per_layer = [8, 8]
+	# args.neighbourhood_sample_sizes = [5, 5 ]
+	# args.num_primary_caps_per_layer = [8, 8]
+	# args.num_filters_per_layer = [8, 8]
+	# args.agg_dim_per_layer = [8, 8]
 
 
 	dataset = args.dataset
@@ -281,7 +281,7 @@ def main():
 	print ("BEGIN TRAINING")
 
 	# num_steps = int((len(positive_samples) // args.num_walks + args.batch_size - 1) // args.batch_size)
-	num_steps = 10
+	num_steps = 1000
 	model.fit_generator(training_generator, 
 		steps_per_epoch=num_steps,
 		epochs=args.num_epochs, 
