@@ -35,7 +35,7 @@ def neighbourhood_sample_generator(G, X, Y, train_mask,
 
 	num_embeddings = neighbourhood_sample_sizes.shape[0]
 
-	num_steps = (len(positive_samples) + batch_size - 1) / batch_size
+	num_steps = (len(positive_samples) + batch_size - 1) // batch_size
 	
 	while True:
 
