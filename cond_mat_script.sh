@@ -1,5 +1,6 @@
 #!/bin/bash
 #SBATCH --qos bbgpu
+#SBATCH --gres gpu:p100:1
 #SBATCH --ntasks 1
 #SBATCH --time 10-00:00:00
 #SBATCH --mem 32gb
