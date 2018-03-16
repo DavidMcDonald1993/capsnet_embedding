@@ -162,8 +162,8 @@ def build_embedder_and_prediction_model(data_dim, num_classes, model, args):
 		label_prediction_input_num_neighbours = np.prod(neighbourhood_sample_sizes[:label_prediction_layer] + 1)
 		label_prediction_input = layers.Input(shape=(label_prediction_input_num_neighbours, 1, data_dim),
 			name="label_prediction_input")
-		label_prediction_lambda = lambda x, i=len(label_prediction_layers)-1, l=label_prediction_layer: connect_layers(zip(layer_dict["agg"][:l], 
-			layer_dict["batch_normalization"][:l], layer_dict["cap_input"][:l], layer_dict["cap"][:l], layer_dict["squash"][:l]) + 
+		label_prediction_lambda = lambda x, i=len(label_prediction_layers)-1, l=label_prediction_layer: connect_layers(list(zip(layer_dict["agg"][:l], 
+			layer_dict["batch_normalization"][:l], layer_dict["cap_input"][:l], layer_dict["cap"][:l], layer_dict["squash"][:l])) + 
 			[(layer_dict["label_prediction"][i], )], x)
 		label_prediction_output = label_prediction_lambda(label_prediction_input)
 
