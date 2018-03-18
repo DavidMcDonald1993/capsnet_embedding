@@ -6,8 +6,8 @@ import random
 class Graph():
 	def __init__(self, nx_G, is_directed, p, q):
 		self.G = nx_G
-		self.A = nx.adjacency_matrix(nx_G).astype(np.float32)
-		self.A_with_self_links = self.A + sp.sparse.identity(self.A.shape[0])
+		# self.A = nx.adjacency_matrix(nx_G).astype(np.float32)
+		# self.A_with_self_links = self.A + sp.sparse.identity(self.A.shape[0])
 		self.is_directed = is_directed
 		self.p = p
 		self.q = q
@@ -17,7 +17,7 @@ class Graph():
 		Simulate a random walk starting from start node.
 		'''
 		G = self.G
-		A = self.A
+		# A = self.A
 		alias_nodes = self.alias_nodes
 		alias_edges = self.alias_edges
 
@@ -26,8 +26,8 @@ class Graph():
 		while len(walk) < walk_length:
 			cur = walk[-1]
 			# print cur
-			# cur_nbrs = sorted(G.neighbors(cur))
-			cur_nbrs = sorted(A[cur].nonzero()[1])
+			cur_nbrs = sorted(G.neighbors(cur))
+			# cur_nbrs = sorted(A[cur].nonzero()[1])
 			if len(cur_nbrs) > 0:
 				if len(walk) == 1:
 					walk.append(cur_nbrs[alias_draw(alias_nodes[cur][0], alias_nodes[cur][1])])

@@ -306,10 +306,10 @@ def generate_graphcaps_model(data_dim, num_classes, args):
 	if args.no_intermediary_loss:
 		loss_weights += [0.] * (len(hyperbolic_distances) - 1)  + [1.]
 	else:
-		loss_weights += [1./len(hyperbolic_distances)]*len(hyperbolic_distances)
+		loss_weights += [1e-2./len(hyperbolic_distances)]*len(hyperbolic_distances)
 
 	graphcaps = Model(x,  label_predictions + hyperbolic_distances)
-	adam = Adam(clipnorm=1.)
+	adam = Adam(lr=1e-4, clipnorm=1.)
 	graphcaps.compile(optimizer=adam, loss=losses, loss_weights=loss_weights)
 
 	# graphcaps.summary()

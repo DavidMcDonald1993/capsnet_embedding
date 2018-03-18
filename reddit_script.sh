@@ -3,8 +3,8 @@
 #SBATCH --gres gpu:p100:1
 #SBATCH --ntasks 1
 #SBATCH --time 10-00:00:00
-#SBATCH --mem 32gb
-#SBATCH --output cora.out
+#SBATCH --mem 64gb
+#SBATCH --output reddit.out
 
 set -e
 
@@ -18,4 +18,4 @@ module load apps/keras/2.0.8-python-3.5.2-cuda-8.0.44
 
 cd src/
 
-python graphcaps.py --dataset cora 
+python graphcaps.py --dataset reddit
