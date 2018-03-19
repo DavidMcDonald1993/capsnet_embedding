@@ -44,6 +44,8 @@ def parse_args():
 		help="Use this flag to include label prediction cross entropy in the final loss function.")
 	parser.add_argument("--no-intermediary-loss", action="store_true", 
 		help="Use this flag to not include loss from intermediary hyperbolic embeddings in final loss function.")
+	parser.add_argument("--no-embedding-loss", action="store_true", 
+		help="Use this flag to not include loss from all hyperbolic embeddings in final loss function.")
 
 	parser.add_argument("-e", "--num_epochs", dest="num_epochs", type=int, default=1000,
 		help="The number of epochs to train for (default is 1000).")
@@ -135,6 +137,52 @@ def fix_parameters(args):
 		args.number_of_capsules_per_layer = [num_classes, 1]
 		args.capsule_dim_per_layer = [8, 10]
 
+def configure_paths(args):
+
+	dataset = args.dataset
+	directory = "neighbourhood_sample_sizes={}_num_primary_caps={}_num_filters={}_agg_dim={}_num_caps={}_caps_dim={}".format(args.neighbourhood_sample_sizes, 
+				args.num_primary_caps_per_layer, args.num_filters_per_layer, 
+				args.agg_dim_per_layer, args.number_of_capsules_per_layer, args.capsule_dim_per_layer)
+	if args.no_embedding_loss:
+		directory = "no_embedding_loss_" + directory
+	elif args.no_intermediary_loss:
+		directory = "no_intermediary_loss_" + directory
+
+	args.plot_path = os.path.join(args.plot_path, dataset)
+	if not os.path.exists(args.plot_path):
+		os.makedirs(args.plot_path)
+	args.plot_path = os.path.join(args.plot_path, directory)
+	if not os.path.exists(args.plot_path):
+		os.makedirs(args.plot_path)
+	args.embedding_path = os.path.join(args.embedding_path, dataset)
+	if not os.path.exists(args.embedding_path):
+		os.makedirs(args.embedding_path)
+	args.embedding_path = os.path.join(args.embedding_path, directory)
+	if not os.path.exists(args.embedding_path):
+		os.makedirs(args.embedding_path)
+	args.log_path = os.path.join(args.log_path, dataset)
+	if not os.path.exists(args.log_path):
+		os.makedirs(args.log_path)
+	args.log_path = os.path.join(args.log_path, directory)
+	# if not os.path.exists(log_path):
+	# 	os.makedirs(log_path)
+	args.walk_path = os.path.join(args.walk_path, dataset)
+	if not os.path.exists(args.walk_path):
+		os.makedirs(args.walk_path)
+	# positive_samples_path = os.path.join(args.pos_samples_path, dataset)
+	# if not os.path.exists(positive_samples_path):
+	# 	os.makedirs(positive_samples_path)
+	# negative_samples_path = os.path.join(args.neg_samples_path, dataset)
+	# if not os.path.exists(negative_samples_path):
+		# os.makedirs(negative_samples_path)
+	args.model_path = os.path.join(args.model_path, dataset)
+	if not os.path.exists(args.model_path):
+		os.makedirs(args.model_path)
+	args.model_path = os.path.join(args.model_path, directory)
+	if not os.path.exists(args.model_path):
+		os.makedirs(args.model_path)
+
+
 def main():
 
 	args = parse_args()
@@ -149,51 +197,53 @@ def main():
 
 	dataset = args.dataset
 
-	plot_path = os.path.join(args.plot_path, dataset)
-	if not os.path.exists(plot_path):
-		os.makedirs(plot_path)
-	plot_path = os.path.join(plot_path, 
-			"neighbourhood_sample_sizes={}_num_primary_caps={}_num_filters={}_agg_dim={}_num_caps={}_caps_dim={}".format(args.neighbourhood_sample_sizes, 
-				args.num_primary_caps_per_layer, args.num_filters_per_layer, 
-				args.agg_dim_per_layer, args.number_of_capsules_per_layer, args.capsule_dim_per_layer))
-	if not os.path.exists(plot_path):
-		os.makedirs(plot_path)
-	embedding_path = os.path.join(args.embedding_path, dataset)
-	if not os.path.exists(embedding_path):
-		os.makedirs(embedding_path)
-	embedding_path = os.path.join(embedding_path, 
-			"neighbourhood_sample_sizes={}_num_primary_caps={}_num_filters={}_agg_dim={}_num_caps={}_caps_dim={}".format(args.neighbourhood_sample_sizes, 
-				args.num_primary_caps_per_layer, args.num_filters_per_layer, 
-				args.agg_dim_per_layer, args.number_of_capsules_per_layer, args.capsule_dim_per_layer))
-	if not os.path.exists(embedding_path):
-		os.makedirs(embedding_path)
-	log_path = os.path.join(args.log_path, dataset)
-	if not os.path.exists(log_path):
-		os.makedirs(log_path)
-	log_path = os.path.join(log_path, 
-		"neighbourhood_sample_sizes={}_num_primary_caps={}_num_filters={}_agg_dim={}_num_caps={}_caps_dim={}.log".format(args.neighbourhood_sample_sizes, 
-			args.num_primary_caps_per_layer, args.num_filters_per_layer, 
-			args.agg_dim_per_layer, args.number_of_capsules_per_layer, args.capsule_dim_per_layer))
+	configure_paths(args)
+
+	# plot_path = os.path.join(args.plot_path, dataset)
+	# if not os.path.exists(plot_path):
+	# 	os.makedirs(plot_path)
+	# plot_path = os.path.join(plot_path, 
+	# 		"neighbourhood_sample_sizes={}_num_primary_caps={}_num_filters={}_agg_dim={}_num_caps={}_caps_dim={}".format(args.neighbourhood_sample_sizes, 
+	# 			args.num_primary_caps_per_layer, args.num_filters_per_layer, 
+	# 			args.agg_dim_per_layer, args.number_of_capsules_per_layer, args.capsule_dim_per_layer))
+	# if not os.path.exists(plot_path):
+	# 	os.makedirs(plot_path)
+	# embedding_path = os.path.join(args.embedding_path, dataset)
+	# if not os.path.exists(embedding_path):
+	# 	os.makedirs(embedding_path)
+	# embedding_path = os.path.join(embedding_path, 
+	# 		"neighbourhood_sample_sizes={}_num_primary_caps={}_num_filters={}_agg_dim={}_num_caps={}_caps_dim={}".format(args.neighbourhood_sample_sizes, 
+	# 			args.num_primary_caps_per_layer, args.num_filters_per_layer, 
+	# 			args.agg_dim_per_layer, args.number_of_capsules_per_layer, args.capsule_dim_per_layer))
+	# if not os.path.exists(embedding_path):
+	# 	os.makedirs(embedding_path)
+	# log_path = os.path.join(args.log_path, dataset)
 	# if not os.path.exists(log_path):
 	# 	os.makedirs(log_path)
-	walk_path = os.path.join(args.walk_path, dataset)
-	if not os.path.exists(walk_path):
-		os.makedirs(walk_path)
-	# positive_samples_path = os.path.join(args.pos_samples_path, dataset)
-	# if not os.path.exists(positive_samples_path):
-	# 	os.makedirs(positive_samples_path)
-	# negative_samples_path = os.path.join(args.neg_samples_path, dataset)
-	# if not os.path.exists(negative_samples_path):
-		# os.makedirs(negative_samples_path)
-	model_path = os.path.join(args.model_path, dataset)
-	if not os.path.exists(model_path):
-		os.makedirs(model_path)
-	model_path = os.path.join(model_path, 
-		"neighbourhood_sample_sizes={}_num_primary_caps={}_num_filters={}_agg_dim={}_num_caps={}_caps_dim={}".format(args.neighbourhood_sample_sizes, 
-			args.num_primary_caps_per_layer, args.num_filters_per_layer, 
-			args.agg_dim_per_layer, args.number_of_capsules_per_layer, args.capsule_dim_per_layer))
-	if not os.path.exists(model_path):
-		os.makedirs(model_path)
+	# log_path = os.path.join(log_path, 
+	# 	"neighbourhood_sample_sizes={}_num_primary_caps={}_num_filters={}_agg_dim={}_num_caps={}_caps_dim={}.log".format(args.neighbourhood_sample_sizes, 
+	# 		args.num_primary_caps_per_layer, args.num_filters_per_layer, 
+	# 		args.agg_dim_per_layer, args.number_of_capsules_per_layer, args.capsule_dim_per_layer))
+	# # if not os.path.exists(log_path):
+	# # 	os.makedirs(log_path)
+	# walk_path = os.path.join(args.walk_path, dataset)
+	# if not os.path.exists(walk_path):
+	# 	os.makedirs(walk_path)
+	# # positive_samples_path = os.path.join(args.pos_samples_path, dataset)
+	# # if not os.path.exists(positive_samples_path):
+	# # 	os.makedirs(positive_samples_path)
+	# # negative_samples_path = os.path.join(args.neg_samples_path, dataset)
+	# # if not os.path.exists(negative_samples_path):
+	# 	# os.makedirs(negative_samples_path)
+	# model_path = os.path.join(args.model_path, dataset)
+	# if not os.path.exists(model_path):
+	# 	os.makedirs(model_path)
+	# model_path = os.path.join(model_path, 
+	# 	"neighbourhood_sample_sizes={}_num_primary_caps={}_num_filters={}_agg_dim={}_num_caps={}_caps_dim={}".format(args.neighbourhood_sample_sizes, 
+	# 		args.num_primary_caps_per_layer, args.num_filters_per_layer, 
+	# 		args.agg_dim_per_layer, args.number_of_capsules_per_layer, args.capsule_dim_per_layer))
+	# if not os.path.exists(model_path):
+	# 	os.makedirs(model_path)
 
 	reconstruction_adj, G_train, G_val, G_test,\
 	X, Y, val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx = load_data(dataset)
@@ -208,7 +258,7 @@ def main():
 		monitor = "mean_rank_reconstruction"
 		mode = "min"
 
-	walk_file = os.path.join(walk_path, "walks-{}-{}".format(args.num_walks, args.walk_length))
+	walk_file = os.path.join(args.walk_path, "walks-{}-{}".format(args.num_walks, args.walk_length))
 	# walk_train_file = os.path.join(walk_path, "walks_train.pkl")
 	# walk_val_file = os.path.join(walk_path, "walks_val.pkl")
 
@@ -249,7 +299,7 @@ def main():
 		# neighbourhood_sample_sizes, num_capsules_per_layer, 
 		# args.num_positive_samples, args.num_negative_samples, args.batch_size,)
 
-	model, embedder, label_prediction_model, initial_epoch = load_models(X, Y, model_path, args)
+	model, embedder, label_prediction_model, initial_epoch = load_models(X, Y, args.model_path, args)
 		# neighbourhood_sample_sizes, num_primary_caps_per_layer, num_filters_per_layer, agg_dim_per_layer,
 		# num_capsules_per_layer, capsule_dim_per_layer, args)
 
@@ -262,16 +312,16 @@ def main():
 	nan_terminate_callback = TerminateOnNaN()
 
 	reconstruction_callback = ReconstructionLinkPredictionCallback(G_train, X, Y, reconstruction_adj, embedder,
-		val_edges, ground_truth_negative_samples, embedding_path, plot_path, args)
+		val_edges, ground_truth_negative_samples, args.embedding_path, args.plot_path, args)
 
 	label_prediction_callback = LabelPredictionCallback(G_val, X, Y, label_prediction_model, val_label_idx, args)
 
 	early_stopping_callback = EarlyStopping(monitor=monitor, patience=10, mode=mode, verbose=1)
 	
-	checkpoint_callback = ModelCheckpoint(os.path.join(model_path, "{epoch:04d}-{mean_precision_reconstruction:.4f}-{mean_rank_reconstruction:.2f}.h5"),
+	checkpoint_callback = ModelCheckpoint(os.path.join(args.model_path, "{epoch:04d}-{mean_precision_reconstruction:.4f}-{mean_rank_reconstruction:.2f}.h5"),
 		monitor=monitor, save_weights_only=False)
 
-	logger_callback = CSVLogger(log_path, append=True)
+	logger_callback = CSVLogger(args.log_path, append=True)
 
 	callbacks = [nan_terminate_callback, 
 	reconstruction_callback, 
