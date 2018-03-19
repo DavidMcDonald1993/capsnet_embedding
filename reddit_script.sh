@@ -3,7 +3,7 @@
 #SBATCH --gres gpu:p100:1
 #SBATCH --ntasks 1
 #SBATCH --time 10-00:00:00
-#SBATCH --mem 64gb
+#SBATCH --mem 120G
 #SBATCH --output reddit.out
 
 set -e

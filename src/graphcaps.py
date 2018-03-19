@@ -200,7 +200,7 @@ def main():
 	if dataset in ["citeseer", "cora", "pubmed", "reddit"]:
 		assert Y.shape[1] in args.number_of_capsules_per_layer, "You must have a layer with {} capsules".format(Y.shape[1])
 		args.use_labels = True
-		monitor = "classification_accuracy"
+		monitor = "f1_micro"
 		mode = "max"
 		print ("using labels in training")
 	else:
@@ -280,8 +280,8 @@ def main():
 	
 	print ("BEGIN TRAINING")
 
-	# num_steps = int((len(positive_samples) // args.num_walks + args.batch_size - 1) // args.batch_size)
-	num_steps = 1000
+	num_steps = int((len(positive_samples) // args.num_walks + args.batch_size - 1) // args.batch_size)
+	# num_steps = 1000
 	model.fit_generator(training_generator, 
 		steps_per_epoch=num_steps,
 		epochs=args.num_epochs, 
