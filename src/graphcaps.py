@@ -105,8 +105,8 @@ def fix_parameters(args):
 
 
 	args.neighbourhood_sample_sizes = [25, 5]
-	args.num_primary_caps_per_layer = [32, 16]
-	args.num_filters_per_layer = [32, 16]
+	args.num_primary_caps_per_layer = [16, 16]
+	args.num_filters_per_layer = [16, 16]
 	args.agg_dim_per_layer = [8, 8]
 	# args.neighbourhood_sample_sizes = [5, 5 ]
 	# args.num_primary_caps_per_layer = [8, 8]
@@ -119,6 +119,7 @@ def fix_parameters(args):
 
 		args.number_of_capsules_per_layer = [8, 1]
 		args.capsule_dim_per_layer = [8, args.embedding_dim]
+		args.batch_size = 10
 
 	elif dataset in ["citeseer", "cora", "pubmed", "reddit"]:
 
