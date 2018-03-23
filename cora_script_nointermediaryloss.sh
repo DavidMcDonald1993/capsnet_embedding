@@ -4,7 +4,7 @@
 #SBATCH --ntasks 1
 #SBATCH --time 10-00:00:00
 #SBATCH --mem 32G
-#SBATCH --output cora.out
+#SBATCH --output cora_nointermediary_loss.out
 
 set -e
 
