@@ -1,4 +1,6 @@
 import numpy as np
+import pandas as pd
+from pandas import Index
 # import networkx as nx
 
 import tensorflow as tf
@@ -184,6 +186,47 @@ def configure_paths(args):
 	if not os.path.exists(args.model_path):
 		os.makedirs(args.model_path)
 
+def record_initial_losses(model, gen, val_label_idx, val_edges, args, 
+	reconstruction_callback, label_prediction_callback):
+	
+	print ("recording losses before training begins")
+
+	initial_losses = {}
+
+	if val_label_idx is not None:
+		f1_micro, f1_macro, NMI, classification_accuracy =\
+		label_prediction_callback.make_and_evaluate_label_predictions()
+		initial_losses.update({"f1_micro": f1_micro, "f1_macro": f1_macro, 
+				"NMI": NMI, "classification_accuracy": classification_accuracy})
+
+	embedding = reconstruction_callback.perform_embedding()
+	metrics = reconstruction_callback.evaluate_rank_and_MAP(embedding)
+	mean_rank_reconstruction, mean_precision_reconstruction = metrics[:2]
+	initial_losses.update({"mean_rank_reconstruction" : mean_rank_reconstruction, 
+		"mean_precision_reconstruction" : mean_precision_reconstruction,})
+	if val_edges is not None:
+		mean_rank_link_prediction, mean_precision_link_prediction = metrics[2:4]
+		initial_losses.update({"mean_rank_link_prediction": mean_rank_link_prediction,
+		"mean_precision_link_prediction": mean_precision_link_prediction})
+
+	if args.dataset == "wordnet":
+		r, p = reconstruction_callback.evaluate_lexical_entailment(embedding)
+		initial_losses.update({"lex_r" : r, "lex_p" : p})
+	
+	# for l in model.output_layers:
+	# 	initial_losses.update({"{}_loss".format(l.name) : np.NaN})
+	# initial_losses.update({"loss" : np.NaN})
+	print ("evaluating model on one step of training generator")
+	evaluations = model.evaluate_generator(gen, steps=1)
+	for i, l in enumerate(model.output_layers):
+		print (l.name, evaluations[i])
+		initial_losses.update({"{}_loss".format(l.name) : evaluations[i]})
+	print ("loss", evaluations[-1])
+	initial_losses.update({"loss": evaluations[-1]})
+
+	loss_df = pd.DataFrame(initial_losses, index=Index([0], name="epoch"))
+	loss_df.to_csv(args.log_path)
+
 
 def main():
 
@@ -278,6 +321,11 @@ def main():
 	label_prediction_callback, 
 	early_stopping_callback, checkpoint_callback, logger_callback]
 
+	if initial_epoch == 1:
+		record_initial_losses(model, training_generator,
+		val_label_idx, val_edges, args, reconstruction_callback, label_prediction_callback)
+
+
 	
 	print ("BEGIN TRAINING")
 
@@ -291,8 +339,10 @@ def main():
 		verbose=1, #)
 		callbacks=callbacks)
 
+	print ("TRAINING COMPLETE -- TESTING MODEL")
+
 	if test_label_idx is not None:
-		label_prediction_callback.make_and_evaluate_label_predictions(G_test, test_label_idx)
+		f1_micro, f1_macro, NMI, classification_accuracy = label_prediction_callback.make_and_evaluate_label_predictions(G_test, test_label_idx)
 
 	embedding = reconstruction_callback.perform_embedding()
 	metrics = reconstruction_callback.evaluate_rank_and_MAP(embedding, test_edges)

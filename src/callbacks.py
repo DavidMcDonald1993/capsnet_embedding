@@ -51,7 +51,7 @@ class ReconstructionLinkPredictionCallback(Callback):
 
 		if self.args.dataset == "wordnet":
 			r, p = self.evaluate_lexical_entailment(embedding)
-			logs.update({"r" : r, "p" : p})
+			logs.update({"lex_r" : r, "lex_p" : p})
 			
 		self.save_embedding(embedding, path="{}/embedding_epoch_{:04}.npy".format(self.embedding_path, epoch))
 		self.plot_embedding(embedding, path="{}/embedding_epoch_{:04}.png".format(self.plot_path, epoch))
