@@ -122,7 +122,6 @@ def fix_parameters(args):
 
 		args.number_of_capsules_per_layer = [8, 1]
 		args.capsule_dim_per_layer = [8, args.embedding_dim]
-		args.batch_size = 10
 
 	elif dataset in ["citeseer", "cora", "pubmed", "reddit"]:
 
