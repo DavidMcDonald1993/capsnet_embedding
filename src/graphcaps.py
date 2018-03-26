@@ -267,15 +267,15 @@ def main():
 	# positive_samples_filename = os.path.join(positive_samples_path, "positive_samples")
 	# negative_samples_filename = os.path.join(negative_samples_path, "negative_samples")
 
-	if args.just_walks:
-		print ("Only precomputing walks -- terminating")
-		return
-
 	# walks_train = load_walks(G_train, walk_train_file, args)
 	# walks_val = load_walks(G_val, walk_val_file, args)
 	# walks = load_walks(G, walk_file, args)
 	positive_samples, ground_truth_negative_samples =\
 	load_positive_samples_and_ground_truth_negative_samples(G_train, args, walk_file,)# positive_samples_filename, negative_samples_filename)
+
+	if args.just_walks:
+		print ("Only precomputing walks -- terminating")
+		return
 
 	# data_dim = X.shape[1]
 	# num_classes = Y.shape[1]
