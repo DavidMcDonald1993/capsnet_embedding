@@ -42,12 +42,16 @@ def parse_args():
 		help="The dataset to load. Must be one of [wordnet, cora, citeseer, pubmed,\
 		AstroPh, CondMat, GrQc, HepPh, karate]. (Default is cora)")
 
+	parser.add_argument("--just-walks", action="store_true",
+		help="Use this flag to precompute walks and not train the model.")
+
 	parser.add_argument("--use-labels", action="store_true",
 		help="Use this flag to include label prediction cross entropy in the final loss function.")
 	parser.add_argument("--no-intermediary-loss", action="store_true", 
 		help="Use this flag to not include loss from intermediary hyperbolic embeddings in final loss function.")
 	parser.add_argument("--no-embedding-loss", action="store_true", 
 		help="Use this flag to not include loss from all hyperbolic embeddings in final loss function.")
+
 
 	parser.add_argument("-e", "--num_epochs", dest="num_epochs", type=int, default=1000,
 		help="The number of epochs to train for (default is 1000).")
@@ -263,6 +267,8 @@ def main():
 	# positive_samples_filename = os.path.join(positive_samples_path, "positive_samples")
 	# negative_samples_filename = os.path.join(negative_samples_path, "negative_samples")
 
+	if args.just_walks:
+		print ("Only precomputing walks -- terminating")
 
 	# walks_train = load_walks(G_train, walk_train_file, args)
 	# walks_val = load_walks(G_val, walk_val_file, args)
