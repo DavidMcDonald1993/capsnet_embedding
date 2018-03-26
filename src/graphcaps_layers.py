@@ -56,7 +56,7 @@ class GraphCapsuleLayer(layers.Layer):
 	"""
 	def __init__(self, num_capsule, dim_capsule, num_routing=3,
 				 kernel_initializer='glorot_uniform', 
-				 kernel_regularizer=1e-3,
+				 kernel_regularizer=1e-5,
 				 **kwargs):
 		super(GraphCapsuleLayer, self).__init__(**kwargs)
 		self.num_capsule = num_capsule
@@ -200,7 +200,7 @@ class AggregateLayer(layers.Layer):
 	Author: David McDonald, Email: `dxm237@cs.bham.ac.uk'
 	"""
 	def __init__(self, num_neighbours, num_caps, num_filters, new_dim, mode="mean", activation=None,
-				 kernel_initializer='glorot_uniform', kernel_regularizer=1e-3,
+				 kernel_initializer='glorot_uniform', kernel_regularizer=1e-5,
 				 **kwargs):
 		super(AggregateLayer, self).__init__(**kwargs)
 
