@@ -497,7 +497,7 @@ def load_wordnet():
 
 	if not os.path.exists(val_file):
 
-		number_of_edges_to_remove = int(len(G.edges) * 0.2)
+		number_of_edges_to_remove = int(len(G.edges()) * 0.2)
 
 		G, val_edges = remove_edges(G, number_of_edges_to_remove)
 		G, test_edges = remove_edges(G, number_of_edges_to_remove)
