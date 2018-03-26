@@ -38,6 +38,9 @@ def load_data(dataset):
 	if dataset == "wordnet":
 		reconstruction_adj, G_train, G_val, G_test,\
 		X, Y, val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx = load_wordnet()
+	elif dataset == "wordnet_attributed":
+		reconstruction_adj, G_train, G_val, G_test,\
+		X, Y, val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx = load_wordnet_attributed()
 	elif dataset == "karate":
 		reconstruction_adj, G_train, G_val, G_test,\
 		X, Y, val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx = load_karate()
@@ -494,6 +497,68 @@ def load_wordnet():
 
 	val_file = "../data/wordnet/val_edges.pkl"
 	test_file = "../data/wordnet/test_edges.pkl"
+
+	if not os.path.exists(val_file):
+
+		number_of_edges_to_remove = int(len(G.edges()) * 0.2)
+
+		G, val_edges = remove_edges(G, number_of_edges_to_remove)
+		G, test_edges = remove_edges(G, number_of_edges_to_remove)
+
+		with open(val_file, "wb") as f:
+			pkl.dump(val_edges, f, pkl.HIGHEST_PROTOCOL)
+		with open(test_file, "wb") as f:
+			pkl.dump(test_edges, f, pkl.HIGHEST_PROTOCOL)
+	else:
+		with open(val_file, "rb") as f:
+			val_edges = pkl.load(f) 
+		with open(test_file, "rb") as f:
+			test_edges = pkl.load(f)
+
+		G.remove_edges_from(val_edges)
+		G.remove_edges_from(test_edges)
+
+	# no label prediction
+
+	# same network for all label prediction phases
+	G_train = G
+	G_val = G
+	G_test = G
+
+	val_label_idx = None
+	test_label_idx = None
+
+	# no masking
+	train_label_mask = np.zeros((N, 1))
+	# val_mask = np.zeros((N, 1))
+	# test_mask = np.zeros((N, 1))
+
+	return reconstruction_adj, G_train, G_val, G_test, X, Y, val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx
+
+def load_wordnet_attributed():
+
+	'''
+	testing link prediciton / reconstruction / lexical entailment
+	'''
+
+	G = nx.read_edgelist("../data/wordnet/noun_closure_filtered.tsv", )
+	G = nx.convert_node_labels_to_integers(G, label_attribute="original_name")
+	nx.set_edge_attributes(G=G, name="weight", values=1)
+
+	# mesaure capaity for reconstructing original network
+	reconstruction_adj = nx.adjacency_matrix(G)
+
+	# fasttext vectors?
+	N = len(G)
+	# X = sp.sparse.identity(N, format="csr")
+	X = np.genfromtxt("../data/wordnet/feats.txt", delimiter=" ")
+	Y = np.ones((N, 1))
+
+
+	# X = preprocess_data(X)
+
+	val_file = "../data/wordnet/attributed_val_edges.pkl"
+	test_file = "../data/wordnet/attributed_test_edges.pkl"
 
 	if not os.path.exists(val_file):
 

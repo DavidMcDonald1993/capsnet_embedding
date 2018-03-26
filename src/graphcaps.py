@@ -124,7 +124,7 @@ def fix_parameters(args):
 
 
 	dataset = args.dataset
-	if dataset in ["AstroPh", "CondMat", "HepPh", "GrQc", "wordnet"]:
+	if dataset in ["AstroPh", "CondMat", "HepPh", "GrQc", "wordnet", "wordnet_attributed"]:
 
 		args.number_of_capsules_per_layer = [8, 1]
 		args.capsule_dim_per_layer = [8, args.embedding_dim]
@@ -213,7 +213,7 @@ def record_initial_losses(model, gen, val_label_idx, val_edges, args,
 		initial_losses.update({"mean_rank_link_prediction": mean_rank_link_prediction,
 		"mean_precision_link_prediction": mean_precision_link_prediction})
 
-	if args.dataset == "wordnet":
+	if args.dataset in ["wordnet", "wordnet_attributed"]:
 		r, p = reconstruction_callback.evaluate_lexical_entailment(embedding)
 		initial_losses.update({"lex_r" : r, "lex_p" : p})
 	
@@ -269,6 +269,7 @@ def main():
 
 	if args.just_walks:
 		print ("Only precomputing walks -- terminating")
+		return
 
 	# walks_train = load_walks(G_train, walk_train_file, args)
 	# walks_val = load_walks(G_val, walk_val_file, args)
@@ -356,7 +357,7 @@ def main():
 	if test_edges is not None:
 		print ("Mean rank link predicion:", metrics[2], "MAP link prediction:", metrics[3])
 
-	if dataset == "wordnet":
+	if dataset in ["wordnet", "wordnet_attributed"]:
 		r, p = reconstruction_callback.evaluate_lexical_entailment(embedding)
 
 if __name__  == "__main__":

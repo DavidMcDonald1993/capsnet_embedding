@@ -49,7 +49,7 @@ class ReconstructionLinkPredictionCallback(Callback):
 			logs.update({"mean_rank_link_prediction": mean_rank_link_prediction,
 			"mean_precision_link_prediction": mean_precision_link_prediction})
 
-		if self.args.dataset == "wordnet":
+		if self.args.dataset in ["wordnet", "wordnet_attributed"]:
 			r, p = self.evaluate_lexical_entailment(embedding)
 			logs.update({"lex_r" : r, "lex_p" : p})
 			
