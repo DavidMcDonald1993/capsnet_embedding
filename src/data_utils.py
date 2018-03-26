@@ -476,7 +476,7 @@ def load_wordnet():
 	testing link prediciton / reconstruction / lexical entailment
 	'''
 
-	G = nx.read_edgelist("../data/wordnet/wordnet_filtered.edg", )
+	G = nx.read_edgelist("../data/wordnet/noun_closure.tsv", )
 	G = nx.convert_node_labels_to_integers(G, label_attribute="original_name")
 	nx.set_edge_attributes(G=G, name="weight", values=1)
 
