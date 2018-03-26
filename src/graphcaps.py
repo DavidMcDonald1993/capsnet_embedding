@@ -114,6 +114,7 @@ def fix_parameters(args):
 	# args.num_primary_caps_per_layer = [8, 8]
 	# args.num_filters_per_layer = [8, 8]
 	# args.agg_dim_per_layer = [8, 8]
+	args.batch_size = 1
 
 
 	dataset = args.dataset
@@ -154,16 +155,18 @@ def configure_paths(args):
 	args.plot_path = os.path.join(args.plot_path, directory)
 	if not os.path.exists(args.plot_path):
 		os.makedirs(args.plot_path)
+
 	args.embedding_path = os.path.join(args.embedding_path, dataset)
 	if not os.path.exists(args.embedding_path):
 		os.makedirs(args.embedding_path)
 	args.embedding_path = os.path.join(args.embedding_path, directory)
 	if not os.path.exists(args.embedding_path):
 		os.makedirs(args.embedding_path)
+
 	args.log_path = os.path.join(args.log_path, dataset)
 	if not os.path.exists(args.log_path):
 		os.makedirs(args.log_path)
-	args.log_path = os.path.join(args.log_path, directory)
+	args.log_path = os.path.join(args.log_path, directory + ".log")
 	# if not os.path.exists(log_path):
 	# 	os.makedirs(log_path)
 	args.walk_path = os.path.join(args.walk_path, dataset)
@@ -190,7 +193,6 @@ def main():
 
 	fix_parameters(args)
 
-
 	assert len(args.neighbourhood_sample_sizes) == len(args.num_primary_caps_per_layer) ==\
 	len(args.num_filters_per_layer) == len(args.agg_dim_per_layer) == \
 	len(args.number_of_capsules_per_layer) == len(args.capsule_dim_per_layer), "lengths of all input lists must be the same"
@@ -198,52 +200,6 @@ def main():
 	dataset = args.dataset
 
 	configure_paths(args)
-
-	# plot_path = os.path.join(args.plot_path, dataset)
-	# if not os.path.exists(plot_path):
-	# 	os.makedirs(plot_path)
-	# plot_path = os.path.join(plot_path, 
-	# 		"neighbourhood_sample_sizes={}_num_primary_caps={}_num_filters={}_agg_dim={}_num_caps={}_caps_dim={}".format(args.neighbourhood_sample_sizes, 
-	# 			args.num_primary_caps_per_layer, args.num_filters_per_layer, 
-	# 			args.agg_dim_per_layer, args.number_of_capsules_per_layer, args.capsule_dim_per_layer))
-	# if not os.path.exists(plot_path):
-	# 	os.makedirs(plot_path)
-	# embedding_path = os.path.join(args.embedding_path, dataset)
-	# if not os.path.exists(embedding_path):
-	# 	os.makedirs(embedding_path)
-	# embedding_path = os.path.join(embedding_path, 
-	# 		"neighbourhood_sample_sizes={}_num_primary_caps={}_num_filters={}_agg_dim={}_num_caps={}_caps_dim={}".format(args.neighbourhood_sample_sizes, 
-	# 			args.num_primary_caps_per_layer, args.num_filters_per_layer, 
-	# 			args.agg_dim_per_layer, args.number_of_capsules_per_layer, args.capsule_dim_per_layer))
-	# if not os.path.exists(embedding_path):
-	# 	os.makedirs(embedding_path)
-	# log_path = os.path.join(args.log_path, dataset)
-	# if not os.path.exists(log_path):
-	# 	os.makedirs(log_path)
-	# log_path = os.path.join(log_path, 
-	# 	"neighbourhood_sample_sizes={}_num_primary_caps={}_num_filters={}_agg_dim={}_num_caps={}_caps_dim={}.log".format(args.neighbourhood_sample_sizes, 
-	# 		args.num_primary_caps_per_layer, args.num_filters_per_layer, 
-	# 		args.agg_dim_per_layer, args.number_of_capsules_per_layer, args.capsule_dim_per_layer))
-	# # if not os.path.exists(log_path):
-	# # 	os.makedirs(log_path)
-	# walk_path = os.path.join(args.walk_path, dataset)
-	# if not os.path.exists(walk_path):
-	# 	os.makedirs(walk_path)
-	# # positive_samples_path = os.path.join(args.pos_samples_path, dataset)
-	# # if not os.path.exists(positive_samples_path):
-	# # 	os.makedirs(positive_samples_path)
-	# # negative_samples_path = os.path.join(args.neg_samples_path, dataset)
-	# # if not os.path.exists(negative_samples_path):
-	# 	# os.makedirs(negative_samples_path)
-	# model_path = os.path.join(args.model_path, dataset)
-	# if not os.path.exists(model_path):
-	# 	os.makedirs(model_path)
-	# model_path = os.path.join(model_path, 
-	# 	"neighbourhood_sample_sizes={}_num_primary_caps={}_num_filters={}_agg_dim={}_num_caps={}_caps_dim={}".format(args.neighbourhood_sample_sizes, 
-	# 		args.num_primary_caps_per_layer, args.num_filters_per_layer, 
-	# 		args.agg_dim_per_layer, args.number_of_capsules_per_layer, args.capsule_dim_per_layer))
-	# if not os.path.exists(model_path):
-	# 	os.makedirs(model_path)
 
 	reconstruction_adj, G_train, G_val, G_test,\
 	X, Y, val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx = load_data(dataset)
@@ -253,7 +209,7 @@ def main():
 		args.use_labels = True
 		monitor = "f1_micro"
 		mode = "max"
-		print ("using labels in training")
+		print("using labels in training")
 	else:
 		monitor = "mean_rank_reconstruction"
 		mode = "min"
@@ -310,17 +266,12 @@ def main():
 	# 	embedding_path=embedding_path, plot_path=plot_path, )
 
 	nan_terminate_callback = TerminateOnNaN()
-
 	reconstruction_callback = ReconstructionLinkPredictionCallback(G_train, X, Y, reconstruction_adj, embedder,
 		val_edges, ground_truth_negative_samples, args.embedding_path, args.plot_path, args)
-
 	label_prediction_callback = LabelPredictionCallback(G_val, X, Y, label_prediction_model, val_label_idx, args)
-
 	early_stopping_callback = EarlyStopping(monitor=monitor, patience=10, mode=mode, verbose=1)
-	
 	checkpoint_callback = ModelCheckpoint(os.path.join(args.model_path, "{epoch:04d}-{mean_precision_reconstruction:.4f}-{mean_rank_reconstruction:.2f}.h5"),
 		monitor=monitor, save_weights_only=False)
-
 	logger_callback = CSVLogger(args.log_path, append=True)
 
 	callbacks = [nan_terminate_callback, 
