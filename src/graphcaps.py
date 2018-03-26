@@ -14,7 +14,7 @@ from generators import neighbourhood_sample_generator
 # from data_utils import load_karate, load_wordnet, load_collaboration_network, load_data_gcn, load_reddit
 from data_utils import load_data
 from utils import load_positive_samples_and_ground_truth_negative_samples#, load_walks#, ValidationCallback
-from metrics import evaluate_lexical_entailment#evaluate_link_prediction, make_and_evaluate_label_predictions, evaluate_lexical_entailment
+# from metrics import evaluate_lexical_entailment#evaluate_link_prediction, make_and_evaluate_label_predictions, evaluate_lexical_entailment
 from callbacks import ReconstructionLinkPredictionCallback, LabelPredictionCallback
 
 
@@ -114,7 +114,7 @@ def fix_parameters(args):
 	# args.num_primary_caps_per_layer = [8, 8]
 	# args.num_filters_per_layer = [8, 8]
 	# args.agg_dim_per_layer = [8, 8]
-	args.batch_size = 1
+	args.batch_size = 10
 
 
 	dataset = args.dataset
@@ -301,7 +301,7 @@ def main():
 		print ("Mean rank link predicion:", metrics[2], "MAP link prediction:", metrics[3])
 
 	if dataset == "wordnet":
-		evaluate_lexical_entailment(embedding)
+		r, p = reconstruction_callback.evaluate_lexical_entailment(embedding)
 
 if __name__  == "__main__":
 	main()
