@@ -551,11 +551,13 @@ def load_wordnet_attributed():
 	# fasttext vectors?
 	N = len(G)
 	# X = sp.sparse.identity(N, format="csr")
-	X = np.genfromtxt("../data/wordnet/feats.txt", delimiter=" ")
+	# X = np.genfromtxt("../data/wordnet/feats.txt", delimiter=" ")
+	feats_df = pd.read_csv("../data/wordnet/feats_df.csv", index_col=0)
+	feats_df.reindex([n.split(".")[0] for n in G.nodes()])
+	X = feats_df.values
 	Y = np.ones((N, 1))
 
-
-	# X = preprocess_data(X)
+	X = preprocess_data(X)
 
 	val_file = "../data/wordnet/attributed_val_edges.pkl"
 	test_file = "../data/wordnet/attributed_test_edges.pkl"

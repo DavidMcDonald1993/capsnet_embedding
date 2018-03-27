@@ -358,7 +358,7 @@ def main():
 		print ("Mean rank link predicion:", metrics[2], "MAP link prediction:", metrics[3])
 
 	if dataset in ["wordnet", "wordnet_attributed"]:
-		r, p = reconstruction_callback.evaluate_lexical_entailment(embedding)
+		r, p = reconstruction_callback.evaluate_lexical_entailment(embedding, dataset)
 
 if __name__  == "__main__":
 	main()

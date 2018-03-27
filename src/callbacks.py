@@ -50,7 +50,7 @@ class ReconstructionLinkPredictionCallback(Callback):
 			"mean_precision_link_prediction": mean_precision_link_prediction})
 
 		if self.args.dataset in ["wordnet", "wordnet_attributed"]:
-			r, p = self.evaluate_lexical_entailment(embedding)
+			r, p = self.evaluate_lexical_entailment(embedding, args.dataset)
 			logs.update({"lex_r" : r, "lex_p" : p})
 			
 		self.save_embedding(embedding, path="{}/embedding_epoch_{:04}.npy".format(self.embedding_path, epoch))
@@ -194,14 +194,18 @@ class ReconstructionLinkPredictionCallback(Callback):
 		return metrics
 
 
-	def evaluate_lexical_entailment(self, embedding):
+	def evaluate_lexical_entailment(self, embedding, dataset):
 
 		def is_a_score(u, v, alpha=1e3):
 			return -(1 + alpha * (np.linalg.norm(v, axis=-1) - np.linalg.norm(u, axis=-1))) * hyperbolic_distance(u, v)
 
 		print ("evaluating lexical entailment")
 
-		hyperlex_noun_idx_df = pd.read_csv("../data/wordnet/hyperlex_idx_ranks.txt", index_col=0, sep=" ")
+		if dataset == "wordnet":
+			f = "../data/wordnet/hyperlex_idx_ranks.txt"
+		else:
+			f = "../data/wordnet/hyperlex_idx_ranks_filtered.txt"
+		hyperlex_noun_idx_df = pd.read_csv(f, index_col=0, sep=" ")
 
 		U = np.array(hyperlex_noun_idx_df["WORD1"], dtype=int)
 		V = np.array(hyperlex_noun_idx_df["WORD2"], dtype=int)
