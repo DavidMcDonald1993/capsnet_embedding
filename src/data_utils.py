@@ -542,8 +542,6 @@ def load_wordnet_attributed():
 	'''
 
 	G = nx.read_edgelist("../data/wordnet/noun_closure_filtered.tsv", )
-	G = nx.convert_node_labels_to_integers(G, label_attribute="original_name")
-	nx.set_edge_attributes(G=G, name="weight", values=1)
 
 	# mesaure capaity for reconstructing original network
 	reconstruction_adj = nx.adjacency_matrix(G)
@@ -558,6 +556,9 @@ def load_wordnet_attributed():
 	Y = np.ones((N, 1))
 
 	X = preprocess_data(X)
+
+	G = nx.convert_node_labels_to_integers(G, label_attribute="original_name")
+	nx.set_edge_attributes(G=G, name="weight", values=1)
 
 	val_file = "../data/wordnet/attributed_val_edges.pkl"
 	test_file = "../data/wordnet/attributed_test_edges.pkl"
