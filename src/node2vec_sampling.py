@@ -6,8 +6,8 @@ import random
 class Graph():
 	def __init__(self, nx_G, is_directed, p, q):
 		self.G = nx_G
-		self.A = nx.adjacency_matrix(nx_G).astype(np.float32)
-		self.A_with_self_links = self.A + sp.sparse.identity(self.A.shape[0])
+		# self.A = nx.adjacency_matrix(nx_G).astype(np.float32)
+		# self.A_with_self_links = self.A + sp.sparse.identity(self.A.shape[0])
 		self.is_directed = is_directed
 		self.p = p
 		self.q = q
@@ -17,9 +17,8 @@ class Graph():
 		Simulate a random walk starting from start node.
 		'''
 		G = self.G
-		# A = self.A
-		# alias_nodes = self.alias_nodes
-		# alias_edges = self.alias_edges
+		alias_nodes = self.alias_nodes
+		alias_edges = self.alias_edges
 
 		walk = [start_node]
 
@@ -30,45 +29,45 @@ class Graph():
 			# cur_nbrs = sorted(A[cur].nonzero()[1])
 			if len(cur_nbrs) > 0:
 				if len(walk) == 1:
-					# walk.append(cur_nbrs[alias_draw(alias_nodes[cur][0], alias_nodes[cur][1])])
-					probs = self.compute_node_probs(cur)
-					walk.append(alias_draw(probs))
+					walk.append(cur_nbrs[alias_draw(alias_nodes[cur][0], alias_nodes[cur][1])])
+					# probs = self.compute_node_probs(cur)
+					# walk.append(alias_draw(probs))
 				else:
 					prev = walk[-2]
-					# next = cur_nbrs[alias_draw(alias_edges[(prev, cur)][0], 
-						# alias_edges[(prev, cur)][1])]
-					probs = self.compute_edge_probs(prev, cur)
-					next = alias_draw(probs)
+					next = cur_nbrs[alias_draw(alias_edges[(prev, cur)][0], 
+						alias_edges[(prev, cur)][1])]
+					# probs = self.compute_edge_probs(prev, cur)
+					# next = alias_draw(probs)
 					walk.append(next)
 			else:
 				break
 
 		return walk
 
-	def compute_node_probs(self, node):
+	# def compute_node_probs(self, node):
 
-		A = self.A 
-		unnormalized_probs = A[node].toarray().flatten()
-		normalized_probs = unnormalized_probs / unnormalized_probs.sum()
-		return normalized_probs
+	# 	A = self.A 
+	# 	unnormalized_probs = A[node].toarray().flatten()
+	# 	normalized_probs = unnormalized_probs / unnormalized_probs.sum()
+	# 	return normalized_probs
 
 
-	def compute_edge_probs(self, prev, cur):
+	# def compute_edge_probs(self, prev, cur):
 
-		A = self.A
-		A_with_self_links = self.A_with_self_links
-		p = self.p
-		q = self.q
+	# 	A = self.A
+	# 	A_with_self_links = self.A_with_self_links
+	# 	p = self.p
+	# 	q = self.q
 
-		unnormalized_probs = A[cur].toarray().flatten()
-		unnormalized_probs[prev] /= p
+	# 	unnormalized_probs = A[cur].toarray().flatten()
+	# 	unnormalized_probs[prev] /= p
 
-		not_connected_to_prev = A_with_self_links[prev].toarray().flatten() == 0#.toarray().flatten()
-		unnormalized_probs[not_connected_to_prev] /= q
+	# 	not_connected_to_prev = A_with_self_links[prev].toarray().flatten() == 0#.toarray().flatten()
+	# 	unnormalized_probs[not_connected_to_prev] /= q
 
-		normalized_probs = unnormalized_probs / unnormalized_probs.sum()
+	# 	normalized_probs = unnormalized_probs / unnormalized_probs.sum()
 
-		return normalized_probs
+	# 	return normalized_probs
 
 	def simulate_walks(self, num_walks, walk_length):
 		'''
@@ -202,18 +201,18 @@ def alias_setup(probs):
 
 	return J, q
 
-# def alias_draw(J, q):
-# 	'''
-# 	Draw sample from a non-uniform discrete distribution using alias sampling.
-# 	'''
-# 	K = len(J)
+def alias_draw(J, q):
+	'''
+	Draw sample from a non-uniform discrete distribution using alias sampling.
+	'''
+	K = len(J)
 
-# 	kk = int(np.floor(np.random.rand()*K))
-# 	if np.random.rand() < q[kk]:
-# 	    return kk
-# 	else:
-# 	    return J[kk]
+	kk = int(np.floor(np.random.rand()*K))
+	if np.random.rand() < q[kk]:
+	    return kk
+	else:
+	    return J[kk]
 
-def alias_draw(probs):
-	N = len(probs)
-	return np.random.choice(N, p=probs)
+# def alias_draw(probs):
+# 	N = len(probs)
+# 	return np.random.choice(N, p=probs)
