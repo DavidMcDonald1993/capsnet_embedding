@@ -34,11 +34,11 @@ class Graph():
 					# walk.append(alias_draw(probs))
 				else:
 					prev = walk[-2]
-					next = cur_nbrs[alias_draw(alias_edges[(prev, cur)][0], 
+					next_ = cur_nbrs[alias_draw(alias_edges[(prev, cur)][0], 
 						alias_edges[(prev, cur)][1])]
 					# probs = self.compute_edge_probs(prev, cur)
 					# next = alias_draw(probs)
-					walk.append(next)
+					walk.append(next_)
 			else:
 				break
 
