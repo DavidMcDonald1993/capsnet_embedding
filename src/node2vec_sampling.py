@@ -18,8 +18,8 @@ class Graph():
 		'''
 		G = self.G
 		# A = self.A
-		alias_nodes = self.alias_nodes
-		alias_edges = self.alias_edges
+		# alias_nodes = self.alias_nodes
+		# alias_edges = self.alias_edges
 
 		walk = [start_node]
 
@@ -36,7 +36,7 @@ class Graph():
 				else:
 					prev = walk[-2]
 					# next = cur_nbrs[alias_draw(alias_edges[(prev, cur)][0], 
-					# 	alias_edges[(prev, cur)][1])]
+						# alias_edges[(prev, cur)][1])]
 					probs = self.compute_edge_probs(prev, cur)
 					next = alias_draw(probs)
 					walk.append(next)
@@ -202,18 +202,18 @@ def alias_setup(probs):
 
 	return J, q
 
-def alias_draw(J, q):
-	'''
-	Draw sample from a non-uniform discrete distribution using alias sampling.
-	'''
-	K = len(J)
+# def alias_draw(J, q):
+# 	'''
+# 	Draw sample from a non-uniform discrete distribution using alias sampling.
+# 	'''
+# 	K = len(J)
 
-	kk = int(np.floor(np.random.rand()*K))
-	if np.random.rand() < q[kk]:
-	    return kk
-	else:
-	    return J[kk]
+# 	kk = int(np.floor(np.random.rand()*K))
+# 	if np.random.rand() < q[kk]:
+# 	    return kk
+# 	else:
+# 	    return J[kk]
 
-# def alias_draw(probs):
-# 	N = len(probs)
-# 	return np.random.choice(N, p=probs)
+def alias_draw(probs):
+	N = len(probs)
+	return np.random.choice(N, p=probs)

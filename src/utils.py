@@ -138,7 +138,7 @@ def load_walks(G, walk_file, args):
 
 	if not os.path.exists(walk_file):
 		node2vec_graph = Graph(nx_G=G, is_directed=False, p=args.p, q=args.q)
-		# node2vec_graph.preprocess_transition_probs()
+		node2vec_graph.preprocess_transition_probs()
 		walks = node2vec_graph.simulate_walks(num_walks=args.num_walks, walk_length=args.walk_length)
 		# with open(walk_file, "wb") as f:
 		# 	pkl.dump(walks, f)
