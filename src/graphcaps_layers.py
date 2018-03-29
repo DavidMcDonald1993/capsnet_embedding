@@ -26,7 +26,6 @@ class Length(layers.Layer):
 		return K.sqrt(K.sum(K.square(inputs), axis=-1) + K.epsilon())
 
 	def compute_output_shape(self, input_shape):
-		# print "length output shape", input_shape[:-1]
 		return input_shape[:-1]
 
 def squash(vectors, axis=-1):
@@ -38,7 +37,7 @@ def squash(vectors, axis=-1):
 	Author: Xifeng Guo, E-mail: `guoxifeng1990@163.com`, Github: `https://github.com/XifengGuo/CapsNet-Keras`
 	"""
 	s_squared_norm = K.sum(K.square(vectors), axis, keepdims=True)
-	scale = s_squared_norm / (1 + s_squared_norm) / K.sqrt(s_squared_norm + K.epsilon())
+	scale = s_squared_norm / ((1 + s_squared_norm) * K.sqrt(s_squared_norm + K.epsilon()))
 	return scale * vectors
 
 class GraphCapsuleLayer(layers.Layer):
@@ -56,7 +55,7 @@ class GraphCapsuleLayer(layers.Layer):
 	"""
 	def __init__(self, num_capsule, dim_capsule, num_routing=3,
 				 kernel_initializer='glorot_uniform', 
-				 kernel_regularizer=1e-2,
+				 kernel_regularizer=1e-3,
 				 **kwargs):
 		super(GraphCapsuleLayer, self).__init__(**kwargs)
 		self.num_capsule = num_capsule
@@ -130,11 +129,11 @@ class GraphCapsuleLayer(layers.Layer):
 		# inputs shape is [None, N, input_num_caps, input_cap_dim]
 		batch_size = K.shape(inputs)[0]
 		inputs = K.reshape(inputs, [-1, self.input_num_capsule, self.input_dim_capsule])
-		# shape is not [None*N, input num caps, input cap dim]
+		# shape is now [None*N, input num caps, input cap dim]
 		inputs = K.permute_dimensions(inputs, [1, 0, 2])
 		# shape is now [input num caps, None*N, input cap dim]
 		# W shape is [input num caps, input cap dim, num_caps * cap dim]
-		inputs_hat = K.batch_dot(inputs, self.W, axes=[2,1])
+		inputs_hat = K.batch_dot(inputs, self.W, axes=[2, 1])
 		# shape is now [input num caps, None*N, num caps * cap dim]
 		inputs_hat = K.permute_dimensions(inputs_hat, [1, 0, 2])
 		# shape is now [None*N, input num caps, num_caps * caps dim]
@@ -157,12 +156,11 @@ class GraphCapsuleLayer(layers.Layer):
 		# b.shape = [None, N, self.num_capsule, self.input_num_capsule].
 		b = tf.zeros(shape=[K.shape(inputs_hat)[0], K.shape(inputs_hat)[1],
 							self.num_capsule, self.input_num_capsule])
-		# print "b", b.shape
 
 		assert self.num_routing > 0, 'The num_routing should be > 0.'
 		for i in range(self.num_routing):
 			# c.shape=[batch_size, N, num_capsule, input_num_capsule]
-			c = tf.nn.softmax(b, dim=2)
+			c = tf.nn.softmax(b, axis=2)
 
 			# At last iteration, use `inputs_hat` to compute `outputs` in order to backpropagate gradient
 			if i == self.num_routing - 1:
@@ -176,7 +174,6 @@ class GraphCapsuleLayer(layers.Layer):
 				outputs = K.batch_dot(c, inputs_hat, axes=3)
 			else:  # Otherwise, use `inputs_hat_stopped` to update `b`. No gradients flow on this path.
 				outputs = squash(K.batch_dot(c, inputs_hat_stopped, axes=3))
-				# print "outputs", outputs.shape
 				# outputs.shape =  [None, N, num_capsule, dim_capsule]
 				# inputs_hat.shape=[None, N, num_capsule, input_num_capsule, dim_capsule]
 				# The first two dimensions as `batch` dimension,
@@ -185,7 +182,6 @@ class GraphCapsuleLayer(layers.Layer):
 				b += K.batch_dot(outputs, inputs_hat_stopped, axes=[3,4])
 		# End: Routing algorithm -----------------------------------------------------------------------#
 
-		# raise SystemExit
 		return outputs
 
 	def compute_output_shape(self, input_shape):
@@ -200,7 +196,7 @@ class AggregateLayer(layers.Layer):
 	Author: David McDonald, Email: `dxm237@cs.bham.ac.uk'
 	"""
 	def __init__(self, num_neighbours, num_caps, num_filters, new_dim, mode="mean", activation=None,
-				 kernel_initializer='glorot_uniform', kernel_regularizer=1e-2,
+				 kernel_initializer='glorot_uniform', kernel_regularizer=1e-3,
 				 **kwargs):
 		super(AggregateLayer, self).__init__(**kwargs)
 
@@ -231,7 +227,7 @@ class AggregateLayer(layers.Layer):
 									trainable=True, initializer=initializer, regularizer=regularizer,
 									name="W")
 
-		self.bias = self.add_weight(shape=(self.num_caps * self.num_filters, self.new_dim),
+		self.bias = self.add_weight(shape=(1, self.num_caps * self.num_filters * self.new_dim),
 									trainable=True, initializer=initializer, regularizer=regularizer,
 									name="bias")
 
@@ -251,36 +247,22 @@ class AggregateLayer(layers.Layer):
 		'''
 		
 		#aggregate over neighbours
-		# inputs_shaped = K.reshape(inputs, shape=tf.stack([K.shape(inputs)[0], -1, self.num_neighbours, 
-			# self.num_input_caps, self.input_dim]))
-		# print "AGG"
-		inputs_shaped = K.map_fn(lambda x, shape=[-1, self.num_neighbours, self.input_dim]:
-			K.reshape(x, shape=shape), elems=inputs)
-		# print "inputs shaped", inputs_shaped.shape
-		inputs_aggregated = K.mean(inputs_shaped, axis=2)
-		# print "inputs aggregated", inputs_aggregated.shape
-		# shape is [None, Nn+1, input_dim]
 
-		output = K.map_fn(lambda x, W=self.W, bias=self.bias, shape=[-1, self.num_caps*self.num_filters, self.new_dim]: 
-			# K.map_fn(lambda y, W=W, bias=bias, shape=shape:
-				K.reshape(K.dot(x, W), shape=shape) + bias, #elems=x), 
-				elems=inputs_aggregated)
-			# K.map_fn(lambda y, W=W, bias=bias, shape=shape: 
-			# 	K.reshape(K.batch_dot(y, W, axes=1) + bias, shape=shape), elems=x), elems=inputs_aggregated)
-		# output shape is [None, Nn+1, ]
-		# print "output", output.shape
-		# output = K.reshape(output, 
-		# 	shape=tf.stack([K.shape(inputs)[0], -1, self.num_filters, self.new_dim]))
-		# output = K.reshape(output, [K.shape(output)[0], K.shape(output)[1], 
-		# 	K.shape(inputs)[2], K.shape(inputs)[3]])
-		# shape is now [None, Nn+1, num_caps, cap_dim]
 
-		# output = K.reshape(output, shape=tf.stack([K.shape(inputs)[0], -1, 
-		# 	self.num_input_caps*self.num_filters, self.new_dim]))
+		inputs_shaped = K.reshape(inputs, shape=[-1, self.num_neighbours, self.input_dim])
+		# shape is now [batch*Nn+1, num_neighbours, input_dim]
+		inputs_aggregated = K.mean(inputs_shaped, axis=1)
+		# shape is now [batch*Nn+1, input_dim]
+		output = K.dot(inputs_aggregated, self.W) + self.bias
+		# shape is not [batch*Nn+1, num_caps*num_filters*new_dim]
+
+
 		
 		if self.activation is not None:
 			output = activations.get(self.activation)(output)
 		# output = squash(output)
+
+		output = K.reshape(output, shape=[K.shape(inputs)[0], -1, self.num_caps*self.num_filters, self.new_dim])
 		
 		return output
 		
@@ -290,10 +272,8 @@ class AggregateLayer(layers.Layer):
 		output_shape is [None, Nn+1, num_caps, cap_dim]
 
 		'''
-		# print "AGG OTUPUT ",tuple([input_shape[0], input_shape[1] / self.num_neighbours, 
-		# 	self.num_input_caps*self.num_filters, self.new_dim])
-		# return tuple([input_shape[0], self.n_dimension, input_shape[2], input_shape[3]])
-		return tuple([input_shape[0], input_shape[1] / self.num_neighbours, 
+		
+		return tuple([input_shape[0], int(input_shape[1] // self.num_neighbours), 
 			self.num_caps*self.num_filters, self.new_dim])
 
 class HyperbolicDistanceLayer(layers.Layer):
@@ -337,5 +317,4 @@ class HyperbolicDistanceLayer(layers.Layer):
 		return d
 
 	def compute_output_shape(self, input_shape):
-		# print "hypdist output shape ", tuple([input_shape[0], self.num_positive_samples + self.num_negative_samples])
 		return tuple([input_shape[0], self.num_positive_samples + self.num_negative_samples])

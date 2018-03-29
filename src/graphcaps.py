@@ -36,6 +36,9 @@ config.gpu_options.per_process_gpu_memory_fraction = 0.5
 K.tensorflow_backend.set_session(tf.Session(config=config))
 
 def parse_args():
+	'''
+	parse args from the command line
+	'''
 	parser = argparse.ArgumentParser(description="GraphCaps for feature learning of complex networks")
 
 	parser.add_argument("--dataset", dest="dataset", type=str, default="cora",
@@ -57,8 +60,6 @@ def parse_args():
 		help="The number of epochs to train for (default is 1000).")
 	parser.add_argument("-b", "--batch_size", dest="batch_size", type=int, default=100, 
 		help="Batch size for training (default is 100).")
-	# parser.add_argument("--npos", dest="num_pos", type=int, default=1, 
-	# 	help="Number of positive samples for training (default is 1).")
 	parser.add_argument("--nneg", dest="num_negative_samples", type=int, default=10, 
 		help="Number of negative samples for training (default is 10).")
 	parser.add_argument("--context-size", dest="context_size", type=int, default=5,
@@ -98,10 +99,6 @@ def parse_args():
 		help="path to save logs (default is '../logs/)'.")
 	parser.add_argument("--walks", dest="walk_path", default="../walks/", 
 		help="path to save random walks (default is '../walks/)'.")
-	# parser.add_argument("--pos_samples_path", dest="pos_samples_path", default="../positive_samples/", 
-	# 	help="path to save positive sample list (default is '../positive_samples/)'.")
-	# parser.add_argument("--neg_samples_path", dest="neg_samples_path", default="../negative_samples/", 
-	# 	help="path to save ground truth negative sample for each node (default is '../negative_samples/)'.")
 	parser.add_argument("--model", dest="model_path", default="../models/", 
 		help="path to save model after each epoch (default is '../models/)'.")
 
@@ -116,10 +113,6 @@ def fix_parameters(args):
 	args.num_primary_caps_per_layer = [16, 16]
 	args.num_filters_per_layer = [16, 16]
 	args.agg_dim_per_layer = [8, 8]
-	# args.neighbourhood_sample_sizes = [5, 5 ]
-	# args.num_primary_caps_per_layer = [8, 8]
-	# args.num_filters_per_layer = [8, 8]
-	# args.agg_dim_per_layer = [8, 8]
 	args.batch_size = 10
 
 
@@ -144,6 +137,9 @@ def fix_parameters(args):
 		args.capsule_dim_per_layer = [8, 10]
 
 def configure_paths(args):
+	'''
+	build directories on local system for output of model after each epoch
+	'''
 
 	dataset = args.dataset
 	directory = "neighbourhood_sample_sizes={}_num_primary_caps={}_num_filters={}_agg_dim={}_num_caps={}_caps_dim={}".format(args.neighbourhood_sample_sizes, 
@@ -172,17 +168,11 @@ def configure_paths(args):
 	if not os.path.exists(args.log_path):
 		os.makedirs(args.log_path)
 	args.log_path = os.path.join(args.log_path, directory + ".log")
-	# if not os.path.exists(log_path):
-	# 	os.makedirs(log_path)
+
 	args.walk_path = os.path.join(args.walk_path, dataset)
 	if not os.path.exists(args.walk_path):
 		os.makedirs(args.walk_path)
-	# positive_samples_path = os.path.join(args.pos_samples_path, dataset)
-	# if not os.path.exists(positive_samples_path):
-	# 	os.makedirs(positive_samples_path)
-	# negative_samples_path = os.path.join(args.neg_samples_path, dataset)
-	# if not os.path.exists(negative_samples_path):
-		# os.makedirs(negative_samples_path)
+
 	args.model_path = os.path.join(args.model_path, dataset)
 	if not os.path.exists(args.model_path):
 		os.makedirs(args.model_path)
@@ -192,6 +182,10 @@ def configure_paths(args):
 
 def record_initial_losses(model, gen, val_label_idx, val_edges, args, 
 	reconstruction_callback, label_prediction_callback):
+
+	'''
+	record the loss of model in its untrained state -- with purely random weights
+	'''
 	
 	print ("recording losses before training begins")
 
@@ -234,10 +228,14 @@ def record_initial_losses(model, gen, val_label_idx, val_edges, args,
 
 
 def main():
+	'''
+	main function
+	'''
 
 	args = parse_args()
 	args.num_positive_samples = 1
 
+	# fix args for evaluation purposes
 	fix_parameters(args)
 
 	assert len(args.neighbourhood_sample_sizes) == len(args.num_primary_caps_per_layer) ==\
@@ -248,9 +246,11 @@ def main():
 
 	configure_paths(args)
 
+	# load the dataset -- written for many types of exeriments so some returned objects are None
 	reconstruction_adj, G_train, G_val, G_test,\
 	X, Y, val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx = load_data(dataset)
 
+	# use labels for labelled networks
 	if dataset in ["citeseer", "cora", "pubmed", "reddit"]:
 		assert Y.shape[1] in args.number_of_capsules_per_layer, "You must have a layer with {} capsules".format(Y.shape[1])
 		args.use_labels = True
@@ -261,29 +261,18 @@ def main():
 		monitor = "mean_rank_reconstruction"
 		mode = "min"
 
+	# the path of the file that contains the random walks for this network
 	walk_file = os.path.join(args.walk_path, "walks-{}-{}".format(args.num_walks, args.walk_length))
-	# walk_train_file = os.path.join(walk_path, "walks_train.pkl")
-	# walk_val_file = os.path.join(walk_path, "walks_val.pkl")
-
-	# positive_samples_filename = os.path.join(positive_samples_path, "positive_samples")
-	# negative_samples_filename = os.path.join(negative_samples_path, "negative_samples")
-
-	# walks_train = load_walks(G_train, walk_train_file, args)
-	# walks_val = load_walks(G_val, walk_val_file, args)
-	# walks = load_walks(G, walk_file, args)
+	
+	# will perform random walks if the walk file does not exist
+	# uses these walks to build the set of posive and negative samples to train upon
 	positive_samples, ground_truth_negative_samples =\
 	load_positive_samples_and_ground_truth_negative_samples(G_train, args, walk_file,)# positive_samples_filename, negative_samples_filename)
 
+	# use this flag to generator walks and not train the model -- for blue bear purposes (to save GPU requests)
 	if args.just_walks:
 		print ("Only precomputing walks -- terminating")
 		return
-
-	# data_dim = X.shape[1]
-	# num_classes = Y.shape[1]
-
-	# batch_size = args.batch_size
-	# num_positive_samples = 1
-	# num_negative_samples = args.num_neg
 
 	neighbourhood_sample_sizes = np.array(args.neighbourhood_sample_sizes[::-1])
 	num_primary_caps_per_layer = np.array(args.num_primary_caps_per_layer)
@@ -299,22 +288,16 @@ def main():
 	args.number_of_capsules_per_layer = number_of_capsules_per_layer
 	args.capsule_dim_per_layer = capsule_dim_per_layer
 
-
+	# create training generator object to produce samples from the precomputed postive and negative samples
+	# also masks labels if dataset is labelled
 	training_generator = neighbourhood_sample_generator(G_train, X, Y, train_label_mask, 
 		positive_samples, ground_truth_negative_samples, args)
-		# neighbourhood_sample_sizes, num_capsules_per_layer, 
-		# args.num_positive_samples, args.num_negative_samples, args.batch_size,)
 
+	# generates / loads a graph caps model according the args passed in from the command line
+	# will load a model if an existing model exists on ther system with the same specifications
 	model, embedder, label_prediction_model, initial_epoch = load_models(X, Y, args.model_path, args)
-		# neighbourhood_sample_sizes, num_primary_caps_per_layer, num_filters_per_layer, agg_dim_per_layer,
-		# num_capsules_per_layer, capsule_dim_per_layer, args)
 
-	# validation_callback = ValidationCallback(G, X, Y, original_adj, 
-	# 	val_mask, removed_edges_val, ground_truth_negative_samples, 
-	# 	neighbourhood_sample_sizes, num_capsules_per_layer,
-	# 	embedder, label_prediction_model, args.batch_size,
-	# 	embedding_path=embedding_path, plot_path=plot_path, )
-
+	# callbacks
 	nan_terminate_callback = TerminateOnNaN()
 	reconstruction_callback = ReconstructionLinkPredictionCallback(G_train, X, Y, reconstruction_adj, embedder,
 		val_edges, ground_truth_negative_samples, args.embedding_path, args.plot_path, args)

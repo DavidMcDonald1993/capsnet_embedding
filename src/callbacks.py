@@ -77,7 +77,7 @@ class ReconstructionLinkPredictionCallback(Callback):
 		X = self.X
 		neighbourhood_sample_sizes = self.args.neighbourhood_sample_sizes
 		embedder = self.embedder
-		batch_size = self.args.batch_size
+		batch_size = self.args.batch_size * (1 + self.args.num_positive_samples + self.args.num_negative_samples)
 
 		nodes_to_embed = np.array(sorted(G.nodes())).reshape(-1, 1)
 
@@ -256,7 +256,7 @@ class LabelPredictionCallback(Callback):
 		predictor = self.predictor
 		number_of_capsules_per_layer = self.args.number_of_capsules_per_layer
 		neighbourhood_sample_sizes = self.args.neighbourhood_sample_sizes
-		batch_size = self.args.batch_size
+		batch_size = self.args.batch_size * (1 + self.args.num_positive_samples + self.args.num_negative_samples)
 		
 		if test_G is None:
 			idx = self.val_idx
