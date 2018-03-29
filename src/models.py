@@ -309,9 +309,9 @@ def generate_graphcaps_model(data_dim, num_classes, args):
 	if args.no_embedding_loss:
 		loss_weights += [0.] * len(hyperbolic_distances)
 	elif args.no_intermediary_loss:
-		loss_weights += [0.] * (len(hyperbolic_distances) - 1)  + [1e-2]
+		loss_weights += [0.] * (len(hyperbolic_distances) - 1)  + [1e-3]
 	else:
-		loss_weights += [1e-2/len(hyperbolic_distances)]*len(hyperbolic_distances)
+		loss_weights += [1e-3/len(hyperbolic_distances)]*len(hyperbolic_distances)
 
 	print ("generating model with loss weights:", loss_weights)
 

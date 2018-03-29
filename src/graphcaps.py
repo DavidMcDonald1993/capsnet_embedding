@@ -112,8 +112,8 @@ def parse_args():
 def fix_parameters(args):
 
 
-	args.neighbourhood_sample_sizes = [25, 5]
-	args.num_primary_caps_per_layer = [32, 16]
+	args.neighbourhood_sample_sizes = [5, 5]
+	args.num_primary_caps_per_layer = [16, 16]
 	args.num_filters_per_layer = [16, 16]
 	args.agg_dim_per_layer = [8, 8]
 	# args.neighbourhood_sample_sizes = [5, 5 ]
@@ -141,7 +141,7 @@ def fix_parameters(args):
 			num_classes = 41
 
 		args.number_of_capsules_per_layer = [num_classes, 1]
-		args.capsule_dim_per_layer = [256, 10]
+		args.capsule_dim_per_layer = [8, 10]
 
 def configure_paths(args):
 
@@ -222,11 +222,12 @@ def record_initial_losses(model, gen, val_label_idx, val_edges, args,
 	# initial_losses.update({"loss" : np.NaN})
 	print ("evaluating model on one step of training generator")
 	evaluations = model.evaluate_generator(gen, steps=1)
-	for i, l in enumerate(model.output_layers):
-		print (l.name, evaluations[i])
-		initial_losses.update({"{}_loss".format(l.name) : evaluations[i]})
-	print ("loss", evaluations[-1])
-	initial_losses.update({"loss": evaluations[-1]})
+	for metric, loss in zip(model.metrics_names, evaluations):
+	# for i, l in enumerate(model.output_layers):
+		print (metric, loss)
+		initial_losses.update({metric : loss})
+	# print ("loss", evaluations[-1])
+	# initial_losses.update({"loss": evaluations[-1]})
 
 	loss_df = pd.DataFrame(initial_losses, index=Index([0], name="epoch"))
 	loss_df.to_csv(args.log_path)
