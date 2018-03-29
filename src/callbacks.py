@@ -2,6 +2,8 @@ import numpy as np
 import scipy as sp
 import pandas as pd
 
+# import random
+
 from scipy.stats import spearmanr
 
 import matplotlib
@@ -13,8 +15,9 @@ from sklearn.metrics import average_precision_score, normalized_mutual_info_scor
 
 from keras.callbacks import Callback
 
-from utils import create_neighbourhood_sample_list
-from data_utils import preprocess_data
+# from utils import create_neighbourhood_sample_list
+# from data_utils import preprocess_data
+from generators import validation_generator #embedding_generator, prediction_generator
 
 def hyperbolic_distance(u, v):
 	return np.arccosh(1. + 2. * np.linalg.norm(u - v, axis=-1)**2 / ((1. - np.linalg.norm(u, axis=-1)**2) * (1. - np.linalg.norm(v, axis=-1)**2)))
@@ -36,6 +39,7 @@ class ReconstructionLinkPredictionCallback(Callback):
 		self.args = args
 		self.embedding_path = embedding_path
 		self.plot_path = plot_path
+		self.embedding_gen = None
 
 	def on_epoch_end(self, epoch, logs={}):
 		embedding = self.perform_embedding()
@@ -50,7 +54,7 @@ class ReconstructionLinkPredictionCallback(Callback):
 			"mean_precision_link_prediction": mean_precision_link_prediction})
 
 		if self.args.dataset in ["wordnet", "wordnet_attributed"]:
-			r, p = self.evaluate_lexical_entailment(embedding, args.dataset)
+			r, p = self.evaluate_lexical_entailment(embedding, self.args.dataset)
 			logs.update({"lex_r" : r, "lex_p" : p})
 			
 		self.save_embedding(embedding, path="{}/embedding_epoch_{:04}.npy".format(self.embedding_path, epoch))
@@ -60,41 +64,45 @@ class ReconstructionLinkPredictionCallback(Callback):
 
 		print ("performing embedding")
 
-		def embedding_generator(X, input_nodes, num_steps, batch_size=100):
-			step = 0
-			# for step in range(num_steps):
-			while True:
-				batch_nodes = input_nodes[batch_size*step : batch_size*(step+1)]
-				if sp.sparse.issparse(X):
-					x = X[batch_nodes.flatten()].toarray()
-					x = preprocess_data(x)
-				else:
-					x = X[batch_nodes]
-				yield x.reshape([-1, input_nodes.shape[1], 1, X.shape[-1]])
-				step = (step + 1) % num_steps
+		# def embedding_generator(G, X, nodes_to_embed, num_steps, neighbourhood_sample_sizes, batch_size=100):
+		# 	# step = 0
+		# 	neighbours = {n: list(G.neighbors(n)) for n in G.nodes()}
+		# 	while True:
+		# 		np.random.shuffle(nodes_to_embed)
+		# 		for step in range(num_steps):			
+		# 			batch_nodes = nodes_to_embed[batch_size*step : batch_size*(step+1)]
+		# 			batch_nodes = create_neighbourhood_sample_list(batch_nodes, neighbourhood_sample_sizes, neighbours)
+		# 			batch_nodes = batch_nodes[0]
+		# 			if sp.sparse.issparse(X):
+		# 				x = X[batch_nodes.flatten()].toarray()
+		# 				x = preprocess_data(x)
+		# 			else:
+		# 				x = X[batch_nodes]
+		# 			yield x.reshape([-1, batch_nodes.shape[1], 1, X.shape[-1]])
+					# step = (step + 1) % num_steps
 
-		G = self.G
-		X = self.X
-		neighbourhood_sample_sizes = self.args.neighbourhood_sample_sizes
+
+		# embedding_gen = embedding_generator(X, input_nodes, num_steps=num_steps, batch_size=batch_size)
+		if self.embedding_gen is None:
+			G = self.G
+			X = self.X
+			neighbourhood_sample_sizes = self.args.neighbourhood_sample_sizes
+			batch_size = self.args.batch_size * (1 + self.args.num_positive_samples + self.args.num_negative_samples)
+			nodes_to_embed = np.array(sorted(G.nodes())).reshape(-1, 1)
+			self.num_steps = int((nodes_to_embed.shape[0] + batch_size - 1) // batch_size)
+			self.embedding_gen = validation_generator(G, X, nodes_to_embed, neighbourhood_sample_sizes, 
+				self.num_steps, batch_size)
+		
+
 		embedder = self.embedder
-		batch_size = self.args.batch_size * (1 + self.args.num_positive_samples + self.args.num_negative_samples)
-
-		nodes_to_embed = np.array(sorted(G.nodes())).reshape(-1, 1)
-
-		# nodes = nodes.reshape(-1, 1)
-		neighbours = {n: list(G.neighbors(n)) for n in G.nodes()}
-		neighbour_list = create_neighbourhood_sample_list(nodes_to_embed, neighbourhood_sample_sizes, neighbours)
-
-		input_nodes = neighbour_list[0]
-		num_steps = int((input_nodes.shape[0] + batch_size - 1) // batch_size)
-		embedding_gen = embedding_generator(X, input_nodes, num_steps=num_steps, batch_size=batch_size)
-		embedding = embedder.predict_generator(embedding_gen, steps=num_steps, )
+		embedding = embedder.predict_generator(self.embedding_gen, steps=self.num_steps, )
 		dim = embedding.shape[-1]
 		embedding = embedding.reshape(-1, dim)
 
 		return embedding
 
 	def save_embedding(self, embedding, path):
+		print ("saving embedding to", path)
 		np.save(path, embedding)
 
 	def plot_embedding(self, embedding, path):
@@ -228,6 +236,7 @@ class LabelPredictionCallback(Callback):
 		self.predictor = predictor
 		self.val_idx = val_idx
 		self.args = args
+		self.val_prediction_gen = None
 
 	def on_epoch_end(self, epoch, logs={}):
 
@@ -238,52 +247,61 @@ class LabelPredictionCallback(Callback):
 
 	def make_and_evaluate_label_predictions(self, test_G=None, test_idx=None):
 
-		def prediction_generator(X, input_nodes, num_steps, batch_size=100):
-			step = 0 
-			while True:
-			# for step in range(num_steps):
-				batch_nodes = input_nodes[batch_size*step : batch_size*(step+1)]
-				if sp.sparse.issparse(X):
-					x = X[batch_nodes.flatten()].toarray()
-					x = preprocess_data(x)
-				else:
-					x = X[batch_nodes]
-				yield x.reshape([-1, input_nodes.shape[1], 1, X.shape[-1]])
-				step = (step + 1) % num_steps
-
 		X = self.X
 		Y = self.Y
 		predictor = self.predictor
-		number_of_capsules_per_layer = self.args.number_of_capsules_per_layer
-		neighbourhood_sample_sizes = self.args.neighbourhood_sample_sizes
-		batch_size = self.args.batch_size * (1 + self.args.num_positive_samples + self.args.num_negative_samples)
 		
 		if test_G is None:
 			idx = self.val_idx
 			G = self.val_G
 			print ("evaluating label predictions on validation set")
+
+			if self.val_prediction_gen is None:
+
+				print ("creating new label validation generator")
+
+
+				_, num_classes = Y.shape
+				number_of_capsules_per_layer = self.args.number_of_capsules_per_layer
+				label_prediction_layers = np.where(number_of_capsules_per_layer==num_classes)[0] + 1
+				prediction_layer = label_prediction_layers[-1]
+				neighbourhood_sample_sizes = self.args.neighbourhood_sample_sizes
+				self.neighbourhood_sample_sizes = neighbourhood_sample_sizes[:prediction_layer]
+
+				nodes_to_predict = np.array(idx).reshape(-1, 1)
+
+				self.batch_size = self.args.batch_size * (1 + self.args.num_positive_samples + self.args.num_negative_samples)
+				self.num_steps = int((nodes_to_predict.shape[0] + self.batch_size - 1) // self.batch_size)
+				self.val_prediction_gen = validation_generator(G, X, nodes_to_predict, self.neighbourhood_sample_sizes, 
+					num_steps=self.num_steps, batch_size=self.batch_size)
+
+
+			predictions = predictor.predict_generator(self.val_prediction_gen, steps=self.num_steps, )
+
+
 		else:
 			idx = test_idx
 			G = test_G
 			print ("evaluating label predictions on test set")
+			nodes_to_predict = np.array(idx).reshape(-1, 1)
+			num_steps = int((nodes_to_predict.shape[0] + self.batch_size - 1) // self.batch_size)
+			test_prediction_gen = validation_generator(G, X, nodes_to_predict, self.neighbourhood_sample_sizes, 
+					num_steps=num_steps, batch_size=self.batch_size)
 
-		if idx is None:
-			print ("no labels to predict")
-			return None
+			predictions = predictor.predict_generator(test_prediction_gen, steps=num_steps)
 
-		_, num_classes = Y.shape
-		label_prediction_layers = np.where(number_of_capsules_per_layer==num_classes)[0] + 1
 
-		nodes_to_predict = np.array(idx).reshape(-1, 1)
-		neighbours = {n: list(G.neighbors(n)) for n in G.nodes()}
-		neighbour_list = create_neighbourhood_sample_list(nodes_to_predict, 
-			neighbourhood_sample_sizes[:label_prediction_layers[-1]], neighbours)
 
-		input_nodes = neighbour_list[0]
 
-		num_steps = int((input_nodes.shape[0] + batch_size - 1) // batch_size)
-		prediction_gen = prediction_generator(X, input_nodes, num_steps=num_steps, batch_size=batch_size)
-		predictions = predictor.predict_generator(prediction_gen, steps=num_steps, )
+
+		# if idx is None:
+		# 	print ("no labels to predict")
+		# 	return None
+
+		
+		
+
+
 		predictions = predictions.reshape(-1, predictions.shape[-1])
 
 		# only consider validation labels

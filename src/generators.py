@@ -5,9 +5,28 @@ import scipy as sp
 
 # from itertools import izip_longest
 
-from utils import create_neighbourhood_sample_list
+# from utils import create_neighbourhood_sample_list
 from data_utils import preprocess_data
 # from node2vec_sampling import Graph
+
+
+def get_neighbourhood_samples(nodes, neighbourhood_sample_sizes, neighbours):
+
+	neighbourhood_sample_list = [nodes]
+
+	for neighbourhood_sample_size in neighbourhood_sample_sizes[::-1]:
+
+		neighbourhood_sample_list.append(np.array([np.concatenate([np.append(n, 
+			np.random.choice(np.append(n, neighbours[n]), 
+			replace=True, size=neighbourhood_sample_size)) for n in batch]) for batch in neighbourhood_sample_list[-1]]))
+
+	# flip neighbour list
+	neighbourhood_sample_list = neighbourhood_sample_list[::-1]
+
+	# only return input_nodes
+	# input_nodes = neighbourhood_sample_list[0]
+
+	return neighbourhood_sample_list
 
 def neighbourhood_sample_generator(G, X, Y, train_mask, 
 	positive_samples, ground_truth_negative_samples, args):
@@ -52,10 +71,10 @@ def neighbourhood_sample_generator(G, X, Y, train_mask,
 			# batch_nodes = np.array(batch_nodes)
 			# batch_nodes = np.random.permutation(batch_nodes)
 
-			neighbour_list = create_neighbourhood_sample_list(batch_nodes, neighbourhood_sample_sizes, neighbours)
+			neighbourhood_sample_list = get_neighbourhood_samples(batch_nodes, neighbourhood_sample_sizes, neighbours)
 
 			# shape is [batch_size, output_shape*prod(sample_sizes), D]
-			input_nodes = neighbour_list[0]
+			input_nodes = neighbourhood_sample_list[0]
 			original_shape = list(input_nodes.shape)
 
 			if sp.sparse.issparse(X):
@@ -73,7 +92,7 @@ def neighbourhood_sample_generator(G, X, Y, train_mask,
 			masked_labels = []
 			# all_zero_mask = False
 			for layer in label_prediction_layers:
-				nodes_to_evaluate_label = neighbour_list[layer]
+				nodes_to_evaluate_label = neighbourhood_sample_list[layer]
 				original_shape = list(nodes_to_evaluate_label.shape)
 				y = Y[nodes_to_evaluate_label.flatten()]#.toarray()
 				y = y.reshape(original_shape + [-1])
@@ -81,7 +100,7 @@ def neighbourhood_sample_generator(G, X, Y, train_mask,
 				# raise SystemExit
 
 
-				mask = train_mask[neighbour_list[layer]]
+				mask = train_mask[neighbourhood_sample_list[layer]]
 				# if (mask == 0).all():
 					# all_zero_mask = True
 					# break
@@ -98,3 +117,33 @@ def neighbourhood_sample_generator(G, X, Y, train_mask,
 			# if not all_zero_mask:
 			yield x, masked_labels + negative_sample_targets
 
+
+def validation_generator(G, X, nodes_to_val, neighbourhood_sample_sizes, num_steps, batch_size=100):
+	neighbours = {n: list(G.neighbors(n)) for n in G.nodes()}
+	while True:
+		np.random.shuffle(nodes_to_val)
+		for step in range(num_steps):			
+			batch_nodes = nodes_to_val[batch_size*step : batch_size*(step+1)]
+			neighbourhood_sample_list = get_neighbourhood_samples(batch_nodes, neighbourhood_sample_sizes, neighbours)
+			input_nodes = neighbourhood_sample_list[0]
+			if sp.sparse.issparse(X):
+				x = X[input_nodes.flatten()].toarray()
+				x = preprocess_data(x)
+			else:
+				x = X[input_nodes]
+			yield x.reshape([-1, input_nodes.shape[1], 1, X.shape[-1]])
+
+# def prediction_generator(G, X, nodes_to_predict, neighbourhood_sample_sizes, num_steps, batch_size=100):
+# 	neighbours = {n: list(G.neighbors(n)) for n in G.nodes()}
+# 	while True:
+# 		np.random.shuffle(nodes_to_predict)
+# 		for step in range(num_steps):
+# 			batch_nodes = nodes_to_predict[batch_size*step : batch_size*(step+1)]
+# 			neighbourhood_sample_list = get_neighbourhood_samples(batch_nodes, neighbourhood_sample_sizes, neighbours)
+# 			input_nodes neighbourhood_sample_list[0]
+# 			if sp.sparse.issparse(X):
+# 				x = X[batch_nodes.flatten()].toarray()
+# 				x = preprocess_data(x)
+# 			else:
+# 				x = X[batch_nodes]
+# 			yield x.reshape([-1, input_nodes.shape[1], 1, X.shape[-1]])

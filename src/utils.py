@@ -77,21 +77,6 @@ def load_walks(G, walk_file, args):
 	return walks
 
 
-def create_neighbourhood_sample_list(nodes, neighbourhood_sample_sizes, neighbours):
-
-	neighbourhood_sample_list = [nodes]
-
-	for neighbourhood_sample_size in neighbourhood_sample_sizes[::-1]:
-
-		neighbourhood_sample_list.append(np.array([np.concatenate([np.append(n, 
-			np.random.choice(np.append(n, neighbours[n]), 
-			replace=True, size=neighbourhood_sample_size)) for n in batch]) for batch in neighbourhood_sample_list[-1]]))
-
-	# flip neighbour list
-	neighbourhood_sample_list = neighbourhood_sample_list[::-1]
-
-
-	return neighbourhood_sample_list
 
 
 

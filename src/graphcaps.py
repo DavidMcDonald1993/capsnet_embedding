@@ -316,7 +316,6 @@ def main():
 		record_initial_losses(model, training_generator,
 		val_label_idx, val_edges, args, reconstruction_callback, label_prediction_callback)
 
-
 	
 	print ("BEGIN TRAINING")
 
@@ -326,14 +325,14 @@ def main():
 		steps_per_epoch=num_steps,
 		epochs=args.num_epochs, 
 		initial_epoch=initial_epoch,
-		# validation_data=validation_generator, validation_steps=1,
 		verbose=1, #)
 		callbacks=callbacks)
 
 	print ("TRAINING COMPLETE -- TESTING MODEL")
 
 	if test_label_idx is not None:
-		f1_micro, f1_macro, NMI, classification_accuracy = label_prediction_callback.make_and_evaluate_label_predictions(G_test, test_label_idx)
+		f1_micro, f1_macro, NMI, classification_accuracy =\
+		label_prediction_callback.make_and_evaluate_label_predictions(G_test, test_label_idx)
 
 	embedding = reconstruction_callback.perform_embedding()
 	metrics = reconstruction_callback.evaluate_rank_and_MAP(embedding, test_edges)
