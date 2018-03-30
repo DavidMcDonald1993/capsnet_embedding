@@ -40,6 +40,8 @@ class ReconstructionLinkPredictionCallback(Callback):
 		self.embedding_path = embedding_path
 		self.plot_path = plot_path
 		self.embedding_gen = None
+		self.nodes_to_val = None
+		self.idx = G.nodes()
 
 	def on_epoch_end(self, epoch, logs={}):
 		embedding = self.perform_embedding()
@@ -62,6 +64,10 @@ class ReconstructionLinkPredictionCallback(Callback):
 
 	def perform_embedding(self):
 
+		def argsort(seq):
+		    # http://stackoverflow.com/questions/3071415/efficient-method-to-calculate-the-rank-vector-of-a-list-in-python
+		    return sorted(range(len(seq)), key=seq.__getitem__)
+
 		print ("performing embedding")
 
 		# def embedding_generator(G, X, nodes_to_embed, num_steps, neighbourhood_sample_sizes, batch_size=100):
@@ -83,14 +89,15 @@ class ReconstructionLinkPredictionCallback(Callback):
 
 
 		# embedding_gen = embedding_generator(X, input_nodes, num_steps=num_steps, batch_size=batch_size)
+		idx = self.idx
 		if self.embedding_gen is None:
 			G = self.G
 			X = self.X
 			neighbourhood_sample_sizes = self.args.neighbourhood_sample_sizes
 			batch_size = self.args.batch_size * (1 + self.args.num_positive_samples + self.args.num_negative_samples)
-			nodes_to_embed = np.array(sorted(G.nodes())).reshape(-1, 1)
-			self.num_steps = int((nodes_to_embed.shape[0] + batch_size - 1) // batch_size)
-			self.embedding_gen = validation_generator(G, X, nodes_to_embed, neighbourhood_sample_sizes, 
+			# nodes_to_embed = np.array(sorted(G.nodes())).reshape(-1, 1)
+			self.num_steps = int((len(idx) + batch_size - 1) // batch_size)
+			self.embedding_gen = validation_generator(self, G, X, idx, neighbourhood_sample_sizes, 
 				self.num_steps, batch_size)
 		
 
@@ -98,6 +105,9 @@ class ReconstructionLinkPredictionCallback(Callback):
 		embedding = embedder.predict_generator(self.embedding_gen, steps=self.num_steps, )
 		dim = embedding.shape[-1]
 		embedding = embedding.reshape(-1, dim)
+
+		# sort back into numerical order -- generator shuffles idx
+		embedding = embedding[argsort(self.nodes_to_val)]
 
 		return embedding
 
@@ -237,6 +247,7 @@ class LabelPredictionCallback(Callback):
 		self.val_idx = val_idx
 		self.args = args
 		self.val_prediction_gen = None
+		self.nodes_to_val = None
 
 	def on_epoch_end(self, epoch, logs={}):
 
@@ -268,11 +279,11 @@ class LabelPredictionCallback(Callback):
 				neighbourhood_sample_sizes = self.args.neighbourhood_sample_sizes
 				self.neighbourhood_sample_sizes = neighbourhood_sample_sizes[:prediction_layer]
 
-				nodes_to_predict = np.array(idx).reshape(-1, 1)
+				# nodes_to_predict = np.array(idx).reshape(-1, 1)
 
 				self.batch_size = self.args.batch_size * (1 + self.args.num_positive_samples + self.args.num_negative_samples)
-				self.num_steps = int((nodes_to_predict.shape[0] + self.batch_size - 1) // self.batch_size)
-				self.val_prediction_gen = validation_generator(G, X, nodes_to_predict, self.neighbourhood_sample_sizes, 
+				self.num_steps = int((len(idx) + self.batch_size - 1) // self.batch_size)
+				self.val_prediction_gen = validation_generator(self, G, X, idx, self.neighbourhood_sample_sizes, 
 					num_steps=self.num_steps, batch_size=self.batch_size)
 
 
@@ -283,9 +294,9 @@ class LabelPredictionCallback(Callback):
 			idx = test_idx
 			G = test_G
 			print ("evaluating label predictions on test set")
-			nodes_to_predict = np.array(idx).reshape(-1, 1)
-			num_steps = int((nodes_to_predict.shape[0] + self.batch_size - 1) // self.batch_size)
-			test_prediction_gen = validation_generator(G, X, nodes_to_predict, self.neighbourhood_sample_sizes, 
+			# nodes_to_predict = np.array(idx).reshape(-1, 1)
+			num_steps = int((len(idx) + self.batch_size - 1) // self.batch_size)
+			test_prediction_gen = validation_generator(self, G, X, idx, self.neighbourhood_sample_sizes, 
 					num_steps=num_steps, batch_size=self.batch_size)
 
 			predictions = predictor.predict_generator(test_prediction_gen, steps=num_steps)
@@ -304,8 +315,8 @@ class LabelPredictionCallback(Callback):
 
 		predictions = predictions.reshape(-1, predictions.shape[-1])
 
-		# only consider validation labels
-		true_labels = Y[idx].argmax(axis=-1)
+		# only consider validation labels (shuffled in generator)
+		true_labels = Y[self.nodes_to_val].argmax(axis=-1)
 		if sp.sparse.issparse(Y):
 			true_labels = true_labels.A1			
 

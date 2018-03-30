@@ -118,10 +118,12 @@ def neighbourhood_sample_generator(G, X, Y, train_mask,
 			yield x, masked_labels + negative_sample_targets
 
 
-def validation_generator(G, X, nodes_to_val, neighbourhood_sample_sizes, num_steps, batch_size=100):
+def validation_generator(validation_callback, G, X, idx, neighbourhood_sample_sizes, num_steps, batch_size=100):
 	neighbours = {n: list(G.neighbors(n)) for n in G.nodes()}
 	while True:
-		np.random.shuffle(nodes_to_val)
+		# np.random.shuffle(nodes_to_val)
+		random.shuffle(idx)
+		nodes_to_val = np.array(idx).reshape(-1, 1)
 		for step in range(num_steps):			
 			batch_nodes = nodes_to_val[batch_size*step : batch_size*(step+1)]
 			neighbourhood_sample_list = get_neighbourhood_samples(batch_nodes, neighbourhood_sample_sizes, neighbours)
@@ -132,6 +134,9 @@ def validation_generator(G, X, nodes_to_val, neighbourhood_sample_sizes, num_ste
 			else:
 				x = X[input_nodes]
 			yield x.reshape([-1, input_nodes.shape[1], 1, X.shape[-1]])
+			if step == 0:
+				validation_callback.nodes_to_val = idx[:]
+
 
 # def prediction_generator(G, X, nodes_to_predict, neighbourhood_sample_sizes, num_steps, batch_size=100):
 # 	neighbours = {n: list(G.neighbors(n)) for n in G.nodes()}
