@@ -160,7 +160,7 @@ class GraphCapsuleLayer(layers.Layer):
 		assert self.num_routing > 0, 'The num_routing should be > 0.'
 		for i in range(self.num_routing):
 			# c.shape=[batch_size, N, num_capsule, input_num_capsule]
-			c = tf.nn.softmax(b, axis=2)
+			c = tf.nn.softmax(b, dim=2)
 
 			# At last iteration, use `inputs_hat` to compute `outputs` in order to backpropagate gradient
 			if i == self.num_routing - 1:
