@@ -271,7 +271,6 @@ class LabelPredictionCallback(Callback):
 
 				print ("creating new label validation generator")
 
-
 				_, num_classes = Y.shape
 				number_of_capsules_per_layer = self.args.number_of_capsules_per_layer
 				label_prediction_layers = np.where(number_of_capsules_per_layer==num_classes)[0] + 1
