@@ -90,7 +90,7 @@ def load_labelled_attributed_network(dataset_str):
 	if dataset_str == 'citeseer':
 		# Fix citeseer dataset (there are some isolated nodes in the graph)
 		# Find isolated nodes, add them as zero-vecs into the right position
-		test_idx_range_full = range(min(test_idx_reorder), max(test_idx_reorder)+1)
+		test_idx_range_full = list(range(min(test_idx_reorder), max(test_idx_reorder)+1))
 		tx_extended = sp.sparse.lil_matrix((len(test_idx_range_full), x.shape[1]))
 		tx_extended[test_idx_range-min(test_idx_range), :] = tx
 		tx = tx_extended
@@ -106,8 +106,8 @@ def load_labelled_attributed_network(dataset_str):
 	labels[test_idx_reorder, :] = labels[test_idx_range, :]
 
 	test_label_idx = test_idx_range.tolist()
-	train_label_idx = range(len(y))
-	val_label_idx = range(len(y), len(y)+500)
+	train_label_idx = list(range(len(y)))
+	val_label_idx = list(range(len(y), len(y)+500))
 
 	train_label_mask = sample_mask(train_label_idx, labels.shape[0])
 	# val_mask = sample_mask(idx_val, labels.shape[0])
