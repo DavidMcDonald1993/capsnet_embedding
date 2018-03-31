@@ -135,6 +135,7 @@ def validation_generator(validation_callback, G, X, idx, neighbourhood_sample_si
 				x = X[input_nodes]
 			yield x.reshape([-1, input_nodes.shape[1], 1, X.shape[-1]])
 			if step == 0:
+				# save order of nodes for evaluation 
 				validation_callback.nodes_to_val = idx[:]
 
 
