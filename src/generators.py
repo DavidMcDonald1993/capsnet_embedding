@@ -107,7 +107,7 @@ def validation_generator(validation_callback, G, X, idx, neighbourhood_sample_si
 	neighbours = {n: list(G.neighbors(n)) for n in G.nodes()}
 	while True:
 		# np.random.shuffle(nodes_to_val)
-		random.shuffle(idx)
+		# random.shuffle(idx)
 		nodes_to_val = np.array(idx).reshape(-1, 1)
 		for step in range(num_steps):			
 			batch_nodes = nodes_to_val[batch_size*step : batch_size*(step+1)]
