@@ -7,8 +7,6 @@ from node2vec_sampling import Graph
 
 def load_positive_samples_and_ground_truth_negative_samples(G, args, walk_file,):# positive_samples_filename, negative_samples_filename):
 
-
-
 	print ("generating positive and negative samples")
 	walks = load_walks(G, walk_file, args)
 	positive_samples, ground_truth_negative_samples =\

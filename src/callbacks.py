@@ -301,17 +301,6 @@ class LabelPredictionCallback(Callback):
 			predictions = predictor.predict_generator(test_prediction_gen, steps=num_steps)
 
 
-
-
-
-		# if idx is None:
-		# 	print ("no labels to predict")
-		# 	return None
-
-		
-		
-
-
 		predictions = predictions.reshape(-1, predictions.shape[-1])
 
 		# only consider validation labels (shuffled in generator)
