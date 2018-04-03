@@ -89,10 +89,10 @@ class ReconstructionLinkPredictionCallback(Callback):
 
 
 		# embedding_gen = embedding_generator(X, input_nodes, num_steps=num_steps, batch_size=batch_size)
-		idx = self.idx
 		if self.embedding_gen is None:
 			G = self.G
 			X = self.X
+			idx = self.idx
 			neighbourhood_sample_sizes = self.args.neighbourhood_sample_sizes
 			batch_size = self.args.batch_size * (1 + self.args.num_positive_samples + self.args.num_negative_samples)
 			# nodes_to_embed = np.array(sorted(G.nodes())).reshape(-1, 1)
@@ -164,7 +164,7 @@ class ReconstructionLinkPredictionCallback(Callback):
 
 		ground_truth_negative_samples = self.ground_truth_negative_samples
 
-		r = 1.
+		r = 5.
 		t = 1.
 		
 		G = self.G
@@ -197,7 +197,8 @@ class ReconstructionLinkPredictionCallback(Callback):
 				y_true_link_prediction = np.append(np.ones(len(removed_neighbours)), 
 												   np.zeros(len(all_negative_samples)))
 				y_pred_link_prediction = np.append(y_pred[removed_neighbours], y_pred[all_negative_samples])
-				MAPs_link_prediction[u] = average_precision_score(y_true=y_true_link_prediction, y_score=y_pred_link_prediction)
+				MAPs_link_prediction[u] = average_precision_score(y_true=y_true_link_prediction, 
+					y_score=y_pred_link_prediction)
 
 				y_pred_link_prediction[::-1].sort()
 				ranks_link_prediction[u] = np.array([np.searchsorted(-y_pred_link_prediction, -p) 
@@ -205,6 +206,8 @@ class ReconstructionLinkPredictionCallback(Callback):
 
 			if u % 1000 == 0:
 				print ("completed node {}/{}".format(u, N))
+
+		print ("completed node {}/{}".format(u, N))
 
 		metrics = [ranks_reconstruction.mean(), MAPs_reconstruction.mean()]
 		if removed_edges_dict is not None:

@@ -126,7 +126,7 @@ def load_labelled_attributed_network(dataset_str):
 	G = nx.convert_node_labels_to_integers(G, label_attribute="original_name")
 	nx.set_edge_attributes(G=G, name="weight", values=1)
 
-	X = features.toarray()
+	X = features#.toarray()
 	Y = labels
 
 	# X = preprocess_data(X)

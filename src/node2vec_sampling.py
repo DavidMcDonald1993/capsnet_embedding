@@ -143,6 +143,8 @@ class Graph():
 				print ("completed node {}/{}".format(i, len(G)))
 			i += 1
 
+		print ("completed node {}/{}".format(i, len(G)))
+
 		alias_edges = {}
 		# triads = {}
 
@@ -160,6 +162,7 @@ class Graph():
 				i += 1
 				alias_edges[(edge[1], edge[0])] = self.get_alias_edge(edge[1], edge[0])
 				i += 1
+			print ("completed edge {}/{}".format(i, 2*len(G.edges())))
 
 		self.alias_nodes = alias_nodes
 		self.alias_edges = alias_edges

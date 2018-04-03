@@ -187,7 +187,7 @@ def generate_graphcaps_model(data_dim, num_classes, args):
 	print ("generating model with loss weights:", loss_weights)
 
 	graphcaps = Model(x,  label_predictions + hyperbolic_distances)
-	adam = Adam(clipnorm=1.)
+	adam = Adam(lr=1e-5, clipnorm=1.)
 	graphcaps.compile(optimizer=adam, loss=losses, loss_weights=loss_weights)
 
 	return graphcaps

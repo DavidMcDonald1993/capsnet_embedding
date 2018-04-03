@@ -113,7 +113,7 @@ def fix_parameters(args):
 	args.num_primary_caps_per_layer = [16, 16]
 	args.num_filters_per_layer = [16, 16]
 	args.agg_dim_per_layer = [8, 8]
-	args.batch_size = 10
+	args.batch_size = 100
 
 
 	dataset = args.dataset
@@ -258,7 +258,7 @@ def main():
 		mode = "max"
 		print("using labels in training")
 	else:
-		monitor = "mean_rank_reconstruction"
+		monitor = "mean_precision_link_prediction"
 		mode = "min"
 
 	# the path of the file that contains the random walks for this network
@@ -319,8 +319,8 @@ def main():
 	
 	print ("BEGIN TRAINING")
 
-	# num_steps = int((len(positive_samples) // args.num_walks + args.batch_size - 1) // args.batch_size)
-	num_steps = 1000
+	num_steps = int((len(positive_samples) // args.num_walks + args.batch_size - 1) // args.batch_size)
+	# num_steps = 100
 	model.fit_generator(training_generator, 
 		steps_per_epoch=num_steps,
 		epochs=args.num_epochs, 
