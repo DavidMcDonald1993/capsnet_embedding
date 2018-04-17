@@ -73,10 +73,3 @@ def load_walks(G, walk_file, args):
 		# 	walks = pkl.load(f)
 		walks = load_walks_from_file(walk_file, args.walk_length)
 	return walks
-
-
-
-
-
-
-

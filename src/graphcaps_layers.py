@@ -297,10 +297,10 @@ class HyperbolicDistanceLayer(layers.Layer):
 		return config
 		
 	def safe_norm(self, x, sqrt=False):
-		x = K.sum(K.square(x), axis=-1, keepdims=False) + K.epsilon()
+		y = K.sum(K.square(x), axis=-1, keepdims=False) + K.epsilon()
 		if sqrt:
-			x = K.sqrt(x)
-		return x
+			y = K.sqrt(y)
+		return y
 		
 	def call(self, inputs):
 		'''

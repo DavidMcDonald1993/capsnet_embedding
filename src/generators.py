@@ -12,6 +12,10 @@ from data_utils import preprocess_data
 
 def get_neighbourhood_samples(nodes, neighbourhood_sample_sizes, neighbours):
 
+	'''
+	generates a list of a sample of the neighbours of each node in the batch
+	'''
+
 	neighbourhood_sample_list = [nodes]
 
 	for neighbourhood_sample_size in neighbourhood_sample_sizes[::-1]:
@@ -108,6 +112,9 @@ def neighbourhood_sample_generator(G, X, Y, train_mask,
 
 
 def validation_generator(validation_callback, G, X, idx, neighbourhood_sample_sizes, num_steps, batch_size=100):
+	'''
+	generator that yields input data for validation
+	'''
 	neighbours = {n: list(G.neighbors(n)) for n in G.nodes()}
 	while True:
 		# np.random.shuffle(nodes_to_val)

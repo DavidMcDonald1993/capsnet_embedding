@@ -180,12 +180,12 @@ class ReconstructionLinkPredictionCallback(Callback):
 			
 			dists_u = hyperbolic_distance(embedding[u], embedding)
 
-			_, neighbours = np.nonzero(original_adj[u])
+			_, all_neighbours = np.nonzero(original_adj[u])
 			all_node_dists = dists_u.copy()
 			all_node_dists.sort()
 
 			ranks_reconstruction[u] = np.array([np.searchsorted(all_node_dists, d) 
-												for d in dists_u[neighbours]]).mean()
+												for d in dists_u[all_neighbours]]).mean()
 			y_pred = sigmoid((r - dists_u) / t) 
 		   
 			# y_pred_reconstruction = y_pred.copy()

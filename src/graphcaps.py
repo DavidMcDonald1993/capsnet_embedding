@@ -107,9 +107,12 @@ def parse_args():
 	return args
 
 def fix_parameters(args):
+	'''
+	fix parameters for experiments
+	'''
 
 
-	args.neighbourhood_sample_sizes = [25, 5]
+	args.neighbourhood_sample_sizes = [5, 5]
 	args.num_primary_caps_per_layer = [16, 16]
 	args.num_filters_per_layer = [16, 16]
 	args.agg_dim_per_layer = [8, 8]
