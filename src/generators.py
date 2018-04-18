@@ -79,12 +79,12 @@ def neighbourhood_sample_generator(G, X, Y, train_mask,
 			if sp.sparse.issparse(X):
 
 				x = X[input_nodes.flatten()].toarray()
-				x = preprocess_data(x)
+				# x = preprocess_data(x)
 
 			else:
 				x = X[input_nodes]
 			# add artificial capsule dimension 
-			x = x.reshape(original_shape + [1, -1])
+			x = x.reshape(original_shape + [-1])
 			# shape is now [batch_nodes, output_shape*prod(sample_sizes), 1, D]
 
 			masked_labels = []
@@ -93,6 +93,8 @@ def neighbourhood_sample_generator(G, X, Y, train_mask,
 				nodes_to_evaluate_label = neighbourhood_sample_list[layer]
 				original_shape = list(nodes_to_evaluate_label.shape)
 				y = Y[nodes_to_evaluate_label.flatten()]#.toarray()
+				if sp.sparse.issparse(y):
+					y = y.toarray()
 				y = y.reshape(original_shape + [-1])
 
 				mask = train_mask[neighbourhood_sample_list[layer]]
@@ -107,8 +109,8 @@ def neighbourhood_sample_generator(G, X, Y, train_mask,
 			negative_sample_targets = [negative_sample_targets] * num_embeddings
 
 
-			# if not all_zero_mask:
-			yield x, masked_labels + negative_sample_targets
+			if not all_zero_mask:
+				yield x, masked_labels + negative_sample_targets
 
 
 def validation_generator(validation_callback, G, X, idx, neighbourhood_sample_sizes, num_steps, batch_size=100):
@@ -118,7 +120,7 @@ def validation_generator(validation_callback, G, X, idx, neighbourhood_sample_si
 	neighbours = {n: list(G.neighbors(n)) for n in G.nodes()}
 	while True:
 		# np.random.shuffle(nodes_to_val)
-		random.shuffle(idx)
+		# random.shuffle(idx)
 		nodes_to_val = np.array(idx).reshape(-1, 1)
 		for step in range(num_steps):			
 			batch_nodes = nodes_to_val[batch_size*step : batch_size*(step+1)]
@@ -129,7 +131,7 @@ def validation_generator(validation_callback, G, X, idx, neighbourhood_sample_si
 				x = preprocess_data(x)
 			else:
 				x = X[input_nodes]
-			yield x.reshape([-1, input_nodes.shape[1], 1, X.shape[-1]])
+			yield x.reshape([-1, input_nodes.shape[1], X.shape[-1]])
 			if step == 0:
 				# save order of nodes for evaluation 
 				validation_callback.nodes_to_val = idx[:]

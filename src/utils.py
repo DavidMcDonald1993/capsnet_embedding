@@ -39,6 +39,10 @@ def determine_positive_and_groud_truth_negative_samples(G, walks, context_size):
 			print ("processed walk {}/{}".format(num_walk, len(walks)))
 			
 	ground_truth_negative_samples = {n: sorted(list(nodes.difference(all_positive_samples[n]))) for n in G.nodes()}
+	# print positive_samples
+	# print 
+	# print ground_truth_negative_samples 
+	# raise SystemExit
 	
 	return positive_samples, ground_truth_negative_samples
 

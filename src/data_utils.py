@@ -265,12 +265,15 @@ def load_karate():
 	# identity features
 	N = len(G)
 	X = sp.sparse.identity(N, format="csr")
+	# print G.nodes()
 
 	label_df = pd.read_csv("../data/karate/mod-based-clusters.txt", sep=" ", index_col=0, header=None,)
 	label_df.index = [str(idx) for idx in label_df.index]
 	label_df = label_df.reindex(G.nodes())
+	# print label_df
 
-	assignments = label_df.values
+	assignments = label_df.iloc[:,0].values
+	# print assignments
 
 	# sparse label matrix
 	Y = sp.sparse.csr_matrix(([1] * N, (range(N), assignments)), shape=(N, 4))
@@ -289,33 +292,35 @@ def load_karate():
 	# Y[np.arange(len(G)), assignments] = 1
 	# Y = sp.sparse.csr_matrix(Y)
 
-	X = X.toarray()
+	# X = X.toarray()
 	# Y = Y.toarray()
 
-	X = preprocess_data(X)
+	# X = preprocess_data(X)
 
-	val_file = "../data/karate/val_edges.pkl"
-	test_file = "../data/karate/test_edges.pkl"
+	# val_file = "../data/karate/val_edges.pkl"
+	# test_file = "../data/karate/test_edges.pkl"
 
-	if not os.path.exists(val_file):
+	# if not os.path.exists(val_file):
 
-		number_of_edges_to_remove = int(len(G.edges) * 0.2)
+	# 	number_of_edges_to_remove = int(len(G.edges) * 0.2)
 
-		G, val_edges = remove_edges(G, number_of_edges_to_remove)
-		G, test_edges = remove_edges(G, number_of_edges_to_remove)
+	# 	G, val_edges = remove_edges(G, number_of_edges_to_remove)
+	# 	G, test_edges = remove_edges(G, number_of_edges_to_remove)
 
-		with open(val_file, "wb") as f:
-			pkl.dump(val_edges, f, pkl.HIGHEST_PROTOCOL)
-		with open(test_file, "wb") as f:
-			pkl.dump(test_edges, f, pkl.HIGHEST_PROTOCOL)
-	else:
-		with open(val_file, "rb") as f:
-			val_edges = pkl.load(f) 
-		with open(test_file, "rb") as f:
-			test_edges = pkl.load(f)
+	# 	with open(val_file, "wb") as f:
+	# 		pkl.dump(val_edges, f, pkl.HIGHEST_PROTOCOL)
+	# 	with open(test_file, "wb") as f:
+	# 		pkl.dump(test_edges, f, pkl.HIGHEST_PROTOCOL)
+	# else:
+	# 	with open(val_file, "rb") as f:
+	# 		val_edges = pkl.load(f) 
+	# 	with open(test_file, "rb") as f:
+	# 		test_edges = pkl.load(f)
 
-		G.remove_edges_from(val_edges)
-		G.remove_edges_from(test_edges)
+	# 	G.remove_edges_from(val_edges)
+	# 	G.remove_edges_from(test_edges)
+	val_edges = None
+	test_edges = None
 
 	# train, val and test on same network
 	G_train = G
@@ -332,9 +337,9 @@ def load_karate():
 		np.savetxt(val_label_idx_file, val_label_idx, delimiter=",", fmt="%i")
 		np.savetxt(test_label_idx_file, test_label_idx, delimiter=",", fmt="%i")
 	else:
-		train_label_idx = np.genfromtxt(train_label_idx_file, delimiter=",")
-		val_label_idx = np.genfromtxt(val_label_idx_file, delimiter=",")
-		test_label_idx = np.genfromtxt(test_label_idx_file, delimiter=",")
+		train_label_idx = np.genfromtxt(train_label_idx_file, delimiter=",", dtype=int)
+		val_label_idx = np.genfromtxt(val_label_idx_file, delimiter=",", dtype=int)
+		test_label_idx = np.genfromtxt(test_label_idx_file, delimiter=",", dtype=int)
 	# use selected train idx to mask all other labels
 	train_label_mask = np.zeros((Y.shape[0], 1))
 	train_label_mask[train_label_idx] = 1

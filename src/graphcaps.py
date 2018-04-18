@@ -55,6 +55,9 @@ def parse_args():
 	parser.add_argument("--no-embedding-loss", action="store_true", 
 		help="Use this flag to not include loss from all hyperbolic embeddings in final loss function.")
 
+	parser.add_argument("--test-only", action="store_true", 
+		help="Use this flag to only test the model.")
+
 
 	parser.add_argument("-e", "--num_epochs", dest="num_epochs", type=int, default=1000,
 		help="The number of epochs to train for (default is 1000).")
@@ -110,20 +113,38 @@ def fix_parameters(args):
 	'''
 	fix parameters for experiments
 	'''
+	dataset = args.dataset
+
+	if args.dataset == "karate":
+
+		args.walk_length = 5
+
+		args.num_negative_samples = 3
+
+		args.neighbourhood_sample_sizes = [3, 3]
+		args.num_primary_caps_per_layer = [32, 8]
+		args.num_filters_per_layer = [1, 1]
+		args.agg_dim_per_layer = [32, 8]
+		args.batch_size = 10
+
+
+		args.number_of_capsules_per_layer = [16,  4]
+		args.capsule_dim_per_layer = [8, 8]
+
+		return 
 
 
 	args.neighbourhood_sample_sizes = [5, 5]
 	args.num_primary_caps_per_layer = [16, 16]
 	args.num_filters_per_layer = [16, 16]
-	args.agg_dim_per_layer = [8, 8]
+	args.agg_dim_per_layer = [16, 8]
 	args.batch_size = 100
 
 
-	dataset = args.dataset
 	if dataset in ["AstroPh", "CondMat", "HepPh", "GrQc", "wordnet", "wordnet_attributed"]:
 
-		args.number_of_capsules_per_layer = [8, 1]
-		args.capsule_dim_per_layer = [8, args.embedding_dim]
+		args.number_of_capsules_per_layer = [16, 1]
+		args.capsule_dim_per_layer = [16, args.embedding_dim]
 
 	elif dataset in ["citeseer", "cora", "pubmed", "reddit"]:
 
@@ -137,7 +158,7 @@ def fix_parameters(args):
 			num_classes = 41
 
 		args.number_of_capsules_per_layer = [num_classes, 1]
-		args.capsule_dim_per_layer = [8, 10]
+		args.capsule_dim_per_layer = [16, 32]
 
 def configure_paths(args):
 	'''
@@ -195,9 +216,9 @@ def record_initial_losses(model, gen, val_label_idx, val_edges, args,
 	initial_losses = {}
 
 	if val_label_idx is not None:
-		f1_micro, f1_macro, NMI, classification_accuracy =\
+		margin_loss, f1_micro, f1_macro, NMI, classification_accuracy =\
 		label_prediction_callback.make_and_evaluate_label_predictions()
-		initial_losses.update({"f1_micro": f1_micro, "f1_macro": f1_macro, 
+		initial_losses.update({"margin_loss": margin_loss, "f1_micro": f1_micro, "f1_macro": f1_macro, 
 				"NMI": NMI, "classification_accuracy": classification_accuracy})
 
 	embedding = reconstruction_callback.perform_embedding()
@@ -219,6 +240,9 @@ def record_initial_losses(model, gen, val_label_idx, val_edges, args,
 	# initial_losses.update({"loss" : np.NaN})
 	print ("evaluating model on one step of training generator")
 	evaluations = model.evaluate_generator(gen, steps=1)
+	# print model.metrics_names, evaluations
+	if not isinstance(evaluations, list):
+		evaluations = [evaluations]
 	for metric, loss in zip(model.metrics_names, evaluations):
 	# for i, l in enumerate(model.output_layers):
 		print (metric, loss)
@@ -226,8 +250,9 @@ def record_initial_losses(model, gen, val_label_idx, val_edges, args,
 	# print ("loss", evaluations[-1])
 	# initial_losses.update({"loss": evaluations[-1]})
 
-	loss_df = pd.DataFrame(initial_losses, index=Index([0], name="epoch"))
+	loss_df = pd.DataFrame(initial_losses, index=Index(["initial"], name="epoch"))
 	loss_df.to_csv(args.log_path)
+	# raise SystemExit
 
 
 def main():
@@ -252,17 +277,22 @@ def main():
 	# load the dataset -- written for many types of exeriments so some returned objects are None
 	reconstruction_adj, G_train, G_val, G_test,\
 	X, Y, val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx = load_data(dataset)
+	# val_label_idx = None
+	# test_label_idx = None
 
 	# use labels for labelled networks
-	if dataset in ["citeseer", "cora", "pubmed", "reddit"]:
+	if dataset in ["citeseer", "cora", "pubmed", "reddit", "karate"]:
 		assert Y.shape[1] in args.number_of_capsules_per_layer, "You must have a layer with {} capsules".format(Y.shape[1])
 		args.use_labels = True
-		monitor = "f1_micro"
+		monitor = "classification_accuracy"
 		mode = "max"
 		print("using labels in training")
 	else:
 		monitor = "mean_precision_link_prediction"
 		mode = "min"
+
+	# print monitor
+	# raise SystemExit
 
 	# the path of the file that contains the random walks for this network
 	walk_file = os.path.join(args.walk_path, "walks-{}-{}".format(args.num_walks, args.walk_length))
@@ -291,60 +321,100 @@ def main():
 	args.number_of_capsules_per_layer = number_of_capsules_per_layer
 	args.capsule_dim_per_layer = capsule_dim_per_layer
 
-	# create training generator object to produce samples from the precomputed postive and negative samples
-	# also masks labels if dataset is labelled
-	training_generator = neighbourhood_sample_generator(G_train, X, Y, train_label_mask, 
-		positive_samples, ground_truth_negative_samples, args)
+	if not args.test_only:
 
-	# generates / loads a graph caps model according the args passed in from the command line
-	# will load a model if an existing model exists on ther system with the same specifications
-	model, embedder, label_prediction_model, initial_epoch = load_models(X, Y, args.model_path, args)
+			# create training generator object to produce samples from the precomputed postive and negative samples
+		# also masks labels if dataset is labelled
+		training_generator = neighbourhood_sample_generator(G_train, X, Y, train_label_mask, 
+			positive_samples, ground_truth_negative_samples, args)
 
-	# callbacks
-	nan_terminate_callback = TerminateOnNaN()
-	reconstruction_callback = ReconstructionLinkPredictionCallback(G_train, X, Y, reconstruction_adj, embedder,
-		val_edges, ground_truth_negative_samples, args.embedding_path, args.plot_path, args)
-	label_prediction_callback = LabelPredictionCallback(G_val, X, Y, label_prediction_model, val_label_idx, args)
-	early_stopping_callback = EarlyStopping(monitor=monitor, patience=10, mode=mode, verbose=1)
-	checkpoint_callback = ModelCheckpoint(os.path.join(args.model_path, "{epoch:04d}-{mean_precision_reconstruction:.4f}-{mean_rank_reconstruction:.2f}.h5"),
-		monitor=monitor, save_weights_only=False)
-	logger_callback = CSVLogger(args.log_path, append=True)
+		# generates / loads a graph caps model according the args passed in from the command line
+		# will load a model if an existing model exists on ther system with the same specifications
+		model, embedder, label_prediction_model, initial_epoch = load_models(X, Y, args.model_path, args)
 
-	callbacks = [nan_terminate_callback, 
-	reconstruction_callback, 
-	label_prediction_callback, 
-	early_stopping_callback, checkpoint_callback, logger_callback]
+		patience = 10
 
-	if initial_epoch == 1:
-		record_initial_losses(model, training_generator,
-		val_label_idx, val_edges, args, reconstruction_callback, label_prediction_callback)
+		# callbacks
+		nan_terminate_callback = TerminateOnNaN()
+		reconstruction_callback = ReconstructionLinkPredictionCallback(G_train, X, Y, reconstruction_adj, embedder,
+			val_edges, ground_truth_negative_samples, args.embedding_path, args.plot_path, args)
+		label_prediction_callback = LabelPredictionCallback(G_val, X, Y, label_prediction_model, val_label_idx, args)
+		early_stopping_callback = EarlyStopping(monitor=monitor, patience=patience, mode=mode, verbose=1)
+		reload_callback = ModelCheckpoint(os.path.join(args.model_path, 
+			"{epoch:04d}.h5"), save_weights_only=False)
+		best_model_callback = ModelCheckpoint(os.path.join(args.model_path, "best_model.h5"),
+			monitor=monitor, mode=mode, save_weights_only=False, save_best_only=True, verbose=1)
+		logger_callback = CSVLogger(args.log_path, append=True)
 
-	
-	print ("BEGIN TRAINING")
+		callbacks = [nan_terminate_callback, 
+		reconstruction_callback, 
+		label_prediction_callback, 
+		early_stopping_callback, reload_callback, best_model_callback, logger_callback]
 
-	num_steps = int((len(positive_samples) // args.num_walks + args.batch_size - 1) // args.batch_size)
-	# num_steps = 100
-	model.fit_generator(training_generator, 
-		steps_per_epoch=num_steps,
-		epochs=args.num_epochs, 
-		initial_epoch=initial_epoch,
-		verbose=1, #)
-		callbacks=callbacks)
+		if initial_epoch == 0:
+			record_initial_losses(model, training_generator,
+			val_label_idx, val_edges, args, reconstruction_callback, label_prediction_callback)
 
-	print ("TRAINING COMPLETE -- TESTING MODEL")
+		
+		print ("BEGIN TRAINING")
+
+		# num_steps = int((len(positive_samples) // args.num_walks + args.batch_size - 1) // args.batch_size)
+		num_steps = int((len(positive_samples) + args.batch_size - 1) // args.batch_size)
+		# num_steps = 100
+		model.fit_generator(training_generator, 
+			steps_per_epoch=num_steps,
+			epochs=args.num_epochs, 
+			initial_epoch=initial_epoch,
+			verbose=1, #)
+			callbacks=callbacks)
+
+		print ("TRAINING COMPLETE")
+
+		import matplotlib.pyplot as plt
+
+		num_epochs = len(model.history.epoch)
+		
+		# plt.figure(figsize=(5, 5))
+		plt.plot(range(num_epochs), model.history.history["f1_macro"])
+		plt.plot(range(num_epochs), model.history.history["f1_micro"])
+
+		plt.legend(["f1_macro", "f1_micro"])
+		plt.show()
+
+		# plt.figure(figsize=(5, 5))
+		plt.plot(range(num_epochs), model.history.history["margin_loss"])
+
+		plt.legend(["margin_loss",])
+		plt.show()
+
+
+
+		print(model.history.history["classification_accuracy"])
+
+
+	print ("TESTING MODEL")
+	print ("LOADING BEST MODEL ACCORDING TO: {}".format(monitor))
+
+	model, embedder, label_prediction_model, _ = load_models(X, Y, args.model_path, args, load_best=True)
+	# print ("BEST MODEL IS FROM EPOCH {}".format(len(model.history.epoch)))
+
 
 	if test_label_idx is not None:
-		f1_micro, f1_macro, NMI, classification_accuracy =\
-		label_prediction_callback.make_and_evaluate_label_predictions(G_test, test_label_idx)
+		label_prediction_testing_callback = LabelPredictionCallback(G_test, X, Y, label_prediction_model, test_label_idx, args)
+		margin_loss, f1_micro, f1_macro, NMI, classification_accuracy =\
+		label_prediction_testing_callback.make_and_evaluate_label_predictions()
 
-	embedding = reconstruction_callback.perform_embedding()
-	metrics = reconstruction_callback.evaluate_rank_and_MAP(embedding, test_edges)
+	reconstruction_testing_callback = ReconstructionLinkPredictionCallback(G_train, X, Y, reconstruction_adj, embedder,
+		test_edges, ground_truth_negative_samples, args.embedding_path, args.plot_path, args)
+
+	embedding = reconstruction_testing_callback.perform_embedding()
+	metrics = reconstruction_testing_callback.evaluate_rank_and_MAP(embedding, )
 	print ("Mean rank reconstruction:", metrics[0], "MAP reconstruction:", metrics[1])
 	if test_edges is not None:
 		print ("Mean rank link predicion:", metrics[2], "MAP link prediction:", metrics[3])
 
 	if dataset in ["wordnet", "wordnet_attributed"]:
-		r, p = reconstruction_callback.evaluate_lexical_entailment(embedding, dataset)
+		r, p = reconstruction_testing_callback.evaluate_lexical_entailment(embedding, dataset)
 
 if __name__  == "__main__":
 	main()

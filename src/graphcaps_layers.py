@@ -9,7 +9,7 @@ import keras.backend as K
 import tensorflow as tf
 from keras import initializers, layers, activations#, regularizers
 from keras.regularizers import l2
-# from keras.initializers import RandomUniform
+from keras.initializers import RandomUniform
 
 
 
@@ -23,7 +23,7 @@ class Length(layers.Layer):
 	Author: Xifeng Guo, E-mail: `guoxifeng1990@163.com`, Github: `https://github.com/XifengGuo/CapsNet-Keras`
 	"""
 	def call(self, inputs):
-		return K.sqrt(K.sum(K.square(inputs), axis=-1) + K.epsilon())
+		return K.sqrt(K.sum(K.square(inputs), axis=-1) )#+ K.epsilon())
 
 	def compute_output_shape(self, input_shape):
 		return input_shape[:-1]
@@ -36,8 +36,20 @@ def squash(vectors, axis=-1):
 	:return: a Tensor with same shape as input vectors
 	Author: Xifeng Guo, E-mail: `guoxifeng1990@163.com`, Github: `https://github.com/XifengGuo/CapsNet-Keras`
 	"""
-	s_squared_norm = K.sum(K.square(vectors), axis, keepdims=True)
-	scale = s_squared_norm / ((1 + s_squared_norm) * K.sqrt(s_squared_norm + K.epsilon()))
+	s_squared_norm = K.sum(K.square(vectors), axis, keepdims=True) + K.epsilon()
+	scale = s_squared_norm / ((1 + s_squared_norm) * K.sqrt(s_squared_norm ))
+	return scale * vectors
+
+def inverse_squash(vectors, axis=-1):
+	"""
+	The non-linear activation used in Capsule. It drives the length of a large vector to near 1 and small vector to 0
+	:param vectors: some vectors to be squashed, N-dim tensor
+	:param axis: the axis to squash
+	:return: a Tensor with same shape as input vectors
+	Author: Xifeng Guo, E-mail: `guoxifeng1990@163.com`, Github: `https://github.com/XifengGuo/CapsNet-Keras`
+	"""
+	s_squared_norm = K.sum(K.square(vectors), axis, keepdims=True) + 1e-4
+	scale = 1 / ((1 + s_squared_norm) * K.sqrt(s_squared_norm ))
 	return scale * vectors
 
 class GraphCapsuleLayer(layers.Layer):
@@ -55,19 +67,19 @@ class GraphCapsuleLayer(layers.Layer):
 	"""
 	def __init__(self, num_capsule, dim_capsule, num_routing=3,
 				 kernel_initializer='glorot_uniform', 
-				 kernel_regularizer=1e-3,
+				 kernel_regularizer=1e-2,
 				 **kwargs):
 		super(GraphCapsuleLayer, self).__init__(**kwargs)
 		self.num_capsule = num_capsule
 		self.dim_capsule = dim_capsule
 		self.num_routing = num_routing
-		self.kernel_initializer = kernel_initializer
+		self.kernel_initializer = kernel_initializer#RandomUniform(minval=-0.5, maxval=0.5)#kernel_initializer
 		self.kernel_regularizer = kernel_regularizer
 
 	def build(self, input_shape):
-		assert len(input_shape) >= 4, "The input Tensor should have shape=[None, N, input_num_capsule, input_dim_capsule]"
+		assert len(input_shape) == 4, "The input Tensor should have shape=[None, N, input_num_capsule, input_dim_capsule]"
 		# self.batch_size = input_shape[0]
-		self.neighbours = input_shape[1]
+		# self.neighbours = input_shape[1]
 		self.input_num_capsule = input_shape[2]
 		self.input_dim_capsule = input_shape[3]
 		
@@ -170,10 +182,10 @@ class GraphCapsuleLayer(layers.Layer):
 				# then matmal: [input_num_capsule] x [input_num_capsule, dim_capsule] -> [dim_capsule].
 				# outputs.shape=[None, N, num_capsule, dim_capsule]
 
-				# outputs = squash(K.batch_dot(c, inputs_hat, [3, 3]))  
-				outputs = K.batch_dot(c, inputs_hat, axes=3)
+				outputs = squash(K.batch_dot(c, inputs_hat, axes=[3, 3]))  
+				# outputs = K.batch_dot(c, inputs_hat, axes=3)
 			else:  # Otherwise, use `inputs_hat_stopped` to update `b`. No gradients flow on this path.
-				outputs = squash(K.batch_dot(c, inputs_hat_stopped, axes=3))
+				outputs = squash(K.batch_dot(c, inputs_hat_stopped, axes=[3, 3]))
 				# outputs.shape =  [None, N, num_capsule, dim_capsule]
 				# inputs_hat.shape=[None, N, num_capsule, input_num_capsule, dim_capsule]
 				# The first two dimensions as `batch` dimension,
@@ -196,7 +208,7 @@ class AggregateLayer(layers.Layer):
 	Author: David McDonald, Email: `dxm237@cs.bham.ac.uk'
 	"""
 	def __init__(self, num_neighbours, num_caps, num_filters, new_dim, mode="mean", activation=None,
-				 kernel_initializer='glorot_uniform', kernel_regularizer=1e-3,
+				 kernel_initializer='glorot_uniform', kernel_regularizer=1e-2,
 				 **kwargs):
 		super(AggregateLayer, self).__init__(**kwargs)
 
@@ -206,18 +218,20 @@ class AggregateLayer(layers.Layer):
 		self.new_dim = new_dim
 		self.mode = mode
 		self.activation = activation
-		self.kernel_initializer = kernel_initializer
+		self.kernel_initializer = kernel_initializer#RandomUniform(minval=-0.5, maxval=0.5)#kernel_initializer
 		self.kernel_regularizer = kernel_regularizer
 
 	def build(self, input_shape):
 		'''
-		input_shape = [batch_size, Nn, num_input_caps, cap_dim]
+		input_shape = [batch_size, Nn, input_dim]
 		'''
+
+		assert len(input_shape) == 3, "incorrect aggregation input"
 
 		# self.n_dimension = input_shape[1] 
 		# self.num_input_caps = input_shape[2]
 		# self.input_dim = input_shape[3]
-		self.input_dim = input_shape[2] * input_shape[3]
+		self.input_dim = input_shape[2]
 
 		initializer = initializers.get(self.kernel_initializer)
 		# regularizer = regularizers.get(self.kernel_regularizer)

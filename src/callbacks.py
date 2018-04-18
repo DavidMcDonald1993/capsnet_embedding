@@ -6,8 +6,9 @@ import pandas as pd
 
 from scipy.stats import spearmanr
 
-import matplotlib
-matplotlib.use('agg')
+# import matplotlib
+# matplotlib.use('agg')
+
 import matplotlib.pyplot as plt
 # from mpl_toolkits.mplot3d import Axes3D
 
@@ -146,7 +147,7 @@ class ReconstructionLinkPredictionCallback(Callback):
 				edge_dict.setdefault(u, default).append(v)
 			return edge_dict
 
-	def evaluate_rank_and_MAP(self, embedding, test_edges=None):
+	def evaluate_rank_and_MAP(self, embedding,):
 
 		
 		def sigmoid(x):
@@ -155,16 +156,16 @@ class ReconstructionLinkPredictionCallback(Callback):
 		print ("evaluating rank and MAP")
 
 		original_adj = self.original_adj
-		if test_edges is None:
-			removed_edges_dict = self.removed_edges_dict
-			print ("evaluating on validation edges")
-		else:
-			removed_edges_dict = self.convert_edgelist_to_dict(test_edges)
-			print ("evaluating on test edges")
+		# if test_edges is None:
+		removed_edges_dict = self.removed_edges_dict
+		print ("evaluating on validation edges")
+		# else:
+		# 	removed_edges_dict = self.convert_edgelist_to_dict(test_edges)
+		# 	print ("evaluating on test edges")
 
 		ground_truth_negative_samples = self.ground_truth_negative_samples
 
-		r = 5.
+		r = 1.
 		t = 1.
 		
 		G = self.G
@@ -269,71 +270,83 @@ class LabelPredictionCallback(Callback):
 	def on_epoch_end(self, epoch, logs={}):
 
 		if self.val_idx is not None:
-			f1_micro, f1_macro, NMI, classification_accuracy = self.make_and_evaluate_label_predictions()
-			logs.update({"f1_micro": f1_micro, "f1_macro": f1_macro, 
+			margin_loss, f1_micro, f1_macro, NMI, classification_accuracy = self.make_and_evaluate_label_predictions()
+			logs.update({"margin_loss": margin_loss, "f1_micro": f1_micro, "f1_macro": f1_macro, 
 				"NMI": NMI, "classification_accuracy": classification_accuracy})
 
-	def make_and_evaluate_label_predictions(self, test_G=None, test_idx=None):
+	def make_and_evaluate_label_predictions(self, ):
 
 		X = self.X
 		Y = self.Y
 		predictor = self.predictor
 		
-		if test_G is None:
-			idx = self.val_idx
-			G = self.val_G
-			print ("evaluating label predictions on validation set")
+		# if test_G is None:
+		idx = self.val_idx
+		G = self.val_G
+		print ("evaluating label predictions on validation set")
 
-			if self.val_prediction_gen is None:
+		if self.val_prediction_gen is None:
 
-				print ("creating new label validation generator")
+			print ("creating new label validation generator")
 
-				_, num_classes = Y.shape
-				number_of_capsules_per_layer = self.args.number_of_capsules_per_layer
-				label_prediction_layers = np.where(number_of_capsules_per_layer==num_classes)[0] + 1
-				prediction_layer = label_prediction_layers[-1]
-				neighbourhood_sample_sizes = self.args.neighbourhood_sample_sizes
-				self.neighbourhood_sample_sizes = neighbourhood_sample_sizes[:prediction_layer]
+			_, num_classes = Y.shape
+			number_of_capsules_per_layer = self.args.number_of_capsules_per_layer
+			label_prediction_layers = np.where(number_of_capsules_per_layer==num_classes)[0] + 1
+			prediction_layer = label_prediction_layers[-1]
+			neighbourhood_sample_sizes = self.args.neighbourhood_sample_sizes
+			self.neighbourhood_sample_sizes = neighbourhood_sample_sizes[:prediction_layer]
 
-				# nodes_to_predict = np.array(idx).reshape(-1, 1)
-
-				self.batch_size = self.args.batch_size * (1 + self.args.num_positive_samples + self.args.num_negative_samples)
-				self.num_steps = int((len(idx) + self.batch_size - 1) // self.batch_size)
-				self.val_prediction_gen = validation_generator(self, G, X, idx, self.neighbourhood_sample_sizes, 
-					num_steps=self.num_steps, batch_size=self.batch_size)
-
-
-			predictions = predictor.predict_generator(self.val_prediction_gen, steps=self.num_steps, )
-
-
-		else:
-			idx = test_idx
-			G = test_G
-			print ("evaluating label predictions on test set")
 			# nodes_to_predict = np.array(idx).reshape(-1, 1)
-			num_steps = int((len(idx) + self.batch_size - 1) // self.batch_size)
-			test_prediction_gen = validation_generator(self, G, X, idx, self.neighbourhood_sample_sizes, 
-					num_steps=num_steps, batch_size=self.batch_size)
 
-			predictions = predictor.predict_generator(test_prediction_gen, steps=num_steps)
+			self.batch_size = self.args.batch_size * (1 + self.args.num_positive_samples + self.args.num_negative_samples)
+			self.num_steps = int((len(idx) + self.batch_size - 1) // self.batch_size)
+			self.val_prediction_gen = validation_generator(self, G, X, idx, self.neighbourhood_sample_sizes, 
+				num_steps=self.num_steps, batch_size=self.batch_size)
+
+
+		predictions = predictor.predict_generator(self.val_prediction_gen, steps=self.num_steps, )
+
+
+		# else:
+		# 	idx = test_idx
+		# 	G = test_G
+		# 	print ("evaluating label predictions on test set")
+		# 	# nodes_to_predict = np.array(idx).reshape(-1, 1)
+		# 	num_steps = int((len(idx) + self.batch_size - 1) // self.batch_size)
+		# 	test_prediction_gen = validation_generator(self, G, X, idx, self.neighbourhood_sample_sizes, 
+		# 			num_steps=num_steps, batch_size=self.batch_size)
+
+		# 	predictions = predictor.predict_generator(test_prediction_gen, steps=num_steps)
 
 
 		predictions = predictions.reshape(-1, predictions.shape[-1])
 
+		val_Y = Y[self.nodes_to_val]
+		if sp.sparse.issparse(val_Y):
+			val_Y = val_Y.toarray()
+		
+		print (self.nodes_to_val)
+
+		print(val_Y)
 		# only consider validation labels (shuffled in generator)
-		true_labels = Y[self.nodes_to_val].argmax(axis=-1)
-		if sp.sparse.issparse(Y):
-			true_labels = true_labels.A1			
+		true_labels = val_Y.argmax(axis=-1)
+		print (true_labels)	
 
 		predicted_labels = predictions.argmax(axis=-1)
+		print (predictions)
+		print (predicted_labels)
+
+		margin_loss = np.mean(np.sum(val_Y * np.square(np.maximum(0., 0.9 - predictions)) + \
+        0.5 * (1 - val_Y) * np.square(np.maximum(0., predictions - 0.1)), axis=-1))
 
 		f1_micro = f1_score(true_labels, predicted_labels, average="micro")
 		f1_macro = f1_score(true_labels, predicted_labels, average="macro")
 		NMI = normalized_mutual_info_score(true_labels, predicted_labels)
 		classification_accuracy = accuracy_score(true_labels, predicted_labels, normalize=True)
 
+		print ("margin_loss={}".format(margin_loss))
 		print ("f1_micro={}, f1_macro={}".format(f1_micro, f1_macro))
 		print ("NMI of predictions: {}".format(NMI))
 		print ("Classification accuracy: {}".format(classification_accuracy))
 		
-		return f1_micro, f1_macro, NMI, classification_accuracy
+		return margin_loss, f1_micro, f1_macro, NMI, classification_accuracy
