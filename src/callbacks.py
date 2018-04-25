@@ -6,8 +6,8 @@ import pandas as pd
 
 from scipy.stats import spearmanr
 
-# import matplotlib
-# matplotlib.use('agg')
+import matplotlib
+matplotlib.use('agg')
 
 import matplotlib.pyplot as plt
 # from mpl_toolkits.mplot3d import Axes3D
