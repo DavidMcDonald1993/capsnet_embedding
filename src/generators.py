@@ -62,6 +62,7 @@ def neighbourhood_sample_generator(G, X, Y, train_mask,
 
 		random.shuffle(positive_samples)
 
+		skip = 0
 		for step in range(num_steps):
 
 			batch_positive_samples = np.array(positive_samples[step * batch_size : (step + 1) * batch_size])
@@ -70,7 +71,24 @@ def neighbourhood_sample_generator(G, X, Y, train_mask,
 					for u in batch_positive_samples[:,0]])
 			batch_nodes = np.append(batch_positive_samples, batch_negative_samples, axis=1)
 
+			# print batch_nodes
+			# for u, v, neg in zip(batch_nodes[:,0], batch_nodes[:,1], batch_nodes[:,2:]):
+			# 	# print u, v, neg
+			# 	assert (u, v) in positive_samples
+			# 	assert all([n in ground_truth_negative_samples[u] for n in neg])
+			# print batch_nodes
+			# for u in batch_nodes[:,0]:
+			# 	print u, ground_truth_negative_samples[u]
+
 			neighbourhood_sample_list = get_neighbourhood_samples(batch_nodes, neighbourhood_sample_sizes, neighbours)
+			# print neighbourhood_sample_sizes
+			# for l in neighbourhood_sample_list:
+			# 	print l.shape
+			# for size, ns1, ns2 in zip(neighbourhood_sample_sizes, neighbourhood_sample_list, neighbourhood_sample_list[1:]):
+			# 	for i, _ in enumerate(ns1):
+			# 		for j, v in enumerate(ns1[i]):
+			# 			neigh = ns2[i, j//(size+1)]
+			# 			assert v == neigh or neigh in neighbours[v], "incorrect neighbourhood samples" 
 
 			# shape is [batch_size, output_shape*prod(sample_sizes), D]
 			input_nodes = neighbourhood_sample_list[0]
@@ -79,12 +97,16 @@ def neighbourhood_sample_generator(G, X, Y, train_mask,
 			if sp.sparse.issparse(X):
 
 				x = X[input_nodes.flatten()].toarray()
-				# x = preprocess_data(x)
+				x = preprocess_data(x)
 
 			else:
 				x = X[input_nodes]
 			# add artificial capsule dimension 
 			x = x.reshape(original_shape + [-1])
+			# print x.shape
+			# assert np.allclose(x.argmax(axis=-1), input_nodes) 
+			# print x.argmax(axis=-1)
+			# print input_nodes
 			# shape is now [batch_nodes, output_shape*prod(sample_sizes), 1, D]
 
 			masked_labels = []
@@ -93,15 +115,27 @@ def neighbourhood_sample_generator(G, X, Y, train_mask,
 				nodes_to_evaluate_label = neighbourhood_sample_list[layer]
 				original_shape = list(nodes_to_evaluate_label.shape)
 				y = Y[nodes_to_evaluate_label.flatten()]#.toarray()
+				# for y_prime, node in zip(y, nodes_to_evaluate_label.flatten()):
+				# 	print node
+				# 	print "y_prime", y_prime
+				# 	print Y[node].toarray()
+					# assert np.allclose(y_prime, Y[node].toarray().flatten())
+
 				if sp.sparse.issparse(y):
 					y = y.toarray()
 				y = y.reshape(original_shape + [-1])
 
-				mask = train_mask[neighbourhood_sample_list[layer]]
+				mask = train_mask[nodes_to_evaluate_label]
+				# print "mask", mask.shape
+				assert mask.shape == tuple(list(nodes_to_evaluate_label.shape) + [1])
+				# print mask
 				all_zeros = not mask.any()
 				if all_zeros:
 					all_zero_mask = True
 				y_masked = np.append(mask, y, axis=-1)
+				assert y_masked.shape == tuple(list(nodes_to_evaluate_label.shape) + [1 + num_classes])
+				# print "y_masked", y_masked.shape, mask.sum(), y_masked[:,:,0].sum()
+				# print y_masked.reshape(-1, y_masked.shape[-1])
 				masked_labels.append(y_masked)
 
 			negative_sample_targets = np.zeros((batch_nodes.shape[0], num_positive_samples+num_negative_samples))
@@ -111,6 +145,12 @@ def neighbourhood_sample_generator(G, X, Y, train_mask,
 
 			if not all_zero_mask:
 				yield x, masked_labels + negative_sample_targets
+			else:
+				skip +=1
+				# print "skip", skip
+		print "skipped {}/{}".format(skip, num_steps)
+		# raise SystemExit
+
 
 
 def validation_generator(validation_callback, G, X, idx, neighbourhood_sample_sizes, num_steps, batch_size=100):
@@ -124,7 +164,15 @@ def validation_generator(validation_callback, G, X, idx, neighbourhood_sample_si
 		nodes_to_val = np.array(idx).reshape(-1, 1)
 		for step in range(num_steps):			
 			batch_nodes = nodes_to_val[batch_size*step : batch_size*(step+1)]
+			assert batch_nodes.shape[1] == 1
 			neighbourhood_sample_list = get_neighbourhood_samples(batch_nodes, neighbourhood_sample_sizes, neighbours)
+
+			# for size, ns1, ns2 in zip(neighbourhood_sample_sizes, neighbourhood_sample_list, neighbourhood_sample_list[1:]):
+			# 	for i, _ in enumerate(ns1):
+			# 		for j, v in enumerate(ns1[i]):
+			# 			neigh = ns2[i, j//(size+1)]
+			# 			assert v == neigh or neigh in neighbours[v], "incorrect neighbourhood samples in val gen" 
+
 			input_nodes = neighbourhood_sample_list[0]
 			if sp.sparse.issparse(X):
 				x = X[input_nodes.flatten()].toarray()
@@ -132,6 +180,7 @@ def validation_generator(validation_callback, G, X, idx, neighbourhood_sample_si
 			else:
 				x = X[input_nodes]
 			yield x.reshape([-1, input_nodes.shape[1], X.shape[-1]])
+			print "yielding step {}/{}".format(step, num_steps)
 			if step == 0:
 				# save order of nodes for evaluation 
 				validation_callback.nodes_to_val = idx[:]

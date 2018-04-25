@@ -35,28 +35,29 @@ def select_label_split(Y, num_train=20, num_val=50):
 
 def load_data(dataset):
 
-	if dataset == "wordnet":
-		reconstruction_adj, G_train, G_val, G_test,\
-		X, Y, val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx = load_wordnet()
-	elif dataset == "wordnet_attributed":
-		reconstruction_adj, G_train, G_val, G_test,\
-		X, Y, val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx = load_wordnet_attributed()
-	elif dataset == "karate":
-		reconstruction_adj, G_train, G_val, G_test,\
-		X, Y, val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx = load_karate()
+	if dataset == "karate":
+		G_train, G_val, G_test, X, Y, all_edges,\
+		val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx = load_karate()
+	# elif dataset == "wordnet":
+		# G_train, G_val, G_test, X, Y, all_edges,\
+		# val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx = load_wordnet()
+	# elif dataset == "wordnet_attributed":
+		# G_train, G_val, G_test, X, Y, all_edges,\
+		# val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx = load_wordnet_attributed()
+	
 	elif dataset in ["citeseer", "cora", "pubmed"]:
-		reconstruction_adj, G_train, G_val, G_test,\
-		X, Y, val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx = load_labelled_attributed_network(dataset)
-	elif dataset in ["AstroPh", "CondMat", "HepPh", "GrQc"]:
-		reconstruction_adj, G_train, G_val, G_test,\
-		X, Y, val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx = load_collaboration_network(dataset)
-	elif dataset == "reddit":
-		reconstruction_adj, G_train, G_val, G_test,\
-		X, Y, val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx = load_reddit()
+		G_train, G_val, G_test, X, Y, all_edges,\
+		val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx = load_labelled_attributed_network(dataset)
+	# elif dataset in ["AstroPh", "CondMat", "HepPh", "GrQc"]:
+		# G_train, G_val, G_test, X, Y, all_edges,\
+		# val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx = load_collaboration_network(dataset)
+	# elif dataset == "reddit":
+		# G_train, G_val, G_test, X, Y, all_edges,\
+		# val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx = load_reddit()
 	else:
 		raise Exception
 
-	return reconstruction_adj, G_train, G_val, G_test, X, Y, val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx
+	return G_train, G_val, G_test, X, Y, all_edges, val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx
 
 def load_labelled_attributed_network(dataset_str):
 	"""Load data."""
@@ -100,7 +101,7 @@ def load_labelled_attributed_network(dataset_str):
 
 	features = sp.sparse.vstack((allx, tx)).tolil()
 	features[test_idx_reorder, :] = features[test_idx_range, :]
-	reconstruction_adj = nx.adjacency_matrix(nx.from_dict_of_lists(graph))
+	adj = nx.adjacency_matrix(nx.from_dict_of_lists(graph))
 
 	labels = np.vstack((ally, ty))
 	labels[test_idx_reorder, :] = labels[test_idx_range, :]
@@ -122,9 +123,11 @@ def load_labelled_attributed_network(dataset_str):
 
 	# return adj, features, y_train, y_val, y_test, train_mask, val_mask, test_mask, labels
 
-	G = nx.from_numpy_matrix(reconstruction_adj.toarray())
+	G = nx.from_numpy_matrix(adj.toarray())
 	G = nx.convert_node_labels_to_integers(G, label_attribute="original_name")
 	nx.set_edge_attributes(G=G, name="weight", values=1)
+
+	all_edges = G.edges()
 
 	X = features#.toarray()
 	Y = labels
@@ -168,7 +171,7 @@ def load_labelled_attributed_network(dataset_str):
 	# test_mask = train_mask.reshape(-1, 1).astype(np.float32)
 
 	# return adj, G, X, Y, val_edges, test_edges, train_mask, val_mask, test_mask
-	return reconstruction_adj, G_train, G_val, G_test, X, Y, val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx
+	return G_train, G_val, G_test, X, Y, all_edges, val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx
 
 
 
@@ -185,7 +188,8 @@ def load_collaboration_network(dataset_str):
 	nx.set_edge_attributes(G=G, name="weight", values=1)
 
 	# reconstruct original network
-	reconstruction_adj = nx.adjacency_matrix(G)
+	# reconstruction_adj = nx.adjacency_matrix(G)
+	all_edges = G.edges()
 
 	N = len(G)
 
@@ -232,7 +236,7 @@ def load_collaboration_network(dataset_str):
 	G_val = G 
 	G_test = G
 
-	return reconstruction_adj, G_train, G_val, G_test, X, Y, val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx
+	return G_train, G_val, G_test, X, Y, all_edges, val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx
 	# return original_adj, G, X, Y, val_edges, test_edges, train_mask, val_mask, test_mask
 
 	# if not os.path.exists("../data/collaboration_networks/{}_training_idx".format(dataset_str)):
@@ -260,7 +264,7 @@ def load_karate():
 	G = nx.read_edgelist("../data/karate/karate.edg")
 
 	# reconstruct original adjacency matrix
-	reconstruction_adj = nx.adjacency_matrix(G)
+	# reconstruction_adj = nx.adjacency_matrix(G)
 
 	# identity features
 	N = len(G)
@@ -284,6 +288,7 @@ def load_karate():
 
 	G = nx.convert_node_labels_to_integers(G, label_attribute="original_name")
 	nx.set_edge_attributes(G=G, name="weight", values=1)
+	all_edges = G.edges()
 	# map_ = {"Mr. Hi" : 0, "Officer" : 1}
 
 	# Y = np.zeros((len(G), 2))
@@ -346,7 +351,7 @@ def load_karate():
 
 
 	# return original_adj, G, X, Y, val_edges, test_edges, train_mask, val_mask, test_mask
-	return reconstruction_adj, G_train, G_val, G_test, X, Y, val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx
+	return G_train, G_val, G_test, X, Y, all_edges, val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx
 
 
 	# if not os.path.exists("../data/karate/training_idx"):
@@ -428,6 +433,8 @@ def load_reddit():
 	
 	G = nx.relabel_nodes(G, id_map, )
 
+	all_edges = G.edges()
+
 	with open("../data/reddit/train_nodes", "rb") as f:
 		train_nodes = pkl.load(f)
 	with open("../data/reddit/val_nodes", "rb") as f:
@@ -476,7 +483,7 @@ def load_reddit():
 	train_label_mask = np.ones(Y.shape[0])
 
 	# return train_G, val_G, test_G, X, Y, train_idx, val_idx, test_idx, train_mask
-	return reconstruction_adj, G_train, G_val, G_test, X, Y, val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx
+	return G_train, G_val, G_test, X, Y, all_edges, val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx
 
 def load_wordnet():
 
@@ -489,7 +496,8 @@ def load_wordnet():
 	nx.set_edge_attributes(G=G, name="weight", values=1)
 
 	# mesaure capaity for reconstructing original network
-	reconstruction_adj = nx.adjacency_matrix(G)
+	# reconstruction_adj = nx.adjacency_matrix(G)
+	all_edges = G.edges()
 
 	# fasttext vectors?
 	N = len(G)
@@ -538,7 +546,7 @@ def load_wordnet():
 	# val_mask = np.zeros((N, 1))
 	# test_mask = np.zeros((N, 1))
 
-	return reconstruction_adj, G_train, G_val, G_test, X, Y, val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx
+	return G_train, G_val, G_test, X, Y, all_edges, val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx
 
 def load_wordnet_attributed():
 
@@ -549,7 +557,8 @@ def load_wordnet_attributed():
 	G = nx.read_edgelist("../data/wordnet/noun_closure_filtered.tsv", )
 
 	# mesaure capaity for reconstructing original network
-	reconstruction_adj = nx.adjacency_matrix(G)
+	# reconstruction_adj = nx.adjacency_matrix(G)
+	all_edges = G.edges()
 
 	# fasttext vectors?
 	N = len(G)
@@ -603,7 +612,7 @@ def load_wordnet_attributed():
 	# val_mask = np.zeros((N, 1))
 	# test_mask = np.zeros((N, 1))
 
-	return reconstruction_adj, G_train, G_val, G_test, X, Y, val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx
+	return G_train, G_val, G_test, X, Y, all_edges, val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx
 
 	# if not os.path.exists("../data/wordnet/training_idx"):
 	# 	training_idx, val_idx = split_data(G, X, Y, split=0.3)

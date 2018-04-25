@@ -11,7 +11,7 @@ from keras import initializers, layers, activations#, regularizers
 from keras.regularizers import l2
 from keras.initializers import RandomUniform
 
-
+reg = 1e-30
 
 class Length(layers.Layer):
 	"""
@@ -23,7 +23,8 @@ class Length(layers.Layer):
 	Author: Xifeng Guo, E-mail: `guoxifeng1990@163.com`, Github: `https://github.com/XifengGuo/CapsNet-Keras`
 	"""
 	def call(self, inputs):
-		return K.sqrt(K.sum(K.square(inputs), axis=-1) )#+ K.epsilon())
+		# return K.sqrt(K.sum(K.square(inputs), axis=-1) ) #+ K.epsilon()#
+		return K.clip(K.sqrt(K.sum(K.square(inputs), axis=-1)), min_value=K.epsilon(), max_value=1-K.epsilon()) #+ K.epsilon()#)
 
 	def compute_output_shape(self, input_shape):
 		return input_shape[:-1]
@@ -36,8 +37,8 @@ def squash(vectors, axis=-1):
 	:return: a Tensor with same shape as input vectors
 	Author: Xifeng Guo, E-mail: `guoxifeng1990@163.com`, Github: `https://github.com/XifengGuo/CapsNet-Keras`
 	"""
-	s_squared_norm = K.sum(K.square(vectors), axis, keepdims=True) + K.epsilon()
-	scale = s_squared_norm / ((1 + s_squared_norm) * K.sqrt(s_squared_norm ))
+	s_squared_norm = K.sum(K.square(vectors), axis, keepdims=True)# + K.epsilon()
+	scale = s_squared_norm / ((1 + s_squared_norm) * (K.sqrt(s_squared_norm ) + K.epsilon()))
 	return scale * vectors
 
 def inverse_squash(vectors, axis=-1):
@@ -48,9 +49,11 @@ def inverse_squash(vectors, axis=-1):
 	:return: a Tensor with same shape as input vectors
 	Author: Xifeng Guo, E-mail: `guoxifeng1990@163.com`, Github: `https://github.com/XifengGuo/CapsNet-Keras`
 	"""
-	s_squared_norm = K.sum(K.square(vectors), axis, keepdims=True) + 1e-4
-	scale = 1 / ((1 + s_squared_norm) * K.sqrt(s_squared_norm ))
-	return scale * vectors
+	# vectors += K.sqrt(K.square(K.epsilon()) / K.sum(K.ones_like(vectors), axis=-1, keepdims=True))
+	# s_squared_norm = K.sum(K.square(vectors), axis, keepdims=True)# + K.epsilon()
+	# scale = 1. / ((1 + s_squared_norm) * (K.sqrt(s_squared_norm) + K.epsilon()))
+	# return scale * vectors
+	return squash(-K.log(vectors))
 
 class GraphCapsuleLayer(layers.Layer):
 	"""
@@ -67,7 +70,7 @@ class GraphCapsuleLayer(layers.Layer):
 	"""
 	def __init__(self, num_capsule, dim_capsule, num_routing=3,
 				 kernel_initializer='glorot_uniform', 
-				 kernel_regularizer=1e-2,
+				 kernel_regularizer=reg,
 				 **kwargs):
 		super(GraphCapsuleLayer, self).__init__(**kwargs)
 		self.num_capsule = num_capsule
@@ -208,7 +211,7 @@ class AggregateLayer(layers.Layer):
 	Author: David McDonald, Email: `dxm237@cs.bham.ac.uk'
 	"""
 	def __init__(self, num_neighbours, num_caps, num_filters, new_dim, mode="mean", activation=None,
-				 kernel_initializer='glorot_uniform', kernel_regularizer=1e-2,
+				 kernel_initializer='glorot_uniform', kernel_regularizer=reg,
 				 **kwargs):
 		super(AggregateLayer, self).__init__(**kwargs)
 
@@ -241,7 +244,7 @@ class AggregateLayer(layers.Layer):
 									trainable=True, initializer=initializer, regularizer=regularizer,
 									name="W")
 
-		self.bias = self.add_weight(shape=(1, self.num_caps * self.num_filters * self.new_dim),
+		self.bias = self.add_weight(shape=(self.num_caps * self.num_filters * self.new_dim, ),
 									trainable=True, initializer=initializer, regularizer=regularizer,
 									name="bias")
 
@@ -264,20 +267,30 @@ class AggregateLayer(layers.Layer):
 
 
 		inputs_shaped = K.reshape(inputs, shape=[-1, self.num_neighbours, self.input_dim])
+		# print inputs_shaped.shape
+		# raise SystemExit
 		# shape is now [batch*Nn+1, num_neighbours, input_dim]
 		inputs_aggregated = K.mean(inputs_shaped, axis=1)
+		# print K.eval(inputs_aggregated)
+		# raise SystemExit
 		# shape is now [batch*Nn+1, input_dim]
-		output = K.dot(inputs_aggregated, self.W) + self.bias
+		output = K.dot(inputs_aggregated, self.W)# + self.bias
+		# print output.shape
+		output = K.bias_add(output, self.bias)
+		# print output.shape
+		# raise SystemExit
 		# shape is not [batch*Nn+1, num_caps*num_filters*new_dim]
 
 
 		
-		if self.activation is not None:
-			output = activations.get(self.activation)(output)
+		# if self.activation is not None:
+		# 	output = activations.get(self.activation)(output)
 		# output = squash(output)
 
-		output = K.reshape(output, shape=[K.shape(inputs)[0], -1, self.num_caps*self.num_filters, self.new_dim])
-		
+		output = K.reshape(output, shape=tf.stack([K.shape(inputs)[0], -1, self.num_caps*self.num_filters, self.new_dim]))
+		output = squash(output)
+		# print output.shape
+		# raise SystemExit
 		return output
 		
 	def compute_output_shape(self, input_shape):
@@ -285,8 +298,7 @@ class AggregateLayer(layers.Layer):
 		input_shape = [None, Nn, num_caps, cap_dim]
 		output_shape is [None, Nn+1, num_caps, cap_dim]
 
-		'''
-		
+		'''		
 		return tuple([input_shape[0], int(input_shape[1] // self.num_neighbours), 
 			self.num_caps*self.num_filters, self.new_dim])
 
@@ -303,6 +315,7 @@ class HyperbolicDistanceLayer(layers.Layer):
 		self.N = input_shape[1]
 		self.step_size = int(self.N // (1 + self.num_positive_samples + self.num_negative_samples))
 		self.built = True
+		# print input_shape, self.N, self.step_size, range(0, self.N, self.step_size)
 
 	def get_config(self):
 		config = super(HyperbolicDistanceLayer, self).get_config()
@@ -310,10 +323,12 @@ class HyperbolicDistanceLayer(layers.Layer):
 					   "num_negative_samples":self.num_negative_samples})
 		return config
 		
-	def safe_norm(self, x, sqrt=False):
+	def safe_norm(self, x, sqrt=False, clip=False):
 		y = K.sum(K.square(x), axis=-1, keepdims=False) + K.epsilon()
 		if sqrt:
 			y = K.sqrt(y)
+		if clip:
+			y = K.clip(y, min_value=K.epsilon(), max_value=1-K.epsilon())
 		return y
 		
 	def call(self, inputs):
@@ -327,7 +342,8 @@ class HyperbolicDistanceLayer(layers.Layer):
 
 
 		d = tf.acosh(1. + 2. * self.safe_norm(u - v) / 
-					 ((1. - self.safe_norm(u)) * (1. - self.safe_norm(v))))
+					 ((1. - self.safe_norm(u, clip=False)) * (1. - self.safe_norm(v, clip=False))))
+		# d = self.safe_norm(u - v, sqrt=True)
 		return d
 
 	def compute_output_shape(self, input_shape):

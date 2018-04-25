@@ -61,7 +61,8 @@ def load_models(X, Y, model_path, args, load_best=False):
 
 
 		model = load_model(model_file,
-			custom_objects={"AggregateLayer":AggregateLayer, 
+			custom_objects={"squash":squash,
+							"AggregateLayer":AggregateLayer, 
 							"Length":Length,
 							 "HyperbolicDistanceLayer":HyperbolicDistanceLayer, 
 							 "GraphCapsuleLayer": GraphCapsuleLayer,
@@ -102,9 +103,10 @@ def build_embedder_and_prediction_model(data_dim, num_classes, model, args):
 	print()
 	print ("EMBEDDER")
 	embedding_layer = num_layers
-	layer_tuple_list = list(zip(layer_dict["input_normalization"][:embedding_layer], 
-		layer_dict["aggregation"][:embedding_layer],\
-		layer_dict["batch_normalization"][:embedding_layer],\
+	layer_tuple_list = list(zip(\
+		# layer_dict["input_normalization"][:embedding_layer], 
+		layer_dict["aggregation"][:embedding_layer],
+		# layer_dict["batch_normalization"][:embedding_layer],
 		layer_dict["cap_input"][:embedding_layer], 
 		layer_dict["cap"][:embedding_layer], 
 		layer_dict["feature_prob"][:embedding_layer])) +\
@@ -120,6 +122,8 @@ def build_embedder_and_prediction_model(data_dim, num_classes, model, args):
 	embedder_output = connect_layers(layer_tuple_list, embedder_input)
 
 	embedder = Model(embedder_input, embedder_output)
+	embedder.summary()
+	# raise SystemExit
 
 	'''
 
@@ -135,9 +139,10 @@ def build_embedder_and_prediction_model(data_dim, num_classes, model, args):
 		label_prediction_input = layers.Input(shape=(label_prediction_input_num_neighbours, data_dim),
 			name="label_prediction_input")
 		
-		layer_tuple_list = list(zip(layer_dict["input_normalization"][:label_prediction_layer], 
-			layer_dict["aggregation"][:label_prediction_layer],\
-			layer_dict["batch_normalization"][:label_prediction_layer], 
+		layer_tuple_list = list(zip(\
+			# layer_dict["input_normalization"][:label_prediction_layer], 
+			layer_dict["aggregation"][:label_prediction_layer],
+			# layer_dict["batch_normalization"][:label_prediction_layer], 
 			layer_dict["cap_input"][:label_prediction_layer], 
 			layer_dict["cap"][:label_prediction_layer], 
 			layer_dict["feature_prob"][:label_prediction_layer]))
@@ -149,9 +154,11 @@ def build_embedder_and_prediction_model(data_dim, num_classes, model, args):
 		label_prediction_output = connect_layers(layer_tuple_list, label_prediction_input)
 
 		label_prediction_model = Model(label_prediction_input, label_prediction_output)
+		label_prediction_model.summary()
+		# raise SystemExit
 	else: 
 		label_prediction_model = None
-
+	print()
 	# raise SystemExit
 
 	return embedder, label_prediction_model
@@ -188,11 +195,11 @@ def generate_graphcaps_model(data_dim, num_classes, args):
 		neighbourhood_sample_sizes, num_primary_caps_per_layer, num_filters_per_layer, agg_dim_per_layer, 
 		number_of_capsules_per_layer, capsule_dim_per_layer):
 
-		y = layers.BatchNormalization(name="input_normalization_layer_{}".format(i))(y)
+		# y = layers.BatchNormalization(name="input_normalization_layer_{}".format(i))(y)
 		y = AggregateLayer(num_neighbours=neighbourhood_sample_size+1, num_caps=num_primary_caps,
 			num_filters=num_filters, new_dim=agg_dim,
 			activation="relu", name="aggregation_layer_{}".format(i))(y)
-		y = layers.BatchNormalization(name="batch_normalization_layer_{}".format(i))(y)
+		# y = layers.BatchNormalization(name="batch_normalization_layer_{}".format(i))(y)
 		y = layers.Reshape([-1, num_primary_caps, num_filters*agg_dim], name="cap_input_layer_{}".format(i))(y)
 		
 		if num_caps == 1:
@@ -200,6 +207,7 @@ def generate_graphcaps_model(data_dim, num_classes, args):
 		else:
 			num_routing = 3 
 
+		# y = layers.Lambda(squash, name="cap_layer_{}".format(i))(y)
 		y = GraphCapsuleLayer(num_capsule=num_caps, dim_capsule=capsule_dim, num_routing=num_routing, 
 			name="cap_layer_{}".format(i))(y)
 		y = Length(name="feature_prob_layer_{}".format(i))(y)
@@ -243,8 +251,8 @@ def generate_graphcaps_model(data_dim, num_classes, args):
 	print ("generating model with loss weights:", loss_weights)
 
 	graphcaps = Model(x,  label_predictions + hyperbolic_distances)
+	adam = Adam(lr=1e-4, clipnorm=1.)
 	# adam = Adam()
-	adam = Adam(lr=1e-5)
 	graphcaps.compile(optimizer=adam, loss=losses, loss_weights=loss_weights)
-
+	# raise SystemExit
 	return graphcaps

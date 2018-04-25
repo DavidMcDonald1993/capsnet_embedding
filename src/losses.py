@@ -1,3 +1,5 @@
+import numpy as np
+
 import tensorflow as tf 
 import keras.backend as K
 
@@ -103,21 +105,23 @@ def hyperbolic_negative_sampling_loss(y_true, y_pred):
     norm y_pred < 1
     '''
 
-    exp_minus_d = K.exp(- K.square(y_pred))
-    return - K.mean( K.log(exp_minus_d[:,0]) - K.log(K.sum(exp_minus_d[:,0:], axis=-1)) )
+    # exp_minus_d = K.exp(-K.square(y_pred)) 
+    # exp_minus_d = K.exp(-y_pred)
+    # # exp_minus_d = K.clip(exp_minus_d, min_value=K.epsilon(), max_value=1)
+    # return - K.mean( K.log(exp_minus_d[:,0]) - K.log(K.sum(exp_minus_d[:,0:], axis=-1) ) )
 
-    # def sigmoid(x):
-    #     return 1. / (1 + K.exp(-x))
+    # # def sigmoid(x):
+    # #     return 1. / (1 + K.exp(-x))
 
-    # P = K.softmax(-y_pred)
+    P = K.softmax(-y_pred)
     # P = K.softmax(-K.square(y_pred))
 
-    # r = 1.
-    # t = 1.
-    # P = K.sigmoid((r - y_pred) / t)
+    # # # r = 1.
+    # # # t = 1.
+    # # # P = K.sigmoid((r - y_pred) / t)
     
-    # P = K.clip(P, min_value=K.epsilon(), max_value=1-K.epsilon())
+    P = K.clip(P, min_value=K.epsilon(), max_value=1-K.epsilon())
     
     # return K.categorical_crossentropy(y_true, P)
-    # return -K.mean(K.log(P[:,0]))
-    # return - K.mean( K.log(P[:,0]) + K.mean(K.log(1 - P[:,1:]), axis=1) )
+    return -K.mean(K.log(P[:,0]))
+    # # return - K.mean( K.log(P[:,0]) + K.mean(K.log(1 - P[:,1:]), axis=1) )
