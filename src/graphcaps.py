@@ -115,7 +115,7 @@ def fix_parameters(args):
 	'''
 	dataset = args.dataset
 
-	if args.dataset in ["cora", "karate"]:
+	if dataset in ["cora", "karate"]:
 
 		# args.num_walks = 25
 		# args.walk_length = 2
@@ -123,15 +123,20 @@ def fix_parameters(args):
 
 		args.num_negative_samples = 3
 
-		args.neighbourhood_sample_sizes = [3,  ]
-		args.num_primary_caps_per_layer = [16, ]
-		args.num_filters_per_layer = [ 1, ]
-		args.agg_dim_per_layer = [8, ]
-		args.batch_size = 100
+		args.neighbourhood_sample_sizes = [4,  4]
+		args.num_primary_caps_per_layer = [16, 16]
+		args.num_filters_per_layer = [ 1, 1]
+		args.agg_dim_per_layer = [8, 8]
+		args.batch_size = 10
+
+		if dataset == "cora":
+			num_classes = 7
+		else:
+			num_classes = 4
 
 
-		args.number_of_capsules_per_layer = [7, ]
-		args.capsule_dim_per_layer = [16,]
+		args.number_of_capsules_per_layer = [64, num_classes]
+		args.capsule_dim_per_layer = [16, 32]
 
 		return 
 
@@ -343,7 +348,7 @@ def main():
 	# test_label_idx = None
 
 	# use labels for labelled networks
-	if dataset in ["citeseer", "pubmed", "reddit", "karate", "cora"]:#"cora", "karate"]:
+	if dataset in ["citeseer", "pubmed", "reddit", "karate",  "cora"]:#"cora", "karate"]:
 		assert Y.shape[1] in args.number_of_capsules_per_layer, "You must have a layer with {} capsules".format(Y.shape[1])
 		args.use_labels = True
 		monitor = "f1_macro"
@@ -400,7 +405,7 @@ def main():
 		# will load a model if an existing model exists on ther system with the same specifications
 		model, embedder, label_prediction_model, initial_epoch = load_models(X, Y, args.model_path, args)
 
-		patience = 1000
+		patience = 10
 
 		# callbacks
 		nan_terminate_callback = TerminateOnNaN()
@@ -443,38 +448,38 @@ def main():
 
 		print ("TRAINING COMPLETE")
 
-		# import matplotlib.pyplot as plt
+		import matplotlib.pyplot as plt
 
-		# num_epochs = len(model.history.epoch)
+		num_epochs = len(model.history.epoch)
 		
+		plt.figure(figsize=(5, 5))
+		plt.plot(range(num_epochs), model.history.history["f1_macro"])
+		plt.plot(range(num_epochs), model.history.history["f1_micro"])
+		plt.xlabel("epoch")
+		plt.ylabel("f1")
+		plt.legend(["f1_macro", "f1_micro"])
+		plt.show()
+
 		# plt.figure(figsize=(5, 5))
-		# plt.plot(range(num_epochs), model.history.history["f1_macro"])
-		# plt.plot(range(num_epochs), model.history.history["f1_micro"])
-		# plt.xlabel("epoch")
-		# plt.ylabel("f1")
-		# plt.legend(["f1_macro", "f1_micro"])
-		# plt.show()
+		plt.plot(range(num_epochs), model.history.history["feature_prob_layer_1_loss"])
+		plt.plot(range(num_epochs), model.history.history["margin_loss"])
+		plt.xlabel("epoch")
+		plt.ylabel("margin loss")
+		plt.legend(["margin_loss_train", "margin_loss_val",])
+		plt.show()
 
-		# # plt.figure(figsize=(5, 5))
-		# plt.plot(range(num_epochs), model.history.history["feature_prob_layer_0_loss"])
-		# plt.plot(range(num_epochs), model.history.history["margin_loss"])
-		# plt.xlabel("epoch")
-		# plt.ylabel("margin loss")
-		# plt.legend(["margin_loss_train", "margin_loss_val",])
-		# plt.show()
-
-		# plt.plot(range(num_epochs), model.history.history["mean_precision_reconstruction"])
-		# plt.xlabel("epoch")
-		# plt.ylabel("MAP")
-		# plt.legend(["MAP reconstruction"])
-		# plt.show()
+		plt.plot(range(num_epochs), model.history.history["mean_precision_reconstruction"])
+		plt.xlabel("epoch")
+		plt.ylabel("MAP")
+		plt.legend(["MAP reconstruction"])
+		plt.show()
 
 
-		# plt.plot(range(num_epochs), model.history.history["mean_rank_reconstruction"])
-		# plt.xlabel("epoch")
-		# plt.ylabel("mean rank")
-		# plt.legend(["mean rank reconstruction"])
-		# plt.show()
+		plt.plot(range(num_epochs), model.history.history["mean_rank_reconstruction"])
+		plt.xlabel("epoch")
+		plt.ylabel("mean rank")
+		plt.legend(["mean rank reconstruction"])
+		plt.show()
 
 
 

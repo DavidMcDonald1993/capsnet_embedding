@@ -102,8 +102,7 @@ def neighbourhood_sample_generator(G, X, Y, train_mask,
 			else:
 				x = X[input_nodes]
 			# add artificial capsule dimension 
-			x = x.reshape(original_shape + [-1])
-			# print x.shape
+			x = x.reshape(original_shape + [1, -1])
 			# assert np.allclose(x.argmax(axis=-1), input_nodes) 
 			# print x.argmax(axis=-1)
 			# print input_nodes

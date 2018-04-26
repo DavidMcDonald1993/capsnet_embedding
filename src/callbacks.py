@@ -6,8 +6,8 @@ import pandas as pd
 
 from scipy.stats import spearmanr
 
-import matplotlib
-matplotlib.use('agg')
+# import matplotlib
+# matplotlib.use('agg')
 
 import matplotlib.pyplot as plt
 # from mpl_toolkits.mplot3d import Axes3D
@@ -109,12 +109,12 @@ class ReconstructionLinkPredictionCallback(Callback):
 			if sp.sparse.issparse(X):
 				x = X[nodes.flatten()].toarray()
 				x = preprocess_data(x)
-				x = x.reshape(-1, nodes.shape[1], X.shape[-1])
+				x = x.reshape(-1, nodes.shape[1], 1, X.shape[-1])
 			else:
 				x = X[nodes]
 			input_x.append(x)
 		input_x = np.concatenate(input_x)
-		assert input_x.shape == (len(idx), input_nodes.shape[1], X.shape[-1])
+		assert input_x.shape == (len(idx), input_nodes.shape[1], 1, X.shape[-1])
 
 		# def embedding_generator(G, X, nodes_to_embed, num_steps, neighbourhood_sample_sizes, batch_size=100):
 		# 	# step = 0
@@ -178,7 +178,6 @@ class ReconstructionLinkPredictionCallback(Callback):
 		Y = self.Y
 		y = Y.argmax(axis=1)
 		if sp.sparse.issparse(Y):
-			print "sparse y"
 			y = y.A1
 		
 		# embedding_dim = embedding.shape[-1]
@@ -473,12 +472,12 @@ class LabelPredictionCallback(Callback):
 			if sp.sparse.issparse(X):
 				x = X[nodes.flatten()].toarray()
 				x = preprocess_data(x)
-				x = x.reshape(-1, nodes.shape[1], X.shape[-1])
+				x = x.reshape(-1, nodes.shape[1], 1,  X.shape[-1])
 			else:
 				x = X[nodes]
 			input_x.append(x)
 		input_x = np.concatenate(input_x)
-		assert input_x.shape == (len(idx), input_nodes.shape[1], X.shape[-1])
+		assert input_x.shape == (len(idx), input_nodes.shape[1], 1, X.shape[-1])
 
 		# if self.val_prediction_gen is None:
 
@@ -516,7 +515,7 @@ class LabelPredictionCallback(Callback):
 
 
 		predictions = predictions.reshape(-1, predictions.shape[-1])
-
+		print predictions
 		val_Y = Y[idx]
 		if sp.sparse.issparse(val_Y):
 			val_Y = val_Y.toarray()
