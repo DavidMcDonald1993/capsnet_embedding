@@ -19,7 +19,7 @@ from keras.callbacks import Callback
 
 # from utils import create_neighbourhood_sample_list
 from data_utils import preprocess_data
-from generators import get_neighbourhood_samples, validation_generator #embedding_generator, prediction_generator
+from generators import get_neighbourhood_samples#, validation_generator #embedding_generator, prediction_generator
 
 def hyperbolic_distance(u, v):
 	assert (np.linalg.norm(u, axis=-1) < 1).all(), "u norm: {}, {}".format(np.linalg.norm(u, axis=-1), u)
