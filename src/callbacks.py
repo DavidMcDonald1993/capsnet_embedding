@@ -455,6 +455,9 @@ class LabelPredictionCallback(Callback):
 		G = self.val_G
 		print ("evaluating label predictions on validation set")
 
+		number_of_capsules_per_layer = self.args.number_of_capsules_per_layer
+		num_classes = Y.shape[1]
+
 
 		neighbours = {n: list(G.neighbors(n)) for n in G.nodes()}
 		neighbourhood_sample_sizes = self.args.neighbourhood_sample_sizes
@@ -464,6 +467,9 @@ class LabelPredictionCallback(Callback):
 
 		batch_nodes = np.array(idx).reshape(-1, 1)
 		assert batch_nodes.shape == (len(idx), 1)
+		label_prediction_layers = np.where(number_of_capsules_per_layer==num_classes)[0] + 1
+		prediction_layer = label_prediction_layers[-1]
+		neighbourhood_sample_sizes = neighbourhood_sample_sizes[:prediction_layer]
 		neighbourhood_sample_list = get_neighbourhood_samples(batch_nodes, neighbourhood_sample_sizes, neighbours)
 		input_nodes = neighbourhood_sample_list[0]
 		input_x = []
@@ -472,9 +478,10 @@ class LabelPredictionCallback(Callback):
 			if sp.sparse.issparse(X):
 				x = X[nodes.flatten()].toarray()
 				x = preprocess_data(x)
-				x = x.reshape(-1, nodes.shape[1], 1,  X.shape[-1])
+				# x = x.reshape(-1, nodes.shape[1], 1,  X.shape[-1])
 			else:
 				x = X[nodes]
+			x = x.reshape(-1, nodes.shape[1], 1,  X.shape[-1])
 			input_x.append(x)
 		input_x = np.concatenate(input_x)
 		assert input_x.shape == (len(idx), input_nodes.shape[1], 1, X.shape[-1])

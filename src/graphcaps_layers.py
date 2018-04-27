@@ -11,7 +11,7 @@ from keras import initializers, layers, activations#, regularizers
 from keras.regularizers import l2
 from keras.initializers import RandomUniform
 
-reg = 1e-20
+reg = 1e-5
 
 class Length(layers.Layer):
 	"""
@@ -23,8 +23,8 @@ class Length(layers.Layer):
 	Author: Xifeng Guo, E-mail: `guoxifeng1990@163.com`, Github: `https://github.com/XifengGuo/CapsNet-Keras`
 	"""
 	def call(self, inputs):
-		# return K.sqrt(K.sum(K.square(inputs), axis=-1) ) #+ K.epsilon()#
-		return K.clip(K.sqrt(K.sum(K.square(inputs), axis=-1) + K.epsilon()), min_value=K.epsilon(), max_value=1-K.epsilon()) #+ K.epsilon()#)
+		return K.sqrt(K.sum(K.square(inputs), axis=-1) + K.epsilon())#
+		# return K.clip(K.sqrt(K.sum(K.square(inputs), axis=-1) + K.epsilon()), min_value=K.epsilon(), max_value=1-K.epsilon()) #+ K.epsilon()#)
 
 	def compute_output_shape(self, input_shape):
 		return input_shape[:-1]
@@ -37,8 +37,8 @@ def squash(vectors, axis=-1):
 	:return: a Tensor with same shape as input vectors
 	Author: Xifeng Guo, E-mail: `guoxifeng1990@163.com`, Github: `https://github.com/XifengGuo/CapsNet-Keras`
 	"""
-	s_squared_norm = K.sum(K.square(vectors), axis, keepdims=True)# + K.epsilon()
-	scale = s_squared_norm / ((1 + s_squared_norm) * (K.sqrt(s_squared_norm ) + K.epsilon()))
+	s_squared_norm = K.sum(K.square(vectors), axis, keepdims=True) + K.epsilon()
+	scale = s_squared_norm / ((1 + s_squared_norm) * (K.sqrt(s_squared_norm  )))
 	return scale * vectors
 
 def inverse_squash(vectors, axis=-1):
