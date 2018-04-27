@@ -443,43 +443,43 @@ def main():
 			steps_per_epoch=num_steps,
 			epochs=args.num_epochs, 
 			initial_epoch=initial_epoch,
-			verbose=1, #)
+			verbose=0, #)
 			callbacks=callbacks)
 
 		print ("TRAINING COMPLETE")
 
-		import matplotlib.pyplot as plt
+		# import matplotlib.pyplot as plt
 
-		num_epochs = len(model.history.epoch)
+		# num_epochs = len(model.history.epoch)
 		
-		plt.figure(figsize=(5, 5))
-		plt.plot(range(num_epochs), model.history.history["f1_macro"])
-		plt.plot(range(num_epochs), model.history.history["f1_micro"])
-		plt.xlabel("epoch")
-		plt.ylabel("f1")
-		plt.legend(["f1_macro", "f1_micro"])
-		plt.show()
-
 		# plt.figure(figsize=(5, 5))
-		plt.plot(range(num_epochs), model.history.history["feature_prob_layer_1_loss"])
-		plt.plot(range(num_epochs), model.history.history["margin_loss"])
-		plt.xlabel("epoch")
-		plt.ylabel("margin loss")
-		plt.legend(["margin_loss_train", "margin_loss_val",])
-		plt.show()
+		# plt.plot(range(num_epochs), model.history.history["f1_macro"])
+		# plt.plot(range(num_epochs), model.history.history["f1_micro"])
+		# plt.xlabel("epoch")
+		# plt.ylabel("f1")
+		# plt.legend(["f1_macro", "f1_micro"])
+		# plt.show()
 
-		plt.plot(range(num_epochs), model.history.history["mean_precision_reconstruction"])
-		plt.xlabel("epoch")
-		plt.ylabel("MAP")
-		plt.legend(["MAP reconstruction"])
-		plt.show()
+		# # plt.figure(figsize=(5, 5))
+		# plt.plot(range(num_epochs), model.history.history["feature_prob_layer_1_loss"])
+		# plt.plot(range(num_epochs), model.history.history["margin_loss"])
+		# plt.xlabel("epoch")
+		# plt.ylabel("margin loss")
+		# plt.legend(["margin_loss_train", "margin_loss_val",])
+		# plt.show()
+
+		# plt.plot(range(num_epochs), model.history.history["mean_precision_reconstruction"])
+		# plt.xlabel("epoch")
+		# plt.ylabel("MAP")
+		# plt.legend(["MAP reconstruction"])
+		# plt.show()
 
 
-		plt.plot(range(num_epochs), model.history.history["mean_rank_reconstruction"])
-		plt.xlabel("epoch")
-		plt.ylabel("mean rank")
-		plt.legend(["mean rank reconstruction"])
-		plt.show()
+		# plt.plot(range(num_epochs), model.history.history["mean_rank_reconstruction"])
+		# plt.xlabel("epoch")
+		# plt.ylabel("mean rank")
+		# plt.legend(["mean rank reconstruction"])
+		# plt.show()
 
 
 
