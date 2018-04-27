@@ -100,7 +100,6 @@ def load_walks(G, walk_file, args):
 		for walk1, walk2 in zip(walks, walks2):
 			for u, v in zip(walk1, walk2):
 				assert u==v, "v does not equal v"
-		print "no problems", len(walks)
 		# raise SystemExit
 	else:
 		print ("loading walks from {}".format(walk_file))
