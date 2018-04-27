@@ -36,7 +36,6 @@ def determine_positive_and_groud_truth_negative_samples(G, walks, context_size):
 	all_positive_samples = {n: set() for n in G.nodes()}
 	positive_samples = []
 	for num_walk, walk in enumerate(walks):
-		print walk
 		for i in range(len(walk)):
 			for j in range(i+1, min(len(walk), i+1+context_size)):
 				u = walk[i]

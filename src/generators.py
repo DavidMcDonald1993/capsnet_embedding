@@ -147,7 +147,7 @@ def neighbourhood_sample_generator(G, X, Y, train_mask,
 			else:
 				skip +=1
 				# print "skip", skip
-		print "skipped {}/{}".format(skip, num_steps)
+		print ("skipped {}/{}".format(skip, num_steps))
 		# raise SystemExit
 
 

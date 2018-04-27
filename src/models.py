@@ -120,7 +120,7 @@ def build_embedder_and_prediction_model(data_dim, num_classes, model, args):
 
 	for t in layer_tuple_list:
 		for layer in t:
-			print layer.name
+			print (layer.name)
 	# embedder_lambda = lambda x: connect_layers(layer_tuple_list, x)
 
 	embedder_input_num_neighbours = np.prod(neighbourhood_sample_sizes + 1)
@@ -156,7 +156,7 @@ def build_embedder_and_prediction_model(data_dim, num_classes, model, args):
 
 		for t in layer_tuple_list:
 			for layer in t:
-				print layer.name
+				print (layer.name)
 
 		label_prediction_output = connect_layers(layer_tuple_list, label_prediction_input)
 

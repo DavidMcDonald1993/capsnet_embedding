@@ -522,7 +522,7 @@ class LabelPredictionCallback(Callback):
 
 
 		predictions = predictions.reshape(-1, predictions.shape[-1])
-		print predictions
+		print (predictions)
 		val_Y = Y[idx]
 		if sp.sparse.issparse(val_Y):
 			val_Y = val_Y.toarray()
