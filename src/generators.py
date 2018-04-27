@@ -152,37 +152,37 @@ def neighbourhood_sample_generator(G, X, Y, train_mask,
 
 
 
-def validation_generator(validation_callback, G, X, idx, neighbourhood_sample_sizes, num_steps, batch_size=100):
-	'''
-	generator that yields input data for validation
-	'''
-	neighbours = {n: list(G.neighbors(n)) for n in G.nodes()}
-	while True:
-		# np.random.shuffle(nodes_to_val)
-		# random.shuffle(idx)
-		nodes_to_val = np.array(idx).reshape(-1, 1)
-		for step in range(num_steps):			
-			batch_nodes = nodes_to_val[batch_size*step : batch_size*(step+1)]
-			assert batch_nodes.shape[1] == 1
-			neighbourhood_sample_list = get_neighbourhood_samples(batch_nodes, neighbourhood_sample_sizes, neighbours)
+# def validation_generator(validation_callback, G, X, idx, neighbourhood_sample_sizes, num_steps, batch_size=100):
+# 	'''
+# 	generator that yields input data for validation
+# 	'''
+# 	neighbours = {n: list(G.neighbors(n)) for n in G.nodes()}
+# 	while True:
+# 		# np.random.shuffle(nodes_to_val)
+# 		# random.shuffle(idx)
+# 		nodes_to_val = np.array(idx).reshape(-1, 1)
+# 		for step in range(num_steps):			
+# 			batch_nodes = nodes_to_val[batch_size*step : batch_size*(step+1)]
+# 			assert batch_nodes.shape[1] == 1
+# 			neighbourhood_sample_list = get_neighbourhood_samples(batch_nodes, neighbourhood_sample_sizes, neighbours)
 
-			# for size, ns1, ns2 in zip(neighbourhood_sample_sizes, neighbourhood_sample_list, neighbourhood_sample_list[1:]):
-			# 	for i, _ in enumerate(ns1):
-			# 		for j, v in enumerate(ns1[i]):
-			# 			neigh = ns2[i, j//(size+1)]
-			# 			assert v == neigh or neigh in neighbours[v], "incorrect neighbourhood samples in val gen" 
+# 			# for size, ns1, ns2 in zip(neighbourhood_sample_sizes, neighbourhood_sample_list, neighbourhood_sample_list[1:]):
+# 			# 	for i, _ in enumerate(ns1):
+# 			# 		for j, v in enumerate(ns1[i]):
+# 			# 			neigh = ns2[i, j//(size+1)]
+# 			# 			assert v == neigh or neigh in neighbours[v], "incorrect neighbourhood samples in val gen" 
 
-			input_nodes = neighbourhood_sample_list[0]
-			if sp.sparse.issparse(X):
-				x = X[input_nodes.flatten()].toarray()
-				x = preprocess_data(x)
-			else:
-				x = X[input_nodes]
-			yield x.reshape([-1, input_nodes.shape[1], X.shape[-1]])
-			print "yielding step {}/{}".format(step, num_steps)
-			if step == 0:
-				# save order of nodes for evaluation 
-				validation_callback.nodes_to_val = idx[:]
+# 			input_nodes = neighbourhood_sample_list[0]
+# 			if sp.sparse.issparse(X):
+# 				x = X[input_nodes.flatten()].toarray()
+# 				x = preprocess_data(x)
+# 			else:
+# 				x = X[input_nodes]
+# 			yield x.reshape([-1, input_nodes.shape[1], X.shape[-1]])
+# 			print "yielding step {}/{}".format(step, num_steps)
+# 			if step == 0:
+# 				# save order of nodes for evaluation 
+# 				validation_callback.nodes_to_val = idx[:]
 
 
 # def prediction_generator(G, X, nodes_to_predict, neighbourhood_sample_sizes, num_steps, batch_size=100):
