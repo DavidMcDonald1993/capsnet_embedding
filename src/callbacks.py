@@ -138,7 +138,7 @@ class ReconstructionLinkPredictionCallback(Callback):
 		# dim = embedding.shape[-1]
 		# embedding = embedding.reshape(-1, dim)
 		# assert embedding.shape == (len(idx), dim)
-		print embedding
+		print (embedding)
 		return embedding
 
 	def save_embedding(self, embedding, path):
