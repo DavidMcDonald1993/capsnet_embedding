@@ -126,7 +126,7 @@ def fix_parameters(args):
 		# args.walk_length = 2
 		args.context_size = 3
 
-		args.num_negative_samples = 3
+		args.num_negative_samples = 10
 
 		args.neighbourhood_sample_sizes = [10, ]
 		# args.num_primary_caps_per_layer = [16, ]
