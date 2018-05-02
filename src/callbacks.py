@@ -4,8 +4,8 @@ import pandas as pd
 
 from scipy.stats import spearmanr
 
-# import matplotlib
-# matplotlib.use('agg')
+import matplotlib
+matplotlib.use('agg')
 
 import matplotlib.pyplot as plt
 

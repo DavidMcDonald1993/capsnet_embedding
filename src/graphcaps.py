@@ -381,9 +381,9 @@ def main():
 
 		print ("TRAINING COMPLETE")
 
-		import matplotlib.pyplot as plt
+		# import matplotlib.pyplot as plt
 
-		num_epochs = len(model.history.epoch)
+		# num_epochs = len(model.history.epoch)
 		
 		# plt.figure(figsize=(5, 5))
 		# plt.plot(range(num_epochs), model.history.history["f1_macro"])
@@ -401,18 +401,18 @@ def main():
 		# plt.legend(["margin_loss_train", "margin_loss_val",])
 		# plt.show()
 
-		plt.plot(range(num_epochs), model.history.history["mean_precision_reconstruction"])
-		plt.xlabel("epoch")
-		plt.ylabel("MAP")
-		plt.legend(["MAP reconstruction"])
-		plt.show()
+		# plt.plot(range(num_epochs), model.history.history["mean_precision_reconstruction"])
+		# plt.xlabel("epoch")
+		# plt.ylabel("MAP")
+		# plt.legend(["MAP reconstruction"])
+		# plt.show()
 
 
-		plt.plot(range(num_epochs), model.history.history["mean_rank_reconstruction"])
-		plt.xlabel("epoch")
-		plt.ylabel("mean rank")
-		plt.legend(["mean rank reconstruction"])
-		plt.show()
+		# plt.plot(range(num_epochs), model.history.history["mean_rank_reconstruction"])
+		# plt.xlabel("epoch")
+		# plt.ylabel("mean rank")
+		# plt.legend(["mean rank reconstruction"])
+		# plt.show()
 
 
 	print ("TESTING MODEL")
