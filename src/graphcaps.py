@@ -145,7 +145,7 @@ def fix_parameters(args):
 			args.scale_data = True
 
 
-		args.number_of_capsules_per_layer = [ 4]
+		args.number_of_capsules_per_layer = [ 64]
 		args.capsule_dim_per_layer = [16, ]
 
 		return 
