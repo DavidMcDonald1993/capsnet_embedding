@@ -99,7 +99,7 @@ class AggGraphCapsuleLayer(layers.Layer):
 		self.num_capsule = num_capsule
 		self.dim_capsule = dim_capsule
 		self.num_routing = num_routing
-		self.kernel_initializer = RandomUniform(minval=-1e-8, maxval=1e-8)#kernel_initializer
+		self.kernel_initializer = kernel_initializer#RandomUniform(minval=-1e-8, maxval=1e-8)#kernel_initializer
 		self.kernel_regularizer = kernel_regularizer
 		self.use_bias = use_bias
 

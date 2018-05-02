@@ -159,7 +159,7 @@ def generate_graphcaps_model(data_dim, num_classes, args):
 	y = x
 
 	if args.num_primary_caps is not None:
-		y = layers.Dense(args.num_primary_caps * args.primary_cap_dim, activation="relu", 
+		y = layers.Dense(args.num_primary_caps * args.primary_cap_dim, activation=None, 
 			kernel_regularizer=l2(1e-20), name="primary_cap_layer")(y)
 		y = layers.Reshape([-1, args.num_primary_caps, args.primary_cap_dim], name="primary_reshape_layer")(y)
 		y = layers.Lambda(squash, name="primary_squash_layer")(y)

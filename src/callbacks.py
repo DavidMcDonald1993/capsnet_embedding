@@ -335,7 +335,6 @@ class LabelPredictionCallback(Callback):
 
 		# predictions = predictions.reshape(-1, predictions.shape[-1])
 		print (predictions)
-		print predictions.max(axis=-1)
 		val_Y = self.Y[self.val_idx]
 		if sp.sparse.issparse(val_Y):
 			val_Y = val_Y.toarray()

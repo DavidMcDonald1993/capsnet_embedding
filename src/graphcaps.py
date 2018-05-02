@@ -126,9 +126,9 @@ def fix_parameters(args):
 		# args.walk_length = 2
 		args.context_size = 3
 
-		args.num_negative_samples = 10
+		args.num_negative_samples = 3
 
-		args.neighbourhood_sample_sizes = [10]
+		args.neighbourhood_sample_sizes = [10, ]
 		# args.num_primary_caps_per_layer = [16, ]
 		# args.num_filters_per_layer = [ 1, ]
 		# args.agg_dim_per_layer = [8, ]
@@ -142,10 +142,11 @@ def fix_parameters(args):
 			args.scale_data = True
 		else:
 			num_classes = 4
+			args.scale_data = True
 
 
-		args.number_of_capsules_per_layer = [ 64, ]
-		args.capsule_dim_per_layer = [16]
+		args.number_of_capsules_per_layer = [ 4]
+		args.capsule_dim_per_layer = [16, ]
 
 		return 
 
@@ -339,7 +340,7 @@ def main():
 		# will load a model if an existing model exists on ther system with the same specifications
 		model, embedder, label_prediction_model, initial_epoch = load_models(X, Y, args.model_path, args)
 
-		patience = 10
+		patience = 1000
 
 		# callbacks
 		nan_terminate_callback = TerminateOnNaN()
