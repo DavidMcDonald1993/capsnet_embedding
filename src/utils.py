@@ -22,50 +22,48 @@ def check_walks(G, walks):
 			assert v in neighbours[u], "{} is not the neighbour of {}".format(u, v)
 
 	print ("CHECKED WALKS")
-	# raise SystemExit
-
 
 def determine_positive_and_groud_truth_negative_samples(G, walks, context_size):
 
 	print ("determining positive and negative samples")
 	
-	# N = len(G)
 	nodes = set(G.nodes())
-	# neighbours = {n: list(G.neighbors(n)) for n in G.nodes()}
-	
-	all_positive_samples = {n: set() for n in G.nodes()}
-	positive_samples = []
-	for num_walk, walk in enumerate(walks):
-		for i in range(len(walk)):
-			for j in range(i+1, min(len(walk), i+1+context_size)):
-				u = walk[i]
-				v = walk[j]
-				if u == v:
-					continue
-				# print u, v
-				# print v, u
 
-				positive_samples.append((u, v))
-				positive_samples.append((v, u))
-				# assert u in neighbours[v], "{} is not a neighbour of {}".format(u, v)
+	positive_samples = G.edges() + [(v, u) for u, v in G.edges()]
+	all_positive_samples = {n : set(G.neighbors(n)) for n in G.nodes()}
+	# print positive_samples
+	# print all_positive_samples
+	# raise SystemExit
+	
+	# all_positive_samples = {n: set() for n in G.nodes()}
+	# positive_samples = []
+	# for num_walk, walk in enumerate(walks):
+	# 	for i in range(len(walk)):
+	# 		for j in range(i+1, min(len(walk), i+1+context_size)):
+	# 			u = walk[i]
+	# 			v = walk[j]
+	# 			if u == v:
+	# 				continue
+
+	# 			positive_samples.append((u, v))
+	# 			positive_samples.append((v, u))
 				
-				all_positive_samples[u].add(v)
-				all_positive_samples[v].add(u)
+	# 			all_positive_samples[u].add(v)
+	# 			all_positive_samples[v].add(u)
  
-		if num_walk % 1000 == 0:  
-			print ("processed walk {}/{}".format(num_walk, len(walks)))
+	# 	if num_walk % 1000 == 0:  
+	# 		print ("processed walk {}/{}".format(num_walk, len(walks)))
 			
 	ground_truth_negative_samples = {n: sorted(list(nodes.difference(all_positive_samples[n]))) for n in G.nodes()}
-	# print positive_samples
-	# print 
-	# print ground_truth_negative_samples 
 	for u in ground_truth_negative_samples:
-		# print u, len(ground_truth_negative_samples[u])
+		# print len(ground_truth_negative_samples[u])
 		assert len(ground_truth_negative_samples[u]) > 0, "node {} does not have any negative samples".format(u)
+
+	# print ground_truth_negative_samples
 	# raise SystemExit
+
 	print ("DETERMINED POSITIVE AND NEGATIVE SAMPLES")
 	print ("found {} positive sample pairs".format(len(positive_samples)))
-	# raise SystemExit
 	
 	return positive_samples, ground_truth_negative_samples
 
@@ -90,8 +88,6 @@ def load_walks(G, walk_file, args):
 		node2vec_graph = Graph(nx_G=G, is_directed=False, p=args.p, q=args.q)
 		node2vec_graph.preprocess_transition_probs()
 		walks = node2vec_graph.simulate_walks(num_walks=args.num_walks, walk_length=args.walk_length)
-		# with open(walk_file, "wb") as f:
-		# 	pkl.dump(walks, f)
 		save_walks_to_file(walks, walk_file)
 		print ("saved walks to {}".format(walk_file))
 
@@ -100,10 +96,7 @@ def load_walks(G, walk_file, args):
 		for walk1, walk2 in zip(walks, walks2):
 			for u, v in zip(walk1, walk2):
 				assert u==v, "v does not equal v"
-		# raise SystemExit
 	else:
 		print ("loading walks from {}".format(walk_file))
-		# with open(walk_file, "rb") as f:
-		# 	walks = pkl.load(f)
 		walks = load_walks_from_file(walk_file, args.walk_length)
 	return walks

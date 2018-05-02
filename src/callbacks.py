@@ -2,24 +2,20 @@ import numpy as np
 import scipy as sp
 import pandas as pd
 
-# import random
-
 from scipy.stats import spearmanr
 
-import matplotlib
-matplotlib.use('agg')
+# import matplotlib
+# matplotlib.use('agg')
 
 import matplotlib.pyplot as plt
-# from mpl_toolkits.mplot3d import Axes3D
 
 from sklearn.metrics import average_precision_score, normalized_mutual_info_score, accuracy_score, f1_score
 from sklearn.metrics.pairwise import pairwise_distances
 
 from keras.callbacks import Callback
 
-# from utils import create_neighbourhood_sample_list
 from data_utils import preprocess_data
-from generators import get_neighbourhood_samples#, validation_generator #embedding_generator, prediction_generator
+from generators import get_neighbourhood_samples
 
 def hyperbolic_distance(u, v):
 	assert (np.linalg.norm(u, axis=-1) < 1).all(), "u norm: {}, {}".format(np.linalg.norm(u, axis=-1), u)
@@ -27,6 +23,38 @@ def hyperbolic_distance(u, v):
 	return np.arccosh(1. + 2. * np.linalg.norm(u - v, axis=-1)**2 /\
 	((1. - np.linalg.norm(u, axis=-1)**2) * (1. - np.linalg.norm(v, axis=-1)**2)))
 	# return np.linalg.norm(u - v, axis=-1)
+
+def perform_prediction(G, X, idx, predictor, neighbourhood_sample_sizes, batch_size, scale_data):
+	neighbours = {n: list(G.neighbors(n)) for n in G.nodes()}
+	nodes_to_embed = np.array(idx).reshape(-1, 1)
+	assert nodes_to_embed.shape == (len(idx), 1)
+	neighbourhood_sample_list = get_neighbourhood_samples(nodes_to_embed, neighbourhood_sample_sizes, neighbours)
+	input_nodes = neighbourhood_sample_list[0]
+	num_steps = int((len(idx) + batch_size - 1) // batch_size)
+	input_x = []
+	for step in range(num_steps):
+		nodes = input_nodes[step * batch_size : (step + 1) * batch_size]
+		if sp.sparse.issparse(X):
+			x = X[nodes.flatten()].toarray()
+			if scale_data:
+				# print "scaling input data"
+				x = preprocess_data(x)
+			# x = x.reshape(-1, nodes.shape[1], 1, X.shape[-1])
+		else:
+			x = X[nodes]
+		x = x.reshape(-1, nodes.shape[1], 1, X.shape[-1])
+		input_x.append(x)
+	input_x = np.concatenate(input_x)
+	assert input_x.shape == (len(idx), input_nodes.shape[1], 1, X.shape[-1])
+
+	predictions = predictor.predict(input_x, batch_size=batch_size)
+	dim = predictions.shape[-1]
+	predictions = predictions.reshape(-1, dim)
+	assert predictions.shape == (len(idx), dim)
+
+	return predictions
+
+
 
 class ReconstructionLinkPredictionCallback(Callback):
 
@@ -39,12 +67,6 @@ class ReconstructionLinkPredictionCallback(Callback):
 		self.embedder = embedder
 		self.all_edges_dict = self.convert_edgelist_to_dict(all_edges)
 		self.removed_edges_dict = self.convert_edgelist_to_dict(removed_edges)
-		# if removed_edges is not None:
-		# 	# self.removed_edges_dict = self.convert_edgelist_to_dict(removed_edges_val)
-		# 	self.removed_edges = np.array(removed_edges_val)
-		# else:
-		# 	# self.removed_edges_dict = None
-		# 	self.removed_edges = None
 		self.ground_truth_negative_samples = ground_truth_negative_samples
 		self.args = args
 		self.embedding_path = embedding_path
@@ -66,112 +88,64 @@ class ReconstructionLinkPredictionCallback(Callback):
 			logs.update({"mean_rank_link_prediction" : mean_rank_reconstruction, 
 				"mean_precision_link_prediction" : mean_precision_reconstruction,})
 
-		# metrics = self.evaluate_rank_and_MAP(embedding)
-		# mean_rank_reconstruction, mean_precision_reconstruction = metrics[:2]
-		# logs.update({"mean_rank_reconstruction" : mean_rank_reconstruction, 
-		# 	"mean_precision_reconstruction" : mean_precision_reconstruction,})
-		# if self.removed_edges is not None:
-		# 	mean_rank_link_prediction, mean_precision_link_prediction = metrics[2:4]
-		# 	logs.update({"mean_rank_link_prediction": mean_rank_link_prediction,
-		# 	"mean_precision_link_prediction": mean_precision_link_prediction})
-
 		if self.args.dataset in ["wordnet", "wordnet_attributed"]:
 			r, p = self.evaluate_lexical_entailment(embedding, self.args.dataset)
 			logs.update({"lex_r" : r, "lex_p" : p})
 			
 		self.save_embedding(embedding, path="{}/embedding_epoch_{:04}.npy".format(self.embedding_path, epoch))
-		self.plot_embedding(embedding, path="{}/embedding_epoch_{:04}.png".format(self.plot_path, epoch))
+		self.plot_embedding(embedding, mean_rank_reconstruction, mean_precision_reconstruction,
+			path="{}/embedding_epoch_{:04}.png".format(self.plot_path, epoch))
 
 	def perform_embedding(self):
 
-		def argsort(seq):
-		    # http://stackoverflow.com/questions/3071415/efficient-method-to-calculate-the-rank-vector-of-a-list-in-python
-		    return sorted(range(len(seq)), key=seq.__getitem__)
+		# def argsort(seq):
+		#     # http://stackoverflow.com/questions/3071415/efficient-method-to-calculate-the-rank-vector-of-a-list-in-python
+		#     return sorted(range(len(seq)), key=seq.__getitem__)
 
 		print ("performing embedding")
-
-		G = self.G
-		neighbours = {n: list(G.neighbors(n)) for n in G.nodes()}
-		X = self.X
-		idx = self.idx
-		neighbourhood_sample_sizes = self.args.neighbourhood_sample_sizes
 		batch_size = self.args.batch_size * (1 + self.args.num_positive_samples + self.args.num_negative_samples)
-		# nodes_to_embed = np.array(sorted(G.nodes())).reshape(-1, 1)
-		num_steps = int((len(idx) + batch_size - 1) // batch_size)
+		embedding = perform_prediction(self.G, self.X, self.idx, self.embedder,
+			self.args.neighbourhood_sample_sizes, batch_size, self.args.scale_data)
 
-		batch_nodes = np.array(idx).reshape(-1, 1)
-		assert batch_nodes.shape == (len(G), 1)
-		neighbourhood_sample_list = get_neighbourhood_samples(batch_nodes, neighbourhood_sample_sizes, neighbours)
-		input_nodes = neighbourhood_sample_list[0]
-		input_x = []
-		for step in range(num_steps):
-			nodes = input_nodes[step * batch_size : (step + 1) * batch_size]
-			if sp.sparse.issparse(X):
-				x = X[nodes.flatten()].toarray()
-				x = preprocess_data(x)
-				x = x.reshape(-1, nodes.shape[1], 1, X.shape[-1])
-			else:
-				x = X[nodes]
-			input_x.append(x)
-		input_x = np.concatenate(input_x)
-		assert input_x.shape == (len(idx), input_nodes.shape[1], 1, X.shape[-1])
+		# G = self.G
+		# neighbours = {n: list(G.neighbors(n)) for n in G.nodes()}
+		# X = self.X
+		# idx = self.idx
+		# neighbourhood_sample_sizes = self.args.neighbourhood_sample_sizes
+		# batch_size = self.args.batch_size * (1 + self.args.num_positive_samples + self.args.num_negative_samples)
+		# num_steps = int((len(idx) + batch_size - 1) // batch_size)
 
-		# def embedding_generator(G, X, nodes_to_embed, num_steps, neighbourhood_sample_sizes, batch_size=100):
-		# 	# step = 0
-		# 	neighbours = {n: list(G.neighbors(n)) for n in G.nodes()}
-		# 	while True:
-		# 		np.random.shuffle(nodes_to_embed)
-		# 		for step in range(num_steps):			
-		# 			batch_nodes = nodes_to_embed[batch_size*step : batch_size*(step+1)]
-		# 			batch_nodes = create_neighbourhood_sample_list(batch_nodes, neighbourhood_sample_sizes, neighbours)
-		# 			batch_nodes = batch_nodes[0]
-		# 			if sp.sparse.issparse(X):
-		# 				x = X[batch_nodes.flatten()].toarray()
-		# 				x = preprocess_data(x)
-		# 			else:
-		# 				x = X[batch_nodes]
-		# 			yield x.reshape([-1, batch_nodes.shape[1], 1, X.shape[-1]])
-					# step = (step + 1) % num_steps
+		# nodes_to_embed = np.array(idx).reshape(-1, 1)
+		# assert nodes_to_embed.shape == (len(G), 1)
+		# neighbourhood_sample_list = get_neighbourhood_samples(nodes_to_embed, neighbourhood_sample_sizes, neighbours)
+		# input_nodes = neighbourhood_sample_list[0]
+		# input_x = []
+		# for step in range(num_steps):
+		# 	nodes = input_nodes[step * batch_size : (step + 1) * batch_size]
+		# 	if sp.sparse.issparse(X):
+		# 		x = X[nodes.flatten()].toarray()
+		# 		x = preprocess_data(x)
+		# 		# x = x.reshape(-1, nodes.shape[1], 1, X.shape[-1])
+		# 	else:
+		# 		x = X[nodes]
+		# 	x = x.reshape(-1, nodes.shape[1], 1, X.shape[-1])
+		# 	input_x.append(x)
+		# input_x = np.concatenate(input_x)
+		# assert input_x.shape == (len(idx), input_nodes.shape[1], 1, X.shape[-1])
 
-
-		# embedding_gen = embedding_generator(X, input_nodes, num_steps=num_steps, batch_size=batch_size)
-		# if self.embedding_gen is None:
-		# 	G = self.G
-		# 	X = self.X
-		# 	idx = self.idx
-		# 	neighbourhood_sample_sizes = self.args.neighbourhood_sample_sizes
-		# 	batch_size = self.args.batch_size * (1 + self.args.num_positive_samples + self.args.num_negative_samples)
-		# 	# nodes_to_embed = np.array(sorted(G.nodes())).reshape(-1, 1)
-		# 	self.num_steps = int((len(idx) + batch_size - 1) // batch_size)
-		# 	self.embedding_gen = validation_generator(self, G, X, idx, neighbourhood_sample_sizes, 
-		# 		self.num_steps, batch_size)
-		
-
-		embedder = self.embedder
-		# embedding = embedder.predict_generator(self.embedding_gen, steps=self.num_steps, )
-		embedding = embedder.predict(input_x, batch_size=batch_size)
-		dim = embedding.shape[-1]
-		embedding = embedding.reshape(-1, dim)
-
-		# sort back into numerical order -- generator shuffles idx
-		# for i, j, k in zip(self.idx, self.nodes_to_val, argsort(self.nodes_to_val)):
-		# 	assert i == j == k
-		# print self.nodes_to_val
-		# embedding = embedding[argsort(self.nodes_to_val)]
-		assert embedding.shape == (len(self.G), dim)
-
-		# print "EMBEDDING"
-		# print embedding
-
-		# raise SystemExit
-
+		# embedder = self.embedder
+		# embedding = embedder.predict(input_x, batch_size=batch_size)
+		# dim = embedding.shape[-1]
+		# embedding = embedding.reshape(-1, dim)
+		# assert embedding.shape == (len(idx), dim)
+		print embedding
 		return embedding
 
 	def save_embedding(self, embedding, path):
 		print ("saving embedding to", path)
 		np.save(path, embedding)
 
-	def plot_embedding(self, embedding, path):
+	def plot_embedding(self, embedding, mean_rank_reconstruction, mean_precision_reconstruction, path):
 
 		print ("plotting embedding and saving to {}".format(path))
 
@@ -179,15 +153,16 @@ class ReconstructionLinkPredictionCallback(Callback):
 		y = Y.argmax(axis=1)
 		if sp.sparse.issparse(Y):
 			y = y.A1
-		
-		# embedding_dim = embedding.shape[-1]
 
 		fig = plt.figure(figsize=(10, 10))
+		plt.title("Mean Rank Reconstruction={} MAP={}".format(mean_rank_reconstruction, mean_precision_reconstruction))
 		for u, v in self.G.edges():
 			u_emb = embedding[u]
 			v_emb = embedding[v]
 			plt.plot([u_emb[0], v_emb[0]], [u_emb[1], v_emb[1]], c="k", linewidth=0.2, zorder=0)
 		plt.scatter(embedding[:,0], embedding[:,1], c=y, zorder=1)
+		plt.xlim([0, 1])
+		plt.ylim([0, 1])
 		if path is not None:
 			plt.savefig(path)
 		plt.close()
@@ -241,7 +216,6 @@ class ReconstructionLinkPredictionCallback(Callback):
 		ap_scores = []
 
 		for u, v_list in edge_dict.items():
-			# print u, v_list
 			_dists = hyperbolic_distance(embedding[u], embedding)
 			_dists[u] = 1e+12
 			_labels = np.zeros(embedding.shape[0])
@@ -256,149 +230,9 @@ class ReconstructionLinkPredictionCallback(Callback):
 				d[v] = _dists[v]
 				r = np.argsort(d)
 				_ranks.append(np.where(r==v)[0][0] + 1)
-			# print _ranks, np.mean(_ranks)
-			# print 
 			ranks.append(np.mean(_ranks))
-			# print ranks
-			# print 
-		print (np.mean(ranks), np.mean(ap_scores))
+		print ("MEAN RANK=", np.mean(ranks), "MEAN AP=", np.mean(ap_scores))
 		return np.mean(ranks), np.mean(ap_scores)
-
-
-	# def evaluate_rank_and_MAP(self, embedding,):
-
-		
-	# 	def sigmoid(x):
-	# 		return 1. / (1 + np.exp(-x))
-		
-	# 	print ("evaluating rank and MAP")
-
-	# 	original_adj = self.original_adj
-	# 	# if test_edges is None:
-	# 	# removed_edges_dict = self.removed_edges_dict
-	# 	removed_edges = self.removed_edges
-	# 	print ("evaluating on validation edges")
-	# 	# else:
-	# 	# 	removed_edges_dict = self.convert_edgelist_to_dict(test_edges)
-	# 	# 	print ("evaluating on test edges")
-
-	# 	ground_truth_negative_samples = self.ground_truth_negative_samples
-
-	# 	r = 5.
-	# 	t = 1.
-		
-	# 	G = self.G
-	# 	N = len(G)
-
-
-	# 	d = pairwise_distances(embedding, metric=hyperbolic_distance)
-	# 	assert d.shape == (N, N)
-	# 	y_pred = sigmoid((r - d) / t)
-	# 	assert y_pred.shape == (N, N)
-	# 	print d.shape
-	# 	print d.flatten()
-	# 	print y_pred.flatten()
-	# 	print original_adj.toarray().flatten().sum()
-
-
-	# 	sorted_d = d.copy().flatten()
-	# 	sorted_d.sort()
-	# 	sorted_d = sorted_d[N:] # the first N distances are zero (the diagonal of the distance matrix)
-	# 	mean_rank_reconstruction = np.searchsorted(sorted_d, d[np.nonzero(original_adj)]).mean()
-
-	# 	MAP_reconstruction = average_precision_score(y_true=original_adj.toarray().flatten(),
-	# 		y_score=y_pred.flatten())
-
-	# 	metrics = [mean_rank_reconstruction, MAP_reconstruction]
-
-
-	# 	if removed_edges is not None:
-
-	# 		mean_rank_link_prediction = np.searchsorted(sorted_d, d[removed_edges[:,0], removed_edges[:,1]]).mean()
-
-	# 		y_pred_removed = y_pred[removed_edges[:,0], removed_edges[:,1]]
-	# 		neg_samples = np.array([(u, v) for u in removed_edges[:,0] for v in ground_truth_negative_samples[u]])
-	# 		y_pred_neg_samples = y_pred[neg_samples[:,0], neg_samples[:,1]]
-
-	# 		y_true_link_prediction = np.append(np.ones_like(y_pred_removed), np.zeros_like(y_pred_neg_samples))
-	# 		y_pred_link_prediction = np.append(y_pred_removed, y_pred_neg_samples)
-
-
-	# 		MAP_link_prediction = average_precision_score(y_true=y_true_link_prediction, 
-	# 			y_score=y_pred_link_prediction)
-
-
-	# 		metrics.extend([mean_rank_link_prediction, MAP_link_prediction])
-
-
-
-	# 	print metrics
-	# 	# raise SystemExit
-	# 	return metrics
-
-
-		# MAPs_reconstruction = np.zeros(N)
-		# ranks_reconstruction = np.zeros(N)
-		# if removed_edges_dict is not None:
-		# 	MAPs_link_prediction = np.zeros(N)
-		# 	ranks_link_prediction = np.zeros(N)
-
-
-
-		# for u in range(N):
-			
-		# 	dists_u = hyperbolic_distance(embedding[u], embedding)
-
-		# 	_, all_neighbours = np.nonzero(original_adj[u])
-		# 	all_node_dists = dists_u.copy()
-		# 	all_node_dists.sort()
-
-		# 	ranks_reconstruction[u] = np.array([np.searchsorted(all_node_dists, d) 
-		# 										for d in dists_u[all_neighbours]]).mean()
-		# 	y_pred = sigmoid((r - dists_u) / t) 
-		   
-		# 	# y_pred_reconstruction = y_pred.copy()
-		# 	y_true_reconstruction = original_adj[u].todense().A1
-		# 	# print embedding[u]
-		# 	# print dists_u
-		# 	MAPs_reconstruction[u] = average_precision_score(y_true=y_true_reconstruction, 
-		# 		y_score=y_pred)
-			
-		# 	# y_pred_reconstruction[::-1].sort()
-		# 	# ranks_reconstruction[u] = np.array([np.searchsorted(-y_pred_reconstruction, -p) 
-		# 	# 									for p in y_pred[y_true_reconstruction.astype(np.bool)]]).mean()
-			
-		# 	if removed_edges_dict is not None and removed_edges_dict.has_key(u):
-			
-		# 		removed_neighbours = removed_edges_dict[u]
-		# 		all_negative_samples = ground_truth_negative_samples[u]
-
-		# 		dist_negative_samples = dists_u[all_negative_samples]
-		# 		dist_negative_samples.sort()
-
-		# 		ranks_link_prediction[u] = np.array([np.searchsorted(dist_negative_samples, d) 
-		# 											for d in dists_u[removed_neighbours]]).mean()
-
-		# 		y_true_link_prediction = np.append(np.ones(len(removed_neighbours)), 
-		# 										   np.zeros(len(all_negative_samples)))
-		# 		y_pred_link_prediction = np.append(y_pred[removed_neighbours], y_pred[all_negative_samples])
-		# 		MAPs_link_prediction[u] = average_precision_score(y_true=y_true_link_prediction, 
-		# 			y_score=y_pred_link_prediction)
-
-		# 		# y_pred_link_prediction[::-1].sort()
-		# 		# ranks_link_prediction[u] = np.array([np.searchsorted(-y_pred_link_prediction, -p) 
-		# 		# 									for p in y_pred[removed_neighbours]]).mean()
-
-		# 	if u % 1000 == 0:
-		# 		print ("completed node {}/{}".format(u, N))
-
-		# print ("completed node {}/{}".format(u, N))
-
-		# metrics = [ranks_reconstruction.mean(), MAPs_reconstruction.mean()]
-		# if removed_edges_dict is not None:
-		# 	metrics += [ranks_link_prediction.mean(), MAPs_link_prediction.mean()]
-		# return metrics
-
 
 	def evaluate_lexical_entailment(self, embedding, dataset):
 
@@ -446,84 +280,63 @@ class LabelPredictionCallback(Callback):
 
 	def make_and_evaluate_label_predictions(self, ):
 
-		X = self.X
-		Y = self.Y
-		predictor = self.predictor
+		# X = self.X
+		# Y = self.Y
+		# predictor = self.predictor
 		
-		# if test_G is None:
-		idx = self.val_idx
-		G = self.val_G
+		# idx = self.val_idx
+		# G = self.val_G
 		print ("evaluating label predictions on validation set")
 
 		number_of_capsules_per_layer = self.args.number_of_capsules_per_layer
-		num_classes = Y.shape[1]
+		num_classes = self.Y.shape[1]
 
 
-		neighbours = {n: list(G.neighbors(n)) for n in G.nodes()}
+		# neighbours = {n: list(G.neighbors(n)) for n in G.nodes()}
 		neighbourhood_sample_sizes = self.args.neighbourhood_sample_sizes
-		batch_size = self.args.batch_size * (1 + self.args.num_positive_samples + self.args.num_negative_samples)
-		# nodes_to_embed = np.array(sorted(G.nodes())).reshape(-1, 1)
-		num_steps = int((len(idx) + batch_size - 1) // batch_size)
-
-		batch_nodes = np.array(idx).reshape(-1, 1)
-		assert batch_nodes.shape == (len(idx), 1)
-		label_prediction_layers = np.where(number_of_capsules_per_layer==num_classes)[0] + 1
+		label_prediction_layers = np.where(self.args.number_of_capsules_per_layer==num_classes)[0] + 1
 		prediction_layer = label_prediction_layers[-1]
 		neighbourhood_sample_sizes = neighbourhood_sample_sizes[:prediction_layer]
-		neighbourhood_sample_list = get_neighbourhood_samples(batch_nodes, neighbourhood_sample_sizes, neighbours)
-		input_nodes = neighbourhood_sample_list[0]
-		input_x = []
-		for step in range(num_steps):
-			nodes = input_nodes[step * batch_size : (step + 1) * batch_size]
-			if sp.sparse.issparse(X):
-				x = X[nodes.flatten()].toarray()
-				x = preprocess_data(x)
-				# x = x.reshape(-1, nodes.shape[1], 1,  X.shape[-1])
-			else:
-				x = X[nodes]
-			x = x.reshape(-1, nodes.shape[1], 1,  X.shape[-1])
-			input_x.append(x)
-		input_x = np.concatenate(input_x)
-		assert input_x.shape == (len(idx), input_nodes.shape[1], 1, X.shape[-1])
+		batch_size = self.args.batch_size * (1 + self.args.num_positive_samples + self.args.num_negative_samples)
 
-		# if self.val_prediction_gen is None:
 
-		# 	print ("creating new label validation generator")
+		predictions = perform_prediction(self.val_G, self.X, self.val_idx, self.predictor,
+			neighbourhood_sample_sizes, batch_size, self.args.scale_data)
 
-		# 	_, num_classes = Y.shape
-		# 	number_of_capsules_per_layer = self.args.number_of_capsules_per_layer
-		# 	label_prediction_layers = np.where(number_of_capsules_per_layer==num_classes)[0] + 1
-		# 	prediction_layer = label_prediction_layers[-1]
-		# 	neighbourhood_sample_sizes = self.args.neighbourhood_sample_sizes
-		# 	self.neighbourhood_sample_sizes = neighbourhood_sample_sizes[:prediction_layer]
 
-		# 	# nodes_to_predict = np.array(idx).reshape(-1, 1)
 
-		# 	self.batch_size = self.args.batch_size * (1 + self.args.num_positive_samples + self.args.num_negative_samples)
-		# 	self.num_steps = int((len(idx) + self.batch_size - 1) // self.batch_size)
-		# 	self.val_prediction_gen = validation_generator(self, G, X, idx, self.neighbourhood_sample_sizes, 
-		# 		num_steps=self.num_steps, batch_size=self.batch_size)
+		# num_steps = int((len(idx) + batch_size - 1) // batch_size)
+
+		# batch_nodes = np.array(idx).reshape(-1, 1)
+		# assert batch_nodes.shape == (len(idx), 1)
+		# label_prediction_layers = np.where(number_of_capsules_per_layer==num_classes)[0] + 1
+		# prediction_layer = label_prediction_layers[-1]
+		# neighbourhood_sample_sizes = neighbourhood_sample_sizes[:prediction_layer]
+		# neighbourhood_sample_list = get_neighbourhood_samples(batch_nodes, neighbourhood_sample_sizes, neighbours)
+		# input_nodes = neighbourhood_sample_list[0]
+		# input_x = []
+		# for step in range(num_steps):
+		# 	nodes = input_nodes[step * batch_size : (step + 1) * batch_size]
+		# 	if sp.sparse.issparse(X):
+		# 		x = X[nodes.flatten()].toarray()
+		# 		x = preprocess_data(x)
+		# 		# x = x.reshape(-1, nodes.shape[1], 1,  X.shape[-1])
+		# 	else:
+		# 		x = X[nodes]
+		# 	x = x.reshape(-1, nodes.shape[1], 1,  X.shape[-1])
+		# 	input_x.append(x)
+		# input_x = np.concatenate(input_x)
+		# assert input_x.shape == (len(idx), input_nodes.shape[1], 1, X.shape[-1])
 
 
 		# predictions = predictor.predict_generator(self.val_prediction_gen, steps=self.num_steps, )
-		predictions = predictor.predict(input_x, batch_size=batch_size)
+		# predictions = predictor.predict(input_x, batch_size=batch_size)
 
 
-		# else:
-		# 	idx = test_idx
-		# 	G = test_G
-		# 	print ("evaluating label predictions on test set")
-		# 	# nodes_to_predict = np.array(idx).reshape(-1, 1)
-		# 	num_steps = int((len(idx) + self.batch_size - 1) // self.batch_size)
-		# 	test_prediction_gen = validation_generator(self, G, X, idx, self.neighbourhood_sample_sizes, 
-		# 			num_steps=num_steps, batch_size=self.batch_size)
-
-		# 	predictions = predictor.predict_generator(test_prediction_gen, steps=num_steps)
-
-
-		predictions = predictions.reshape(-1, predictions.shape[-1])
+		# predictions = predictions.reshape(-1, predictions.shape[-1])
 		print (predictions)
-		val_Y = Y[idx]
+		print predictions.max(axis=-1)
+		val_Y = self.Y[self.val_idx]
 		if sp.sparse.issparse(val_Y):
 			val_Y = val_Y.toarray()
 		
@@ -532,11 +345,13 @@ class LabelPredictionCallback(Callback):
 		# print(val_Y)
 		# only consider validation labels (shuffled in generator)
 		true_labels = val_Y.argmax(axis=-1)
-		# print (true_labels)	
+		print ("TRUE LABELS")
+		print (true_labels)	
 
 		predicted_labels = predictions.argmax(axis=-1)
 		# print (predictions)
-		# print (predicted_labels)
+		print ("PREDICTED LABELS")
+		print(predicted_labels)
 
 		margin_loss = np.mean(np.sum(val_Y * np.square(np.maximum(0., 0.9 - predictions)) + \
         0.5 * (1 - val_Y) * np.square(np.maximum(0., predictions - 0.1)), axis=-1))

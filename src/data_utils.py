@@ -23,14 +23,6 @@ def select_label_split(Y, num_train=20, num_val=50):
 	val_idx =  np.concatenate([nodes_in_class[num_train:num_train+num_val] for nodes_in_class in nodes_in_classes])
 	test_idx = np.concatenate([nodes_in_class[num_train+num_val:] for nodes_in_class in nodes_in_classes])
 
-	# train_mask = np.zeros((num_samples, 1), dtype=np.float32)
-	# val_mask = np.zeros((num_samples, 1), dtype=np.float32)
-	# test_mask = np.zeros((num_samples, 1), dtype=np.float32)
-
-	# train_mask[train_idx] = 1
-	# val_mask[val_idx] = 1
-	# test_mask[test_idx] = 1
-
 	return train_idx, val_idx, test_idx
 
 def load_data(dataset):
@@ -129,33 +121,8 @@ def load_labelled_attributed_network(dataset_str):
 
 	all_edges = G.edges()
 
-	X = features#.toarray()
+	X = features
 	Y = labels
-
-	# X = preprocess_data(X)
-
-	# val_file = "../data/labelled_attributed_networks/{}_val_edges.pkl".format(dataset_str)
-	# test_file = "../data/labelled_attributed_networks/{}_test_edges.pkl".format(dataset_str)
-
-	# if not os.path.exists(val_file):
-
-	# 	number_of_edges_to_remove = int(len(G.edges) * 0.2)
-
-	# 	G, val_edges = remove_edges(G, number_of_edges_to_remove)
-	# 	G, test_edges = remove_edges(G, number_of_edges_to_remove)
-
-	# 	with open(val_file, "wb") as f:
-	# 		pkl.dump(val_edges, f)
-	# 	with open(test_file, "wb") as f:
-	# 		pkl.dump(test_edges, f)
-	# else:
-	# 	with open(val_file, "rb") as f:
-	# 		val_edges = pkl.load(f) 
-	# 	with open(test_file, "rb") as f:
-	# 		test_edges = pkl.load(f)
-
-	# 	G.remove_edges_from(val_edges)
-	# 	G.remove_edges_from(test_edges)
 
 	# same networks for train, test, val
 	G_train = G
@@ -167,10 +134,7 @@ def load_labelled_attributed_network(dataset_str):
 	test_edges = None
 
 	train_label_mask = train_label_mask.reshape(-1, 1).astype(np.float32)
-	# val_mask = train_mask.reshape(-1, 1).astype(np.float32)
-	# test_mask = train_mask.reshape(-1, 1).astype(np.float32)
 
-	# return adj, G, X, Y, val_edges, test_edges, train_mask, val_mask, test_mask
 	return G_train, G_val, G_test, X, Y, all_edges, val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx
 
 
@@ -226,8 +190,7 @@ def load_collaboration_network(dataset_str):
 
 	# not relevant for collaboration networks -- not testing label predicition capacity
 	train_label_mask = np.zeros((N, 1))
-	# val_mask = np.zeros((N, 1))
-	# test_mask = np.zeros((N, 1))
+
 	val_label_idx = None
 	test_label_idx = None
 
@@ -237,47 +200,21 @@ def load_collaboration_network(dataset_str):
 	G_test = G
 
 	return G_train, G_val, G_test, X, Y, all_edges, val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx
-	# return original_adj, G, X, Y, val_edges, test_edges, train_mask, val_mask, test_mask
 
-	# if not os.path.exists("../data/collaboration_networks/{}_training_idx".format(dataset_str)):
-	# 	training_idx, val_idx = split_data(G, X, Y, split=0.3)
-	# 	np.savetxt(X=training_idx, fname="../data/collaboration_networks/{}_training_idx".format(dataset_str), delimiter=" ", fmt="%i")
-	# 	np.savetxt(X=val_idx, fname="../data/collaboration_networks/{}_val_idx".format(dataset_str), delimiter=" ", fmt="%i")
-	# else:
-	# 	training_idx = np.genfromtxt("../data/collaboration_networks/{}_training_idx".format(dataset_str), delimiter=" ", dtype=np.int)
-	# 	val_idx = np.genfromtxt("../data/collaboration_networks/{}_val_idx".format(dataset_str), delimiter=" ", dtype=np.int)
-
-	# X_train = X[training_idx]
-	# Y_train = Y[training_idx]
-	# G_train = nx.Graph(G.subgraph(training_idx))
-	# G_train = nx.convert_node_labels_to_integers(G_train, ordering="sorted")
-
-	# X_val = X[val_idx]
-	# Y_val = Y[val_idx]
-	# G_val = nx.Graph(G.subgraph(val_idx))
-	# G_val = nx.convert_node_labels_to_integers(G_val, ordering="sorted")
-
-	# return (G, X, Y), (G_train, X_train, Y_train), (G_val, X_val, Y_val)
 
 def load_karate():
 
 	G = nx.read_edgelist("../data/karate/karate.edg")
 
-	# reconstruct original adjacency matrix
-	# reconstruction_adj = nx.adjacency_matrix(G)
-
 	# identity features
 	N = len(G)
 	X = sp.sparse.identity(N, format="csr")
-	# print G.nodes()
 
 	label_df = pd.read_csv("../data/karate/mod-based-clusters.txt", sep=" ", index_col=0, header=None,)
 	label_df.index = [str(idx) for idx in label_df.index]
 	label_df = label_df.reindex(G.nodes())
-	# print label_df
 
 	assignments = label_df.iloc[:,0].values
-	# print assignments
 
 	# sparse label matrix
 	Y = sp.sparse.csr_matrix(([1] * N, (range(N), assignments)), shape=(N, 4))
@@ -289,41 +226,7 @@ def load_karate():
 	G = nx.convert_node_labels_to_integers(G, label_attribute="original_name")
 	nx.set_edge_attributes(G=G, name="weight", values=1)
 	all_edges = G.edges()
-	# map_ = {"Mr. Hi" : 0, "Officer" : 1}
-
-	# Y = np.zeros((len(G), 2))
-	# assignments = dict(nx.get_node_attributes(G, "club")).values()
-	# assignments =[map_[x] for x in assignments]
-	# Y[np.arange(len(G)), assignments] = 1
-	# Y = sp.sparse.csr_matrix(Y)
-
-	# X = X.toarray()
-	# Y = Y.toarray()
-
-	# X = preprocess_data(X)
-
-	# val_file = "../data/karate/val_edges.pkl"
-	# test_file = "../data/karate/test_edges.pkl"
-
-	# if not os.path.exists(val_file):
-
-	# 	number_of_edges_to_remove = int(len(G.edges) * 0.2)
-
-	# 	G, val_edges = remove_edges(G, number_of_edges_to_remove)
-	# 	G, test_edges = remove_edges(G, number_of_edges_to_remove)
-
-	# 	with open(val_file, "wb") as f:
-	# 		pkl.dump(val_edges, f, pkl.HIGHEST_PROTOCOL)
-	# 	with open(test_file, "wb") as f:
-	# 		pkl.dump(test_edges, f, pkl.HIGHEST_PROTOCOL)
-	# else:
-	# 	with open(val_file, "rb") as f:
-	# 		val_edges = pkl.load(f) 
-	# 	with open(test_file, "rb") as f:
-	# 		test_edges = pkl.load(f)
-
-	# 	G.remove_edges_from(val_edges)
-	# 	G.remove_edges_from(test_edges)
+	
 	val_edges = None
 	test_edges = None
 
@@ -350,76 +253,7 @@ def load_karate():
 	train_label_mask[train_label_idx] = 1
 
 
-	# return original_adj, G, X, Y, val_edges, test_edges, train_mask, val_mask, test_mask
 	return G_train, G_val, G_test, X, Y, all_edges, val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx
-
-
-	# if not os.path.exists("../data/karate/training_idx"):
-	# 	training_idx, val_idx = split_data(G, X, Y, split=0.3)
-	# 	np.savetxt(X=training_idx, fname="../data/karate/training_idx", delimiter=" ", fmt="%i")
-	# 	np.savetxt(X=val_idx, fname="../data/karate/val_idx", delimiter=" ", fmt="%i")
-	# else:
-	# 	training_idx = np.genfromtxt("../data/karate/training_idx", delimiter=" ", dtype=np.int)
-	# 	val_idx = np.genfromtxt("../data/karate/val_idx", delimiter=" ", dtype=np.int)
-
-	# X_train = X[training_idx]
-	# Y_train = Y[training_idx]
-	# G_train = nx.Graph(G.subgraph(training_idx))
-	# G_train = nx.convert_node_labels_to_integers(G_train, ordering="sorted")
-
-	# X_val = X[val_idx]
-	# Y_val = Y[val_idx]
-	# G_val = nx.Graph(G.subgraph(val_idx))
-	# G_val = nx.convert_node_labels_to_integers(G_val, ordering="sorted")
-
-	# return (G, X, Y), (G_train, X_train, Y_train), (G_val, X_val, Y_val)
-
-# def load_cora():
-
-# 	G = nx.read_edgelist("../data/cora/cites.tsv", delimiter="\t", )
-# 	G = nx.convert_node_labels_to_integers(G, label_attribute="original_name")
-# 	nx.set_edge_attributes(G=G, name="weight", values=1)
-
-# 	X = sp.sparse.load_npz("../data/cora/cited_words.npz")
-# 	Y = sp.sparse.load_npz("../data/cora/paper_labels.npz")
-
-# 	X = X.toarray()
-# 	Y = Y.toarray()
-
-# 	X = preprocess_data(X)
-
-# 	if not os.path.exists("../data/cora/training_idx"):
-# 		training_idx, val_idx = split_data(G, X, Y, split=0.3)
-# 		np.savetxt(X=training_idx, fname="../data/cora/training_idx", delimiter=" ", fmt="%i")
-# 		np.savetxt(X=val_idx, fname="../data/cora/val_idx", delimiter=" ", fmt="%i")
-# 	else:
-# 		training_idx = np.genfromtxt("../data/cora/training_idx", delimiter=" ", dtype=np.int)
-# 		val_idx = np.genfromtxt("../data/cora/val_idx", delimiter=" ", dtype=np.int)
-
-# 	X_train = X[training_idx]
-# 	Y_train = Y[training_idx]
-# 	G_train = nx.Graph(G.subgraph(training_idx))
-# 	G_train = nx.convert_node_labels_to_integers(G_train, ordering="sorted")
-
-# 	X_val = X[val_idx]
-# 	Y_val = Y[val_idx]
-# 	G_val = nx.Graph(G.subgraph(val_idx))
-# 	G_val = nx.convert_node_labels_to_integers(G_val, ordering="sorted")
-
-# 	return (G, X, Y), (G_train, X_train, Y_train), (G_val, X_val, Y_val)
-
-# def load_facebook():
-
-	# G = nx.read_gml("../data/facebook/facebook_graph.gml",  )
-	# G = nx.convert_node_labels_to_integers(G, label_attribute="original_name")
-
-	# X = sp.sparse.load_npz("../data/facebook/features.npz")
-	# Y = sp.sparse.load_npz("../data/facebook/circle_labels.npz")
-
-	# # X = X.toarray()
-	# # Y = Y.toarray()
-
-	# return G, X, Y
 
 def load_reddit():
 	
@@ -614,25 +448,7 @@ def load_wordnet_attributed():
 
 	return G_train, G_val, G_test, X, Y, all_edges, val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx
 
-	# if not os.path.exists("../data/wordnet/training_idx"):
-	# 	training_idx, val_idx = split_data(G, X, Y, split=0.3)
-	# 	np.savetxt(X=training_idx, fname="../data/wordnet/training_idx", delimiter=" ", fmt="%i")
-	# 	np.savetxt(X=val_idx, fname="../data/wordnet/val_idx", delimiter=" ", fmt="%i")
-	# else:
-	# 	training_idx = np.genfromtxt("../data/wordnet/training_idx", delimiter=" ", dtype=np.int)
-	# 	val_idx = np.genfromtxt("../data/wordnet/val_idx", delimiter=" ", dtype=np.int)
 
-	# X_train = X[training_idx]
-	# Y_train = Y[training_idx]
-	# G_train = nx.Graph(G.subgraph(training_idx))
-	# G_train = nx.convert_node_labels_to_integers(G_train, ordering="sorted")
-
-	# X_val = X[val_idx]
-	# Y_val = Y[val_idx]
-	# G_val = nx.Graph(G.subgraph(val_idx))
-	# G_val = nx.convert_node_labels_to_integers(G_val, ordering="sorted")
-
-	# return (G, X, Y), (G_train, X_train, Y_train), (G_val, X_val, Y_val)
 
 def preprocess_data(X):
 	# X = VarianceThreshold().fit_transform(X)
@@ -666,16 +482,6 @@ def split_data(G, X, Y, split=0.2):
 
 	return training_samples, validation_samples
 
-	# X_train = X[training_samples]
-	# Y_train = Y[training_samples]
-	# G_train = nx.Graph(G.subgraph(training_samples))
-
-
-	# X_val = X[validation_samples]
-	# Y_val = Y[validation_samples]
-	# G_val = nx.Graph(G.subgraph(validation_samples))
-
-	# return (X_train, Y_train, G_train), (X_val, Y_val, G_val)
 
 def remove_edges(G, number_of_edges_to_remove):
 

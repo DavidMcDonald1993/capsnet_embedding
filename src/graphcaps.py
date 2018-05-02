@@ -54,6 +54,9 @@ def parse_args():
 		help="Use this flag to not include loss from intermediary hyperbolic embeddings in final loss function.")
 	parser.add_argument("--no-embedding-loss", action="store_true", 
 		help="Use this flag to not include loss from all hyperbolic embeddings in final loss function.")
+	parser.add_argument("--scale_data", action="store_true", 
+		help="Use this flag to standard scale input data.")
+
 
 	parser.add_argument("--test-only", action="store_true", 
 		help="Use this flag to only test the model.")
@@ -70,12 +73,14 @@ def parse_args():
 
 	parser.add_argument("-s", "--sample_sizes", dest="neighbourhood_sample_sizes", type=int, nargs="+",
 		help="Number of neighbourhood node samples for each layer separated by a space (default is [25,5]).", default=[25,5])
-	parser.add_argument("-c", "--num_primary_caps", dest="num_primary_caps_per_layer", type=int, nargs="+",
-		help="Number of primary capsules for each layer separated by space (default is [32, 32]).", default=[32, 32])
-	parser.add_argument("-f", "--num_filters", dest="num_filters_per_layer", type=int, nargs="+",
-		help="Number of filters for each layer separated by space (default is [32, 32]).", default=[32, 32])
-	parser.add_argument("-a", "--agg_dim", dest="agg_dim_per_layer", type=int, nargs="+",
-		help="Dimension of agg output for each layer separated by a space (default is [8, 8]).", default=[8, 8])
+	parser.add_argument("-c", "--num_primary_caps", dest="num_primary_caps", type=int, 
+		help="Number of primary capsules (default is 128).", default=128)
+	parser.add_argument("-cd", "--primary_cap_dim", dest="primary_cap_dim", type=int, 
+		help="Dimension of primary capsule (default is 8).", default=8)
+	# parser.add_argument("-f", "--num_filters", dest="num_filters_per_layer", type=int, nargs="+",
+	# 	help="Number of filters for each layer separated by space (default is [32, 32]).", default=[32, 32])
+	# parser.add_argument("-a", "--agg_dim", dest="agg_dim_per_layer", type=int, nargs="+",
+	# 	help="Dimension of agg output for each layer separated by a space (default is [8, 8]).", default=[8, 8])
 	parser.add_argument("-n", "--num_caps", dest="number_of_capsules_per_layer", type=int, nargs="+",
 		help="Number of capsules for each layer separated by space (default is [7, 1]).", default=[7, 1])
 	parser.add_argument("-d", "--capsule_dim", dest="capsule_dim_per_layer", type=int, nargs="+",
@@ -121,30 +126,34 @@ def fix_parameters(args):
 		# args.walk_length = 2
 		args.context_size = 3
 
-		args.num_negative_samples = 3
+		args.num_negative_samples = 10
 
-		args.neighbourhood_sample_sizes = [5,5,5]
-		args.num_primary_caps_per_layer = [16, 16,16]
-		args.num_filters_per_layer = [ 1, 1,1]
-		args.agg_dim_per_layer = [8, 8,8]
+		args.neighbourhood_sample_sizes = [10]
+		# args.num_primary_caps_per_layer = [16, ]
+		# args.num_filters_per_layer = [ 1, ]
+		# args.agg_dim_per_layer = [8, ]
 		args.batch_size = 10
+
+		args.num_primary_caps = 128
+		args.primary_cap_dim = 8
 
 		if dataset == "cora":
 			num_classes = 7
+			args.scale_data = True
 		else:
 			num_classes = 4
 
 
-		args.number_of_capsules_per_layer = [64, num_classes, 2]
-		args.capsule_dim_per_layer = [16, 32, 64]
+		args.number_of_capsules_per_layer = [ 64, ]
+		args.capsule_dim_per_layer = [16]
 
 		return 
 
 
 	args.neighbourhood_sample_sizes = [5, 5]
-	args.num_primary_caps_per_layer = [16, 16]
-	args.num_filters_per_layer = [16, 16]
-	args.agg_dim_per_layer = [16, 8]
+	# args.num_primary_caps_per_layer = [16, 16]
+	# args.num_filters_per_layer = [16, 16]
+	# args.agg_dim_per_layer = [16, 8]
 	args.batch_size = 100
 
 
@@ -173,9 +182,8 @@ def configure_paths(args):
 	'''
 
 	dataset = args.dataset
-	directory = "neighbourhood_sample_sizes={}_num_primary_caps={}_num_filters={}_agg_dim={}_num_caps={}_caps_dim={}".format(args.neighbourhood_sample_sizes, 
-				args.num_primary_caps_per_layer, args.num_filters_per_layer, 
-				args.agg_dim_per_layer, args.number_of_capsules_per_layer, args.capsule_dim_per_layer)
+	directory = "neighbourhood_sample_sizes={}_num_primary_caps={}_primary_cap_dim={}_num_caps={}_caps_dim={}".format(args.neighbourhood_sample_sizes, 
+				args.num_primary_caps, args.primary_cap_dim, args.number_of_capsules_per_layer, args.capsule_dim_per_layer)
 	if args.no_embedding_loss:
 		directory = "no_embedding_loss_" + directory
 	elif args.no_intermediary_loss:
@@ -239,87 +247,22 @@ def record_initial_losses(model, gen, val_label_idx, args,
 		initial_losses.update({"mean_rank_link_prediction": mean_rank_link_prediction,
 			"mean_precision_link_prediction": mean_precision_link_prediction})
 
-	# raise SystemExit
-
-	# mean_rank_reconstruction, mean_precision_reconstruction = metrics[:2]
-	# initial_losses.update({"mean_rank_reconstruction" : mean_rank_reconstruction, 
-	# 	"mean_precision_reconstruction" : mean_precision_reconstruction,})
-	# if val_edges is not None:
-	# 	mean_rank_link_prediction, mean_precision_link_prediction = metrics[2:4]
-	# 	initial_losses.update({"mean_rank_link_prediction": mean_rank_link_prediction,
-	# 	"mean_precision_link_prediction": mean_precision_link_prediction})
-
 	if args.dataset in ["wordnet", "wordnet_attributed"]:
 		r, p = reconstruction_callback.evaluate_lexical_entailment(embedding)
 		initial_losses.update({"lex_r" : r, "lex_p" : p})
-	
-	# for l in model.output_layers:
-	# 	initial_losses.update({"{}_loss".format(l.name) : np.NaN})
-	# initial_losses.update({"loss" : np.NaN})
+
 	print ("evaluating model on one step of training generator")
 	evaluations = model.evaluate_generator(gen, steps=1)
-	# print model.metrics_names, evaluations
 	if not isinstance(evaluations, list):
 		evaluations = [evaluations]
 	for metric, loss in zip(model.metrics_names, evaluations):
-	# for i, l in enumerate(model.output_layers):
 		print (metric, loss)
 		initial_losses.update({metric : loss})
-	# print ("loss", evaluations[-1])
-	# initial_losses.update({"loss": evaluations[-1]})
-
-
-	# for i in range(100):
-	# 	print (i)
-
-	# 	if val_label_idx is not None:
-	# 		margin_loss, f1_micro, f1_macro, NMI, classification_accuracy =\
-	# 		label_prediction_callback.make_and_evaluate_label_predictions()
-	# 		# initial_losses.update({"margin_loss": margin_loss, "f1_micro": f1_micro, "f1_macro": f1_macro, 
-	# 		# 		"NMI": NMI, "classification_accuracy": classification_accuracy})
-
-	# 	embedding = reconstruction_callback.perform_embedding()
-	# 	metrics = reconstruction_callback.evaluate_rank_and_MAP(embedding)
-	# 	mean_rank_reconstruction, mean_precision_reconstruction = metrics[:2]
-	# 	initial_losses.update({"mean_rank_reconstruction" : mean_rank_reconstruction, 
-	# 		"mean_precision_reconstruction" : mean_precision_reconstruction,})
-	# 	if val_edges is not None:
-	# 		mean_rank_link_prediction, mean_precision_link_prediction = metrics[2:4]
-	# 		# initial_losses.update({"mean_rank_link_prediction": mean_rank_link_prediction,
-	# 		# "mean_precision_link_prediction": mean_precision_link_prediction})
-
-	# 	if args.dataset in ["wordnet", "wordnet_attributed"]:
-	# 		r, p = reconstruction_callback.evaluate_lexical_entailment(embedding)
-	# 		# initial_losses.update({"lex_r" : r, "lex_p" : p})
-		
-	# 	# for l in model.output_layers:
-	# 	# 	initial_losses.update({"{}_loss".format(l.name) : np.NaN})
-	# 	# initial_losses.update({"loss" : np.NaN})
-	# 	print ("evaluating model on one step of training generator")
-	# 	evaluations = model.evaluate_generator(gen, steps=1)
-	# 	# print model.metrics_names, evaluations
-	# 	if not isinstance(evaluations, list):
-	# 		evaluations = [evaluations]
-	# 	for metric, loss in zip(model.metrics_names, evaluations):
-	# 	# for i, l in enumerate(model.output_layers):
-	# 		print (metric, loss)
-
-	# raise SystemExit
-
 
 	loss_df = pd.DataFrame(initial_losses, index=Index(["initial"], name="epoch"))
 	loss_df.to_csv(args.log_path)
 
-	# model.fit_generator(gen, steps_per_epoch=10000, epochs=1, callbacks=[TerminateOnNaN()])
-
-	# for l in model.layers:
-	# 	print l.name
-	# 	print l.get_weights()
-	# 	print 
-
 	print ("COMPLETED RECORDING OF INITIAL LOSSES")
-	# raise SystemExit
-
 
 def main():
 	'''
@@ -332,8 +275,7 @@ def main():
 	# fix args for evaluation purposes
 	fix_parameters(args)
 
-	assert len(args.neighbourhood_sample_sizes) == len(args.num_primary_caps_per_layer) ==\
-	len(args.num_filters_per_layer) == len(args.agg_dim_per_layer) == \
+	assert len(args.neighbourhood_sample_sizes) ==\
 	len(args.number_of_capsules_per_layer) == len(args.capsule_dim_per_layer),\
 	"lengths of all input lists must be the same"
 
@@ -344,23 +286,20 @@ def main():
 	# load the dataset -- written for many types of exeriments so some returned objects are None
 	G_train, G_val, G_test, X, Y, all_edges, val_edges, test_edges,\
 	train_label_mask, val_label_idx, test_label_idx = load_data(dataset)
-	# val_label_idx = None
-	# test_label_idx = None
+	val_label_idx = None
+	test_label_idx = None
 
 	# use labels for labelled networks
-	if dataset in ["citeseer", "pubmed", "reddit", "karate",  "cora"]:#"cora", "karate"]:
+	if dataset in ["citeseer", "pubmed", "reddit", ]:#"cora", "karate"]:
 		assert Y.shape[1] in args.number_of_capsules_per_layer, "You must have a layer with {} capsules".format(Y.shape[1])
 		args.use_labels = True
-		monitor = "f1_macro"
-		mode = "max"
+		monitor = "margin_loss"
+		mode = "min"
 		print("using labels in training")
 	else:
 		# args.use_labels = True
 		monitor = "mean_precision_reconstruction"
 		mode = "max"
-
-	# print monitor
-	# raise SystemExit
 
 	# the path of the file that contains the random walks for this network
 	walk_file = os.path.join(args.walk_path, "walks-{}-{}".format(args.num_walks, args.walk_length))
@@ -370,22 +309,22 @@ def main():
 	positive_samples, ground_truth_negative_samples =\
 	load_positive_samples_and_ground_truth_negative_samples(G_train, args, walk_file,)# positive_samples_filename, negative_samples_filename)
 
-	# use this flag to generator walks and not train the model -- for blue bear purposes (to save GPU requests)
+	# use this flag to generate walks and not train the model -- for blue bear purposes (to save GPU requests)
 	if args.just_walks:
 		print ("Only precomputing walks -- terminating")
 		return
 
 	neighbourhood_sample_sizes = np.array(args.neighbourhood_sample_sizes[::-1])
-	num_primary_caps_per_layer = np.array(args.num_primary_caps_per_layer)
-	num_filters_per_layer = np.array(args.num_filters_per_layer)
-	agg_dim_per_layer = np.array(args.agg_dim_per_layer)
+	# num_primary_caps_per_layer = np.array(args.num_primary_caps_per_layer)
+	# num_filters_per_layer = np.array(args.num_filters_per_layer)
+	# agg_dim_per_layer = np.array(args.agg_dim_per_layer)
 	number_of_capsules_per_layer = np.array(args.number_of_capsules_per_layer)
 	capsule_dim_per_layer = np.array(args.capsule_dim_per_layer)
 
 	args.neighbourhood_sample_sizes = neighbourhood_sample_sizes
-	args.num_primary_caps_per_layer = num_primary_caps_per_layer
-	args.num_filters_per_layer = num_filters_per_layer
-	args.agg_dim_per_layer = agg_dim_per_layer
+	# args.num_primary_caps_per_layer = num_primary_caps_per_layer
+	# args.num_filters_per_layer = num_filters_per_layer
+	# args.agg_dim_per_layer = agg_dim_per_layer
 	args.number_of_capsules_per_layer = number_of_capsules_per_layer
 	args.capsule_dim_per_layer = capsule_dim_per_layer
 
@@ -395,11 +334,6 @@ def main():
 		# also masks labels if dataset is labelled
 		training_generator = neighbourhood_sample_generator(G_train, X, Y, train_label_mask, 
 			positive_samples, ground_truth_negative_samples, args)
-
-		# training_generator.next()
-		# training_generator.next()
-		# raise SystemExit
-
 
 		# generates / loads a graph caps model according the args passed in from the command line
 		# will load a model if an existing model exists on ther system with the same specifications
@@ -431,26 +365,25 @@ def main():
 		if initial_epoch == 0:
 			record_initial_losses(model, training_generator,
 			val_label_idx, args, reconstruction_callback, label_prediction_callback)
-			# raise SystemExit
 
 		
 		print ("BEGIN TRAINING")
 
 		# num_steps = int((len(positive_samples) // args.num_walks + args.batch_size - 1) // args.batch_size)
-		# num_steps = int((len(positive_samples) + args.batch_size - 1) // args.batch_size)
-		num_steps = 1000
+		num_steps = int((len(positive_samples) + args.batch_size - 1) // args.batch_size)
+		# num_steps = 1000
 		model.fit_generator(training_generator, 
 			steps_per_epoch=num_steps,
 			epochs=args.num_epochs, 
 			initial_epoch=initial_epoch,
-			verbose=0, #)
+			verbose=1, #)
 			callbacks=callbacks)
 
 		print ("TRAINING COMPLETE")
 
-		# import matplotlib.pyplot as plt
+		import matplotlib.pyplot as plt
 
-		# num_epochs = len(model.history.epoch)
+		num_epochs = len(model.history.epoch)
 		
 		# plt.figure(figsize=(5, 5))
 		# plt.plot(range(num_epochs), model.history.history["f1_macro"])
@@ -461,29 +394,25 @@ def main():
 		# plt.show()
 
 		# # plt.figure(figsize=(5, 5))
-		# plt.plot(range(num_epochs), model.history.history["feature_prob_layer_1_loss"])
+		# plt.plot(range(num_epochs), model.history.history["feature_prob_layer_0_loss"])
 		# plt.plot(range(num_epochs), model.history.history["margin_loss"])
 		# plt.xlabel("epoch")
 		# plt.ylabel("margin loss")
 		# plt.legend(["margin_loss_train", "margin_loss_val",])
 		# plt.show()
 
-		# plt.plot(range(num_epochs), model.history.history["mean_precision_reconstruction"])
-		# plt.xlabel("epoch")
-		# plt.ylabel("MAP")
-		# plt.legend(["MAP reconstruction"])
-		# plt.show()
+		plt.plot(range(num_epochs), model.history.history["mean_precision_reconstruction"])
+		plt.xlabel("epoch")
+		plt.ylabel("MAP")
+		plt.legend(["MAP reconstruction"])
+		plt.show()
 
 
-		# plt.plot(range(num_epochs), model.history.history["mean_rank_reconstruction"])
-		# plt.xlabel("epoch")
-		# plt.ylabel("mean rank")
-		# plt.legend(["mean rank reconstruction"])
-		# plt.show()
-
-
-
-		# print(model.history.history["classification_accuracy"])
+		plt.plot(range(num_epochs), model.history.history["mean_rank_reconstruction"])
+		plt.xlabel("epoch")
+		plt.ylabel("mean rank")
+		plt.legend(["mean rank reconstruction"])
+		plt.show()
 
 
 	print ("TESTING MODEL")
@@ -511,11 +440,6 @@ def main():
 			reconstruction_testing_callback.evaluate_rank_and_MAP(embedding, reconstruction_testing_callback.removed_edges_dict)
 		print ("Mean rank link predicion:",mean_rank_link_prediction,
 		 "MAP link prediction:", mean_precision_link_prediction)
-
-	# metrics = reconstruction_testing_callback.evaluate_rank_and_MAP(embedding, )
-	# print ("Mean rank reconstruction:", metrics[0], "MAP reconstruction:", metrics[1])
-	# if test_edges is not None:
-	# 	print ("Mean rank link predicion:", metrics[2], "MAP link prediction:", metrics[3])
 
 	if dataset in ["wordnet", "wordnet_attributed"]:
 		r, p = reconstruction_testing_callback.evaluate_lexical_entailment(embedding, dataset)

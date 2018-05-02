@@ -3,7 +3,6 @@
 Much of this code is adapted from code written by 
 Xifeng Guo, E-mail: `guoxifeng1990@163.com`, Github: `https://github.com/XifengGuo/CapsNet-Keras`
 '''
-# import numpy as np
 
 import keras.backend as K
 import tensorflow as tf
@@ -11,7 +10,7 @@ from keras import initializers, layers, activations#, regularizers
 from keras.regularizers import l2
 from keras.initializers import RandomUniform
 
-reg = 1e-5
+reg = 1e-200
 
 class Length(layers.Layer):
 	"""
@@ -23,8 +22,7 @@ class Length(layers.Layer):
 	Author: Xifeng Guo, E-mail: `guoxifeng1990@163.com`, Github: `https://github.com/XifengGuo/CapsNet-Keras`
 	"""
 	def call(self, inputs):
-		return K.sqrt(K.sum(K.square(inputs), axis=-1) + K.epsilon())#
-		# return K.clip(K.sqrt(K.sum(K.square(inputs), axis=-1) + K.epsilon()), min_value=K.epsilon(), max_value=1-K.epsilon()) #+ K.epsilon()#)
+		return K.sqrt(K.sum(K.square(inputs), axis=-1) + K.epsilon())
 
 	def compute_output_shape(self, input_shape):
 		return input_shape[:-1]
@@ -41,20 +39,43 @@ def squash(vectors, axis=-1):
 	scale = s_squared_norm / ((1 + s_squared_norm) * (K.sqrt(s_squared_norm  )))
 	return scale * vectors
 
-def inverse_squash(vectors, axis=-1):
+def embedding_function(vectors, axis=-1):
 	"""
-	The non-linear activation used in Capsule. It drives the length of a large vector to near 1 and small vector to 0
-	:param vectors: some vectors to be squashed, N-dim tensor
-	:param axis: the axis to squash
-	:return: a Tensor with same shape as input vectors
-	Author: Xifeng Guo, E-mail: `guoxifeng1990@163.com`, Github: `https://github.com/XifengGuo/CapsNet-Keras`
+	
 	"""
-	# vectors += K.sqrt(K.square(K.epsilon()) / K.sum(K.ones_like(vectors), axis=-1, keepdims=True))
-	# s_squared_norm = K.sum(K.square(vectors), axis, keepdims=True)# + K.epsilon()
-	# scale = 1. / ((1 + s_squared_norm) * (K.sqrt(s_squared_norm) + K.epsilon()))
-	# return scale * vectors
+
+	def length(vectors, axis=-1):
+	    return K.sqrt(K.sum(K.square(vectors,), axis=axis, keepdims=True, ) + K.epsilon())
+
+
 	vectors = K.clip(vectors, min_value=K.epsilon(), max_value=1-K.epsilon())
-	return squash(-K.log(vectors))
+
+	output = -K.log(vectors)
+
+	# stretch?
+	# r = length(output)
+	# n = output.shape[-1]
+
+	# phis = []
+	# for i in range(n-2):
+	#     phi = tf.acos( output[:,:,i,None] / length(output[:,:,i:], axis=-1) ) * 2
+	#     # assert (phi.eval() < np.pi).all()
+	#     phis.append(phi)
+	# phi = tf.acos(  output[:,:,n-2, None] / length(output[:,:,n-2:], axis=-1) ) * tf.sign(output[:,:,-1, None]) * 4
+	# # assert (phi.eval() < 2*np.pi).all()
+	# phis.append(phi)
+
+	# _output = [r] * n
+	# for i in range(n-2):
+	#     _output[i] = _output[i] * K.cos(phis[i])
+	#     for j in range(i+1,n):
+	#         _output[j] = _output[j] *  K.sin(phis[i])
+	# _output[n-2] = _output[n-2] * K.cos(phis[-1])
+	# _output[n-1] = _output[n-1] * K.sin(phis[-1])
+
+	# output = K.concatenate(_output)
+
+	return squash(output)
 
 class AggGraphCapsuleLayer(layers.Layer):
 	"""
@@ -78,14 +99,13 @@ class AggGraphCapsuleLayer(layers.Layer):
 		self.num_capsule = num_capsule
 		self.dim_capsule = dim_capsule
 		self.num_routing = num_routing
-		self.kernel_initializer = kernel_initializer#RandomUniform(minval=-0.5, maxval=0.5)#kernel_initializer
+		self.kernel_initializer = RandomUniform(minval=-1e-8, maxval=1e-8)#kernel_initializer
 		self.kernel_regularizer = kernel_regularizer
 		self.use_bias = use_bias
 
 	def build(self, input_shape):
 		assert len(input_shape) == 4, "The input Tensor should have shape=[None, N, input_num_capsule, input_dim_capsule]"
-		# self.batch_size = input_shape[0]
-		# self.N = input_shape[1]
+
 		self.input_num_capsule = input_shape[2]
 		self.input_dim_capsule = input_shape[3]
 		
@@ -94,11 +114,6 @@ class AggGraphCapsuleLayer(layers.Layer):
 		regularizer = l2(self.kernel_regularizer)
 
 		# Transform matrix
-		# self.W = self.add_weight(shape=[self.num_capsule, self.input_num_capsule,
-		#                               self.dim_capsule, self.input_dim_capsule],
-		#                        initializer=initializer,
-		#                        regularizer=regularizer,
-		#                        name='W')
 		self.W = self.add_weight(shape=[self.input_num_capsule, self.input_dim_capsule,
 										self.num_capsule * self.dim_capsule],
 								 initializer=initializer,
@@ -121,37 +136,10 @@ class AggGraphCapsuleLayer(layers.Layer):
 
 	def call(self, inputs):
 		# inputs.shape=[None, N, input_num_capsule, input_dim_capsule]
-		# inputs_expand.shape=[None, N, 1, input_num_capsule, input_dim_capsule]
-		# inputs_expand = K.expand_dims(inputs, 2)
-
-		# Replicate num_capsule dimension to prepare being multiplied by W
-		# inputs_tiled.shape=[None, N, num_capsule, input_num_capsule, input_dim_capsule]
-		# inputs_tiled = K.tile(inputs_expand, [1, 1, self.num_capsule, 1, 1])
-
-		# Compute `inputs * W` by scanning inputs_tiled on dimension 0.
-		# y.shape=[num_capsule, input_num_capsule, input_dim_capsule]
-		# W.shape=[num_capsule, input_num_capsule, dim_capsule, input_dim_capsule]
-		# Regard the first two dimensions as `batch` dimension,
-		# then matmul: [input_dim_capsule] x [dim_capsule, input_dim_capsule]^T -> [dim_capsule].
-		# inputs_hat.shape = [None, N, num_capsule, input_num_capsule, dim_capsule]
-		# inputs_hat = K.map_fn(lambda x: 
-		#                     K.map_fn(lambda y: K.batch_dot(y, self.W, [2, 3]), elems=x), elems=inputs_tiled)
-
-		# inputs_hat = K.map_fn(lambda x: 
-		#   # K.map_fn(lambda y: 
-		#   K.reshape(K.batch_dot(x, self.W, axes=[2, 1]), 
-		#       shape=[-1, self.input_num_capsule, self.num_capsule, self.dim_capsule]), 
-		#   # elems=x),
-		#   elems=inputs)
-		# inputs_hat = K.map_fn(lambda x, shape=[-1, self.num_capsule, self.dim_capsule]: 
-		#   K.map_fn(lambda y, shape=shape: 
-		#   K.reshape(y, shape=shape), elems=x), 
-		#   elems=inputs_hat)
-
 
 		# inputs shape is [None, N, input_num_caps, input_cap_dim]
 		batch_size = K.shape(inputs)[0]
-		N = K.shape(inputs)[1]
+		# N = K.shape(inputs)[1]
 
 		inputs = K.reshape(inputs, [-1, self.input_num_capsule, self.input_dim_capsule])
 		# shape is now [None*N, input num caps, input cap dim]
@@ -169,7 +157,7 @@ class AggGraphCapsuleLayer(layers.Layer):
 		inputs_hat = K.reshape(inputs_hat, tf.stack([-1, self.num_neighbours * self.input_num_capsule, 
 													self.num_capsule, self.dim_capsule]))
 
-		# shape is now [None*N, num_neighbours * input num caps, num caps, cap dim]
+		# shape is now [None*Nn+1, num_neighbours * input num caps, num caps, cap dim]
 
 		inputs_hat = K.permute_dimensions(inputs_hat, pattern=[0,2,1,3])
 		# shape is now [None* Nn+1, num_caps, num_neighbours*num_input_caps, cap_dim]
@@ -210,21 +198,15 @@ class AggGraphCapsuleLayer(layers.Layer):
 				# The first two dimensions as `batch` dimension,
 				# then matmal: [dim_capsule] x [input_num_capsule, dim_capsule]^T -> [input_num_capsule].
 				# b.shape=[batch_size* N, num_capsule, num_neighbours*input_num_capsule]
-				b += K.batch_dot(outputs, inputs_hat_stopped, axes=[2,3])
+				b += K.batch_dot(outputs, inputs_hat_stopped, axes=[2,3]) 
 		# End: Routing algorithm -----------------------------------------------------------------------#
 
 		outputs = K.reshape(outputs, 
-			shape=tf.stack([batch_size, -1, 
-			self.num_capsule, self.dim_capsule]) )
-
-		# print outputs.shape
-		# raise SystemExit
+			shape=tf.stack([batch_size, -1, self.num_capsule, self.dim_capsule]) )
 
 		return outputs
 
 	def compute_output_shape(self, input_shape):
-		# print "graphcaps shape", tuple(list(input_shape[:2]) + [self.num_capsule, self.dim_capsule])
-		# print [input_shape[0], int(input_shape[1] // self.num_neighbours)] + [self.num_capsule, self.dim_capsule]
 		return tuple([input_shape[0], int(input_shape[1] // self.num_neighbours)] + [self.num_capsule, self.dim_capsule])
 
 class GraphCapsuleLayer(layers.Layer):
