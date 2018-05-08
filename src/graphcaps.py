@@ -285,12 +285,12 @@ def pad_neighbours(neighbours, neighbourhood_sample_sizes):
 		return ex_l
 
 	_len = max(neighbourhood_sample_sizes)
-	print "padding neighbours to length: {}".format(_len)
+	print ("padding neighbours to length: {}".format(_len))
 
 	for n in neighbours:
 		neighbours[n] = extend_l(neighbours[n], max(neighbourhood_sample_sizes)) 
 
-	print "DONE padding"
+	print ("DONE padding")
 
 	return neighbours
 
