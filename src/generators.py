@@ -5,26 +5,52 @@ import scipy as sp
 from data_utils import preprocess_data
 
 
-def get_neighbourhood_samples(nodes, neighbourhood_sample_sizes, neighbours):
+def get_neighbourhood_samples(nodes, neighbourhood_sample_sizes, G_neighbours):
 
 	'''
 	generates a list of a sample of the neighbours of each node in the batch
 	'''
 
+	# def extend_l(l, n):
+	# 	i = 0
+	# 	m = len(l)
+	# 	while len(l) < n:
+	# 		l.append(l[i])
+	# 		i = (i + 1) % m
+	# 	return l
+
+	# for n in neighbours:
+	# 	neighbours[n] = extend_l(neighbours[n], max(neighbourhood_sample_sizes)) 
+
+	# for n in neighbours:
+	# 	print n, neighbours[n]
+	# print 
+
 	neighbourhood_sample_list = [nodes]
 
 	for neighbourhood_sample_size in neighbourhood_sample_sizes[::-1]:
 
+		# neighbourhood_sample_list.append(np.array([np.concatenate([np.append(n, 
+			# neighbours[n][:neighbourhood_sample_size]) for n in batch]) for batch in neighbourhood_sample_list[-1]]))
+
 		neighbourhood_sample_list.append(np.array([np.concatenate([np.append(n, 
-			np.random.choice(np.append(n, neighbours[n]), 
-			replace=True, size=neighbourhood_sample_size)) for n in batch]) for batch in neighbourhood_sample_list[-1]]))
+			# np.random.choice(np.append(n, neighbours[n]),
+			np.random.permutation(G_neighbours[n])[:neighbourhood_sample_size]) for n in row]) for row in neighbourhood_sample_list[-1]])) 
+			# np.random.choice(neighbours[n], 
+			# replace=True, size=neighbourhood_sample_size)) for n in batch]) for batch in neighbourhood_sample_list[-1]]))
 
 	# flip neighbour list
 	neighbourhood_sample_list = neighbourhood_sample_list[::-1]
 
+	# for nss in neighbourhood_sample_list[::-1]:
+	# 	print nss.shape
+	# 	print nss
+	# 	print
+	# raise SystemExit
+
 	return neighbourhood_sample_list
 
-def neighbourhood_sample_generator(G, X, Y, train_mask, 
+def neighbourhood_sample_generator(G_neighbours, X, Y, train_mask, 
 	positive_samples, ground_truth_negative_samples, args):
 	
 	'''
@@ -44,7 +70,9 @@ def neighbourhood_sample_generator(G, X, Y, train_mask,
 	num_classes = Y.shape[1]
 	label_prediction_layers = np.where(number_of_capsules_per_layer==num_classes)[0] + 1
 
-	neighbours = {n : list(G.neighbors(n)) for n in G.nodes()}
+	# neighbours = {n : sorted(list(G.neighbors(n))) for n in G.nodes()}
+	# print neighbours
+	# raise SystemExit
 
 	num_embeddings = neighbourhood_sample_sizes.shape[0]
 
@@ -54,7 +82,7 @@ def neighbourhood_sample_generator(G, X, Y, train_mask,
 
 		random.shuffle(positive_samples)
 
-		skip = 0
+		# skip = 0
 		for step in range(num_steps):
 
 			# determine all positive and negative samples for the batch
@@ -64,7 +92,7 @@ def neighbourhood_sample_generator(G, X, Y, train_mask,
 					for u in batch_positive_samples[:,0]])
 			batch_nodes = np.append(batch_positive_samples, batch_negative_samples, axis=1)
 
-			neighbourhood_sample_list = get_neighbourhood_samples(batch_nodes, neighbourhood_sample_sizes, neighbours)
+			neighbourhood_sample_list = get_neighbourhood_samples(batch_nodes, neighbourhood_sample_sizes, G_neighbours)
 
 			# desired shape is [batch_size, output_shape*prod(sample_sizes), 1, D]
 			input_nodes = neighbourhood_sample_list[0]
@@ -108,11 +136,11 @@ def neighbourhood_sample_generator(G, X, Y, train_mask,
 			negative_sample_targets = [negative_sample_targets] * num_embeddings
 
 
-			if not all_zero_mask:
-				yield x, masked_labels + negative_sample_targets
-			else:
-				skip +=1
-		print ("skipped {}/{}".format(skip, num_steps))
+			# if not all_zero_mask:
+			yield x, masked_labels + negative_sample_targets
+			# else:
+				# skip +=1
+		# print ("skipped {}/{}".format(skip, num_steps))
 
 
 

@@ -44,7 +44,7 @@ def masked_margin_loss(y_true, y_pred):
     mask = y_true[:,:1]
     y_true = y_true[:,1:]
 
-    mask /= K.sum(mask)
+    mask /= K.maximum(1., K.sum(mask))
 
     L = y_true * K.square(K.maximum(0., 0.9 - y_pred)) + \
         0.5 * (1 - y_true) * K.square(K.maximum(0., y_pred - 0.1))
@@ -61,17 +61,15 @@ def hyperbolic_negative_sampling_loss(y_true, y_pred):
     '''
 
     # exp_minus_d = K.exp(-K.square(y_pred)) 
-    exp_minus_d = K.exp(-y_pred)
-    # # exp_minus_d = K.clip(exp_minus_d, min_value=K.epsilon(), max_value=1)
-    return - K.mean( K.log(exp_minus_d[:,0]) - K.log(K.sum(exp_minus_d[:,0:], axis=-1) ) )
-
-    # # def sigmoid(x):
-    # #     return 1. / (1 + K.exp(-x))
+    # return -K.mean( exp_minus_d[:,0] - K.mean(exp_minus_d[:,1:], axis=-1) )
+    # exp_minus_d = K.exp(-y_pred)
+    # exp_minus_d = K.clip(exp_minus_d, min_value=K.epsilon(), max_value=1-K.epsilon())
+    # return - K.mean( K.log(exp_minus_d[:,0]) - K.log(K.sum(exp_minus_d[:,0:], axis=-1) ) )
 
     # P = K.softmax(-y_pred)
-    # P = K.softmax(-K.square(y_pred))
+    P = K.softmax(-K.square(y_pred))
     
     # P = K.clip(P, min_value=K.epsilon(), max_value=1-K.epsilon())
     
-    # # return K.categorical_crossentropy(y_true, P)
+    return K.categorical_crossentropy(y_true, P)
     # return -K.mean(K.log(P[:,0]))

@@ -20,6 +20,11 @@ from utils import load_positive_samples_and_ground_truth_negative_samples#, load
 from callbacks import ReconstructionLinkPredictionCallback, LabelPredictionCallback
 
 
+# Set random seed
+seed = 0
+np.random.seed(seed)
+tf.set_random_seed(seed)
+
 # TensorFlow wizardry
 config = tf.ConfigProto()
  
@@ -126,27 +131,28 @@ def fix_parameters(args):
 		# args.walk_length = 2
 		args.context_size = 3
 
-		args.num_negative_samples = 10
+		args.num_negative_samples = 3
 
-		args.neighbourhood_sample_sizes = [10, ]
+		args.neighbourhood_sample_sizes = [5, 5, ]
 		# args.num_primary_caps_per_layer = [16, ]
 		# args.num_filters_per_layer = [ 1, ]
 		# args.agg_dim_per_layer = [8, ]
 		args.batch_size = 10
 
-		args.num_primary_caps = 128
+		args.num_primary_caps = 32
 		args.primary_cap_dim = 8
 
 		if dataset == "cora":
 			num_classes = 7
 			args.scale_data = True
+			args.use_labels = True
 		else:
 			num_classes = 4
-			args.scale_data = True
+			# args.scale_data = True
 
 
-		args.number_of_capsules_per_layer = [ 64]
-		args.capsule_dim_per_layer = [16, ]
+		args.number_of_capsules_per_layer = [16,   7, ]
+		args.capsule_dim_per_layer = [16,  32, ]
 
 		return 
 
@@ -164,6 +170,8 @@ def fix_parameters(args):
 		args.capsule_dim_per_layer = [16, args.embedding_dim]
 
 	elif dataset in ["citeseer", "cora", "pubmed", "reddit"]:
+
+		args.use_labels = True
 
 		if dataset == "citeseer":
 			num_classes = 6
@@ -189,6 +197,9 @@ def configure_paths(args):
 		directory = "no_embedding_loss_" + directory
 	elif args.no_intermediary_loss:
 		directory = "no_intermediary_loss_" + directory
+
+	if args.use_labels:
+		directory = "use_labels_" + directory
 
 	args.plot_path = os.path.join(args.plot_path, dataset)
 	if not os.path.exists(args.plot_path):
@@ -265,6 +276,24 @@ def record_initial_losses(model, gen, val_label_idx, args,
 
 	print ("COMPLETED RECORDING OF INITIAL LOSSES")
 
+def pad_neighbours(neighbours, neighbourhood_sample_sizes):
+
+	def extend_l(l, n):
+		ex_l = l[:]
+		while len(ex_l) < n:
+			ex_l.append(np.random.choice(l))
+		return ex_l
+
+	_len = max(neighbourhood_sample_sizes)
+	print "padding neighbours to length: {}".format(_len)
+
+	for n in neighbours:
+		neighbours[n] = extend_l(neighbours[n], max(neighbourhood_sample_sizes)) 
+
+	print "DONE padding"
+
+	return neighbours
+
 def main():
 	'''
 	main function
@@ -287,18 +316,24 @@ def main():
 	# load the dataset -- written for many types of exeriments so some returned objects are None
 	G_train, G_val, G_test, X, Y, all_edges, val_edges, test_edges,\
 	train_label_mask, val_label_idx, test_label_idx = load_data(dataset)
-	val_label_idx = None
-	test_label_idx = None
+	# val_label_idx = None
+	# test_label_idx = None
+
+	neighbours_G_train = {n: list(G_train.neighbors(n)) for n in G_train.nodes()}
+	neighbours_G_train = pad_neighbours(neighbours_G_train, args.neighbourhood_sample_sizes)
+
+	# print neighbours_G_train
+	# for n in neighbours_G_train:
+	# 	print n, len(neighbours_G_train[n])
+	# raise SystemExit 
 
 	# use labels for labelled networks
 	if dataset in ["citeseer", "pubmed", "reddit", ]:#"cora", "karate"]:
 		assert Y.shape[1] in args.number_of_capsules_per_layer, "You must have a layer with {} capsules".format(Y.shape[1])
-		args.use_labels = True
 		monitor = "margin_loss"
 		mode = "min"
 		print("using labels in training")
 	else:
-		# args.use_labels = True
 		monitor = "mean_precision_reconstruction"
 		mode = "max"
 
@@ -333,8 +368,13 @@ def main():
 
 			# create training generator object to produce samples from the precomputed postive and negative samples
 		# also masks labels if dataset is labelled
-		training_generator = neighbourhood_sample_generator(G_train, X, Y, train_label_mask, 
+		training_generator = neighbourhood_sample_generator(neighbours_G_train, X, Y, train_label_mask, 
 			positive_samples, ground_truth_negative_samples, args)
+
+		# training_generator.next()
+
+		# raise SystemExit
+
 
 		# generates / loads a graph caps model according the args passed in from the command line
 		# will load a model if an existing model exists on ther system with the same specifications
@@ -345,8 +385,10 @@ def main():
 		# callbacks
 		nan_terminate_callback = TerminateOnNaN()
 		reconstruction_callback = ReconstructionLinkPredictionCallback(G_train, X, Y, embedder,
-			all_edges, val_edges, ground_truth_negative_samples, args.embedding_path, args.plot_path, args)
-		label_prediction_callback = LabelPredictionCallback(G_val, X, Y, label_prediction_model, val_label_idx, args)
+			all_edges, val_edges, ground_truth_negative_samples, 
+			args.embedding_path, args.plot_path, args, neighbours_G_train)
+		label_prediction_callback = LabelPredictionCallback(G_val, X, Y, 
+			label_prediction_model, val_label_idx, args, neighbours_G_train)
 		early_stopping_callback = EarlyStopping(monitor=monitor, patience=patience, mode=mode, verbose=1)
 		reload_callback = ModelCheckpoint(os.path.join(args.model_path, 
 			"{epoch:04d}.h5"), save_weights_only=False)
@@ -360,7 +402,7 @@ def main():
 
 		label_prediction_callback, 
 
-		early_stopping_callback, 
+		# early_stopping_callback, 
 		reload_callback, best_model_callback, logger_callback]
 
 		if initial_epoch == 0:
@@ -371,13 +413,13 @@ def main():
 		print ("BEGIN TRAINING")
 
 		# num_steps = int((len(positive_samples) // args.num_walks + args.batch_size - 1) // args.batch_size)
-		num_steps = int((len(positive_samples) + args.batch_size - 1) // args.batch_size)
-		# num_steps = 1000
+		# num_steps = int((len(positive_samples) + args.batch_size - 1) // args.batch_size)
+		num_steps = 10000
 		model.fit_generator(training_generator, 
 			steps_per_epoch=num_steps,
 			epochs=args.num_epochs, 
 			initial_epoch=initial_epoch,
-			verbose=0, #)
+			verbose=1, #)
 			callbacks=callbacks)
 
 		print ("TRAINING COMPLETE")

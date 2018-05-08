@@ -1,6 +1,7 @@
 import numpy as np
 import scipy as sp
 import pandas as pd
+import networkx as nx
 
 from scipy.stats import spearmanr
 
@@ -24,11 +25,11 @@ def hyperbolic_distance(u, v):
 	((1. - np.linalg.norm(u, axis=-1)**2) * (1. - np.linalg.norm(v, axis=-1)**2)))
 	# return np.linalg.norm(u - v, axis=-1)
 
-def perform_prediction(G, X, idx, predictor, neighbourhood_sample_sizes, batch_size, scale_data):
-	neighbours = {n: list(G.neighbors(n)) for n in G.nodes()}
+def perform_prediction(G_neighbours, X, idx, predictor, neighbourhood_sample_sizes, batch_size, scale_data):
+	# neighbours = {n: sorted(list(G.neighbors(n))) for n in G.nodes()}
 	nodes_to_embed = np.array(idx).reshape(-1, 1)
 	assert nodes_to_embed.shape == (len(idx), 1)
-	neighbourhood_sample_list = get_neighbourhood_samples(nodes_to_embed, neighbourhood_sample_sizes, neighbours)
+	neighbourhood_sample_list = get_neighbourhood_samples(nodes_to_embed, neighbourhood_sample_sizes, G_neighbours)
 	input_nodes = neighbourhood_sample_list[0]
 	num_steps = int((len(idx) + batch_size - 1) // batch_size)
 	input_x = []
@@ -60,7 +61,7 @@ class ReconstructionLinkPredictionCallback(Callback):
 
 	def __init__(self, G, X, Y, embedder,
 		all_edges, removed_edges, ground_truth_negative_samples, 
-		embedding_path, plot_path, args,):
+		embedding_path, plot_path, args, G_neighbours):
 		self.G = G 
 		self.X = X
 		self.Y = Y
@@ -72,8 +73,10 @@ class ReconstructionLinkPredictionCallback(Callback):
 		self.embedding_path = embedding_path
 		self.plot_path = plot_path
 		self.embedding_gen = None
-		self.nodes_to_val = None
+		# self.nodes_to_val = None
 		self.idx = G.nodes()
+		self.shortest_path_length = None
+		self.G_neighbours = G_neighbours
 
 	def on_epoch_end(self, epoch, logs={}):
 		embedding = self.perform_embedding()
@@ -91,9 +94,13 @@ class ReconstructionLinkPredictionCallback(Callback):
 		if self.args.dataset in ["wordnet", "wordnet_attributed"]:
 			r, p = self.evaluate_lexical_entailment(embedding, self.args.dataset)
 			logs.update({"lex_r" : r, "lex_p" : p})
-			
+		
+		# distortion = self.evaluate_distortion(embedding)
+		distortion = "none"
+		logs.update({"distortion": distortion})
+
 		self.save_embedding(embedding, path="{}/embedding_epoch_{:04}.npy".format(self.embedding_path, epoch))
-		self.plot_embedding(embedding, mean_rank_reconstruction, mean_precision_reconstruction,
+		self.plot_embedding(embedding, mean_rank_reconstruction, mean_precision_reconstruction, distortion,
 			path="{}/embedding_epoch_{:04}.png".format(self.plot_path, epoch))
 
 	def perform_embedding(self):
@@ -104,7 +111,7 @@ class ReconstructionLinkPredictionCallback(Callback):
 
 		print ("performing embedding")
 		batch_size = self.args.batch_size * (1 + self.args.num_positive_samples + self.args.num_negative_samples)
-		embedding = perform_prediction(self.G, self.X, self.idx, self.embedder,
+		embedding = perform_prediction(self.G_neighbours, self.X, self.idx, self.embedder,
 			self.args.neighbourhood_sample_sizes, batch_size, self.args.scale_data)
 
 		# G = self.G
@@ -145,24 +152,63 @@ class ReconstructionLinkPredictionCallback(Callback):
 		print ("saving embedding to", path)
 		np.save(path, embedding)
 
-	def plot_embedding(self, embedding, mean_rank_reconstruction, mean_precision_reconstruction, path):
+	def plot_embedding(self, embedding, mean_rank_reconstruction, mean_precision_reconstruction, distortion, path):
 
 		print ("plotting embedding and saving to {}".format(path))
+
+		_min, _max = -1, 1
 
 		Y = self.Y
 		y = Y.argmax(axis=1)
 		if sp.sparse.issparse(Y):
 			y = y.A1
 
+		pred = np.exp(-embedding)
+		pred = pred.argmax(axis=-1)
+
 		fig = plt.figure(figsize=(10, 10))
-		plt.title("Mean Rank Reconstruction={} MAP={}".format(mean_rank_reconstruction, mean_precision_reconstruction))
+		plt.suptitle("Mean Rank Reconstruction={} MAP Reconstruction={} Distortion={}".format(mean_rank_reconstruction, mean_precision_reconstruction, distortion))
+		
+		# plt.subplot("221")
 		for u, v in self.G.edges():
 			u_emb = embedding[u]
 			v_emb = embedding[v]
 			plt.plot([u_emb[0], v_emb[0]], [u_emb[1], v_emb[1]], c="k", linewidth=0.2, zorder=0)
-		plt.scatter(embedding[:,0], embedding[:,1], c=y, zorder=1)
-		plt.xlim([0, 1])
-		plt.ylim([0, 1])
+		plt.scatter(embedding[:,0], embedding[:,1], s=10, c=y, zorder=1)
+		plt.xlim([_min, _max])
+		plt.ylim([_min, _max])
+		plt.xlabel("dimension 1")
+		plt.ylabel("dimension 2")
+		# plt.subplot("222")
+		# for u, v in self.G.edges():
+		# 	u_emb = embedding[u]
+		# 	v_emb = embedding[v]
+		# 	plt.plot([u_emb[2], v_emb[2]], [u_emb[3], v_emb[3]], c="k", linewidth=0.2, zorder=0)
+		# plt.scatter(embedding[:,2], embedding[:,3], c=y, zorder=1)
+		# plt.xlim([0, 1])
+		# plt.ylim([0, 1])
+		# plt.xlabel("dimension 3")
+		# plt.ylabel("dimension 4")
+		# plt.subplot("223")
+		# for u, v in self.G.edges():
+		# 	u_emb = embedding[u]
+		# 	v_emb = embedding[v]
+		# 	plt.plot([u_emb[0], v_emb[0]], [u_emb[1], v_emb[1]], c="k", linewidth=0.2, zorder=0)
+		# plt.scatter(embedding[:,0], embedding[:,1], c=pred, zorder=1)
+		# plt.xlim([0, 1])
+		# plt.ylim([0, 1])
+		# plt.xlabel("dimension 1")
+		# plt.ylabel("dimension 2")
+		# plt.subplot("224")
+		# for u, v in self.G.edges():
+		# 	u_emb = embedding[u]
+		# 	v_emb = embedding[v]
+		# 	plt.plot([u_emb[2], v_emb[2]], [u_emb[3], v_emb[3]], c="k", linewidth=0.2, zorder=0)
+		# plt.scatter(embedding[:,2], embedding[:,3], c=pred, zorder=1)
+		# plt.xlim([0, 1])
+		# plt.ylim([0, 1])
+		# plt.xlabel("dimension 3")
+		# plt.ylabel("dimension 4")
 		if path is not None:
 			plt.savefig(path)
 		plt.close()
@@ -234,6 +280,18 @@ class ReconstructionLinkPredictionCallback(Callback):
 		print ("MEAN RANK=", np.mean(ranks), "MEAN AP=", np.mean(ap_scores))
 		return np.mean(ranks), np.mean(ap_scores)
 
+	def evaluate_distortion(self, embedding):
+		print ("evaluating distortion")
+		mask = ~ np.eye(len(self.G), dtype=bool)
+		if self.shortest_path_length is None:
+			self.shortest_path_length = nx.floyd_warshall_numpy(self.G).A
+		shortest_path_length = self.shortest_path_length[np.where(mask)]
+		hyperbolic_distances = pairwise_distances(embedding, metric=hyperbolic_distance)
+		hyperbolic_distances = hyperbolic_distances[np.where(mask)]
+
+		distortion = (np.abs(hyperbolic_distances - shortest_path_length) / shortest_path_length).mean()
+		return distortion
+
 	def evaluate_lexical_entailment(self, embedding, dataset):
 
 		def is_a_score(u, v, alpha=1e3):
@@ -261,7 +319,7 @@ class ReconstructionLinkPredictionCallback(Callback):
 
 class LabelPredictionCallback(Callback):
 
-	def __init__(self, val_G, X, Y, predictor, val_idx, args):
+	def __init__(self, val_G, X, Y, predictor, val_idx, args, G_neighbours):
 		self.val_G = val_G
 		self.X = X
 		self.Y = Y
@@ -270,6 +328,7 @@ class LabelPredictionCallback(Callback):
 		self.args = args
 		self.val_prediction_gen = None
 		self.nodes_to_val = None
+		self.G_neighbours = G_neighbours
 
 	def on_epoch_end(self, epoch, logs={}):
 
@@ -300,7 +359,7 @@ class LabelPredictionCallback(Callback):
 		batch_size = self.args.batch_size * (1 + self.args.num_positive_samples + self.args.num_negative_samples)
 
 
-		predictions = perform_prediction(self.val_G, self.X, self.val_idx, self.predictor,
+		predictions = perform_prediction(self.G_neighbours, self.X, self.val_idx, self.predictor,
 			neighbourhood_sample_sizes, batch_size, self.args.scale_data)
 
 

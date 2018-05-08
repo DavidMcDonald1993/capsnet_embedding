@@ -10,7 +10,7 @@ from keras import initializers, layers, activations#, regularizers
 from keras.regularizers import l2
 from keras.initializers import RandomUniform
 
-reg = 1e-200
+reg = 1e-5
 
 class Length(layers.Layer):
 	"""
@@ -22,7 +22,7 @@ class Length(layers.Layer):
 	Author: Xifeng Guo, E-mail: `guoxifeng1990@163.com`, Github: `https://github.com/XifengGuo/CapsNet-Keras`
 	"""
 	def call(self, inputs):
-		return K.sqrt(K.sum(K.square(inputs), axis=-1) + K.epsilon())
+		return K.sqrt(K.sum(K.square(inputs), axis=-1)) + K.epsilon()
 
 	def compute_output_shape(self, input_shape):
 		return input_shape[:-1]
@@ -45,7 +45,7 @@ def embedding_function(vectors, axis=-1):
 	"""
 
 	def length(vectors, axis=-1):
-	    return K.sqrt(K.sum(K.square(vectors,), axis=axis, keepdims=True, ) + K.epsilon())
+	    return K.sqrt(K.sum(K.square(vectors,), axis=axis, keepdims=True, )) + K.epsilon()
 
 
 	vectors = K.clip(vectors, min_value=K.epsilon(), max_value=1-K.epsilon())
@@ -189,8 +189,8 @@ class AggGraphCapsuleLayer(layers.Layer):
 				# then matmal: [input_num_capsule] x [input_num_capsule, dim_capsule] -> [dim_capsule].
 				# outputs.shape=[None* N, num_capsule, dim_capsule]
 
-				outputs = squash(K.batch_dot(c, inputs_hat, axes=[2, 2]))  
-				# outputs = K.batch_dot(c, inputs_hat, axes=3)
+				# outputs = squash(K.batch_dot(c, inputs_hat, axes=[2, 2]))  
+				outputs = K.batch_dot(c, inputs_hat, axes=[2, 2])
 			else:  # Otherwise, use `inputs_hat_stopped` to update `b`. No gradients flow on this path.
 				outputs = squash(K.batch_dot(c, inputs_hat_stopped, axes=[2, 2]))
 				# outputs.shape =  [None* N, num_capsule, dim_capsule]
@@ -568,6 +568,9 @@ class HyperbolicDistanceLayer(layers.Layer):
 		self.N = input_shape[1]
 		self.step_size = int(self.N // (1 + self.num_positive_samples + self.num_negative_samples))
 		self.built = True
+		# print input_shape, self.N, self.num_positive_samples, self.num_negative_samples, self.step_size
+		# print range(0, self.N, self.step_size)
+
 		# print input_shape, self.N, self.step_size, range(0, self.N, self.step_size)
 
 	def get_config(self):
@@ -576,8 +579,8 @@ class HyperbolicDistanceLayer(layers.Layer):
 					   "num_negative_samples":self.num_negative_samples})
 		return config
 		
-	def safe_norm(self, x, sqrt=False, clip=False):
-		y = K.sum(K.square(x), axis=-1, keepdims=False) + K.epsilon()
+	def safe_norm(self, x, axis=-1, sqrt=False, clip=False):
+		y = K.sum(K.square(x), axis=axis, keepdims=False) + K.epsilon()
 		if sqrt:
 			y = K.sqrt(y)
 		if clip:
@@ -589,7 +592,9 @@ class HyperbolicDistanceLayer(layers.Layer):
 		input_shape = [None, N, D]
 		'''
 
-		inputs = inputs[:,::self.step_size]
+		inputs = inputs[:,0:self.N:self.step_size]
+		# print inputs.shape, K.shape(inputs)[1], self.step_size
+		# raise SystemExit
 		u = inputs[:,:1]
 		v = inputs[:,1:]
 

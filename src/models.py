@@ -9,7 +9,7 @@ from keras.models import Model, load_model
 from keras.regularizers import l2
 from keras.optimizers import Adam
 from keras.initializers import RandomUniform
-# from keras import backend as K
+import keras.backend as K
 
 from graphcaps_layers import SimpleAggregateLayer, AggregateLayer, AggGraphCapsuleLayer, GraphCapsuleLayer, HyperbolicDistanceLayer, Length, squash, embedding_function
 from losses import masked_crossentropy, masked_margin_loss, hyperbolic_negative_sampling_loss
@@ -62,6 +62,9 @@ def load_models(X, Y, model_path, args, load_best=False):
 							 "masked_margin_loss": masked_margin_loss,
 							 "masked_crossentropy": masked_crossentropy,
 							 "tf":tf})
+		# K.set_value(model.optimizer.lr, 1e-3)
+		# print K.get_value(model.optimizer.lr)
+		# raise SystemExit
 
 
 	model.summary()
@@ -98,7 +101,13 @@ def build_embedder_and_prediction_model(data_dim, num_classes, model, args):
 	layer_list = []
 	if args.num_primary_caps is not None:
 		layer_list += [layer_dict["primary_cap"][0], layer_dict["primary_reshape"][0], layer_dict["primary_squash"][0]]
-	layer_list += layer_dict["cap"][:embedding_layer] + [layer_dict["feature_prob"][-1], layer_dict["embedding"][-1]]
+	
+	# layer_list += layer_dict["cap"][:embedding_layer]
+	# layer_list += [layer_dict["feature_prob"][-1], layer_dict["embedding"][-1]]
+
+	layer_list += [j for i in zip(layer_dict["cap"][:embedding_layer-1], layer_dict["squash"][:embedding_layer-1]) for j in i]
+	layer_list += [layer_dict["cap"][-1]]
+	layer_list += [layer_dict["embedding"][-1], layer_dict["embedding_squash"][-1]]
 
 	embedder_input_num_neighbours = np.prod(neighbourhood_sample_sizes + 1)
 	embedder_input = layers.Input(shape=(embedder_input_num_neighbours, 1, data_dim), name="embedder_input")
@@ -125,7 +134,10 @@ def build_embedder_and_prediction_model(data_dim, num_classes, model, args):
 		layer_list = []
 		if args.num_primary_caps is not None:
 			layer_list += [layer_dict["primary_cap"][0], layer_dict["primary_reshape"][0], layer_dict["primary_squash"][0]]
-		layer_list += layer_dict["cap"][:label_prediction_layer] + [layer_dict["feature_prob"][-1]]
+		
+		# layer_list += layer_dict["cap"][:label_prediction_layer] 
+		layer_list += [j for i in zip(layer_dict["cap"][:label_prediction_layer], layer_dict["squash"][:label_prediction_layer]) for j in i]
+		layer_list += [layer_dict["feature_prob"][-1]]
 
 		label_prediction_output = connect_layers(layer_list, label_prediction_input)
 
@@ -160,7 +172,7 @@ def generate_graphcaps_model(data_dim, num_classes, args):
 
 	if args.num_primary_caps is not None:
 		y = layers.Dense(args.num_primary_caps * args.primary_cap_dim, activation=None, 
-			kernel_regularizer=l2(1e-20), name="primary_cap_layer")(y)
+			kernel_regularizer=l2(1e-5), name="primary_cap_layer")(y)
 		y = layers.Reshape([-1, args.num_primary_caps, args.primary_cap_dim], name="primary_reshape_layer")(y)
 		y = layers.Lambda(squash, name="primary_squash_layer")(y)
 	# embeddings = []
@@ -192,12 +204,14 @@ def generate_graphcaps_model(data_dim, num_classes, args):
 			num_capsule=num_caps, dim_capsule=capsule_dim, num_routing=num_routing, 
 			name="cap_layer_{}".format(i))(y)
 		# print "y output", y.get_shape()
-		feature_prob = Length(name="feature_prob_layer_{}".format(i))(y)
+		# feature_prob = Length(name="feature_prob_layer_{}".format(i))(y)
 		# print "feat output", feature_prob.get_shape()
-		if num_caps == num_classes:
-			label_predictions.append(feature_prob)
+		# if num_caps == num_classes:
+			# label_predictions.append(feature_prob)
 
-		layer_embedding = layers.Lambda(embedding_function, name="embedding_layer_{}".format(i))(feature_prob)
+		# layer_embedding = layers.Lambda(embedding_function, name="embedding_layer_{}".format(i))(feature_prob)
+		layer_embedding = layers.Reshape([-1, num_caps*capsule_dim], name="embedding_layer_{}".format(i))(y)
+		layer_embedding = layers.Lambda(squash, name="embedding_squash_layer_{}".format(i))(layer_embedding)
 		layer_hyperbolic_distance = HyperbolicDistanceLayer(num_positive_samples=num_positive_samples,
 			num_negative_samples=num_negative_samples, 
 			name="hyperbolic_distance_layer_{}".format(i))(layer_embedding)
@@ -210,11 +224,11 @@ def generate_graphcaps_model(data_dim, num_classes, args):
 		# embeddings.append(layer_embedding)
 		hyperbolic_distances.append(layer_hyperbolic_distance)
 
-		# y = layers.Lambda(squash, name="squash_layer_{}".format(i))(y)
+		y = layers.Lambda(squash, name="squash_layer_{}".format(i))(y)
 
-		# if num_caps == num_classes:
-		# 	label_prediction = Length(name="label_prediction_layer_{}".format(i))(y)
-		# 	label_predictions.append(label_prediction)
+		if num_caps == num_classes:
+			feature_prob = Length(name="feature_prob_layer_{}".format(i))(y)
+			label_predictions.append(feature_prob)
 
 	losses = [masked_margin_loss]*len(label_predictions) +\
 	[hyperbolic_negative_sampling_loss]*len(hyperbolic_distances)
@@ -236,6 +250,6 @@ def generate_graphcaps_model(data_dim, num_classes, args):
 
 	graphcaps = Model(x,  label_predictions + hyperbolic_distances)
 	# adam = Adam(lr=1e-4, clipnorm=1)
-	adam = Adam(lr=1e-5)
-	graphcaps.compile(optimizer="adam", loss=losses, loss_weights=loss_weights)
+	adam = Adam( )
+	graphcaps.compile(optimizer=adam, loss=losses, loss_weights=loss_weights)
 	return graphcaps
