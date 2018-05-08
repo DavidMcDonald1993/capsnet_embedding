@@ -419,7 +419,7 @@ def main():
 			steps_per_epoch=num_steps,
 			epochs=args.num_epochs, 
 			initial_epoch=initial_epoch,
-			verbose=1, #)
+			verbose=0,
 			callbacks=callbacks)
 
 		print ("TRAINING COMPLETE")
