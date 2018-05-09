@@ -133,11 +133,11 @@ def fix_parameters(args):
 
 		args.num_negative_samples = 3
 
-		args.neighbourhood_sample_sizes = [5, 5, ]
+		args.neighbourhood_sample_sizes = [5,  5 ]
 		# args.num_primary_caps_per_layer = [16, ]
 		# args.num_filters_per_layer = [ 1, ]
 		# args.agg_dim_per_layer = [8, ]
-		args.batch_size = 10
+		args.batch_size = 25
 
 		args.num_primary_caps = 32
 		args.primary_cap_dim = 8
@@ -148,11 +148,12 @@ def fix_parameters(args):
 			args.use_labels = True
 		else:
 			num_classes = 4
-			# args.scale_data = True
+			args.scale_data = True
+			args.use_labels = True
 
 
-		args.number_of_capsules_per_layer = [16,   7, ]
-		args.capsule_dim_per_layer = [16,  32, ]
+		args.number_of_capsules_per_layer = [7,  2]
+		args.capsule_dim_per_layer = [15,  32]
 
 		return 
 
@@ -419,7 +420,7 @@ def main():
 			steps_per_epoch=num_steps,
 			epochs=args.num_epochs, 
 			initial_epoch=initial_epoch,
-			verbose=0,
+			verbose=1,
 			callbacks=callbacks)
 
 		print ("TRAINING COMPLETE")

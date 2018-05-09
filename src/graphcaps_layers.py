@@ -48,9 +48,9 @@ def embedding_function(vectors, axis=-1):
 	    return K.sqrt(K.sum(K.square(vectors,), axis=axis, keepdims=True, )) + K.epsilon()
 
 
-	vectors = K.clip(vectors, min_value=K.epsilon(), max_value=1-K.epsilon())
+	# vectors = K.clip(vectors, min_value=K.epsilon(), max_value=1-K.epsilon())
 
-	output = -K.log(vectors)
+	# output = -K.log(vectors)
 
 	# stretch?
 	# r = length(output)
@@ -74,6 +74,8 @@ def embedding_function(vectors, axis=-1):
 	# _output[n-1] = _output[n-1] * K.sin(phis[-1])
 
 	# output = K.concatenate(_output)
+
+	output = vectors
 
 	return squash(output)
 
@@ -189,8 +191,8 @@ class AggGraphCapsuleLayer(layers.Layer):
 				# then matmal: [input_num_capsule] x [input_num_capsule, dim_capsule] -> [dim_capsule].
 				# outputs.shape=[None* N, num_capsule, dim_capsule]
 
-				# outputs = squash(K.batch_dot(c, inputs_hat, axes=[2, 2]))  
-				outputs = K.batch_dot(c, inputs_hat, axes=[2, 2])
+				outputs = squash(K.batch_dot(c, inputs_hat, axes=[2, 2]))  
+				# outputs = K.batch_dot(c, inputs_hat, axes=[2, 2])
 			else:  # Otherwise, use `inputs_hat_stopped` to update `b`. No gradients flow on this path.
 				outputs = squash(K.batch_dot(c, inputs_hat_stopped, axes=[2, 2]))
 				# outputs.shape =  [None* N, num_capsule, dim_capsule]

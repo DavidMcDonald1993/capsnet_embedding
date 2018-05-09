@@ -163,8 +163,8 @@ class ReconstructionLinkPredictionCallback(Callback):
 		if sp.sparse.issparse(Y):
 			y = y.A1
 
-		pred = np.exp(-embedding)
-		pred = pred.argmax(axis=-1)
+		# pred = np.exp(-embedding)
+		# pred = pred.argmax(axis=-1)
 
 		fig = plt.figure(figsize=(10, 10))
 		plt.suptitle("Mean Rank Reconstruction={} MAP Reconstruction={} Distortion={}".format(mean_rank_reconstruction, mean_precision_reconstruction, distortion))
@@ -173,7 +173,7 @@ class ReconstructionLinkPredictionCallback(Callback):
 		for u, v in self.G.edges():
 			u_emb = embedding[u]
 			v_emb = embedding[v]
-			plt.plot([u_emb[0], v_emb[0]], [u_emb[1], v_emb[1]], c="k", linewidth=0.2, zorder=0)
+			plt.plot([u_emb[0], v_emb[0]], [u_emb[1], v_emb[1]], c="k", linewidth=0.05, zorder=0)
 		plt.scatter(embedding[:,0], embedding[:,1], s=10, c=y, zorder=1)
 		plt.xlim([_min, _max])
 		plt.ylim([_min, _max])
