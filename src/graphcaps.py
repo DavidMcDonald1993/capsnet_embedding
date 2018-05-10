@@ -131,29 +131,37 @@ def fix_parameters(args):
 		# args.walk_length = 2
 		args.context_size = 3
 
-		args.num_negative_samples = 3
 
 		args.neighbourhood_sample_sizes = [5,  5 ]
 		# args.num_primary_caps_per_layer = [16, ]
 		# args.num_filters_per_layer = [ 1, ]
 		# args.agg_dim_per_layer = [8, ]
-		args.batch_size = 25
+		args.batch_size = 10
 
-		args.num_primary_caps = 32
-		args.primary_cap_dim = 8
+
 
 		if dataset == "cora":
+
+			args.num_negative_samples = 10
+
 			num_classes = 7
 			args.scale_data = True
 			args.use_labels = True
+			args.num_primary_caps = 128
+			args.primary_cap_dim = 8
 		else:
+
+			args.num_negative_samples = 3
+
 			num_classes = 4
 			args.scale_data = True
-			args.use_labels = True
+			# args.use_labels = True
+			args.num_primary_caps = 32
+			args.primary_cap_dim = 8
 
 
-		args.number_of_capsules_per_layer = [7,  2]
-		args.capsule_dim_per_layer = [15,  32]
+		args.number_of_capsules_per_layer = [32, num_classes,  ]
+		args.capsule_dim_per_layer = [16,  32]
 
 		return 
 
@@ -415,12 +423,12 @@ def main():
 
 		# num_steps = int((len(positive_samples) // args.num_walks + args.batch_size - 1) // args.batch_size)
 		# num_steps = int((len(positive_samples) + args.batch_size - 1) // args.batch_size)
-		num_steps = 10000
+		num_steps = 1000
 		model.fit_generator(training_generator, 
 			steps_per_epoch=num_steps,
 			epochs=args.num_epochs, 
 			initial_epoch=initial_epoch,
-			verbose=1,
+			verbose=0,
 			callbacks=callbacks)
 
 		print ("TRAINING COMPLETE")

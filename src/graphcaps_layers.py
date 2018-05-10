@@ -180,7 +180,7 @@ class AggGraphCapsuleLayer(layers.Layer):
 
 		# assert self.num_routing > 0, 'The num_routing should be > 0.'
 		for i in range(self.num_routing):
-			# c.shape=[batch_size*N, num_capsule, num_neighbours*input_num_capsule]
+			# c.shape=[batch_size*Nn+1, num_capsule, num_neighbours*input_num_capsule]
 			c = tf.nn.softmax(b, dim=1)
 
 			# At last iteration, use `inputs_hat` to compute `outputs` in order to backpropagate gradient

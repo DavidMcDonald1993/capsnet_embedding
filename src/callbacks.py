@@ -109,7 +109,7 @@ class ReconstructionLinkPredictionCallback(Callback):
 		#     # http://stackoverflow.com/questions/3071415/efficient-method-to-calculate-the-rank-vector-of-a-list-in-python
 		#     return sorted(range(len(seq)), key=seq.__getitem__)
 
-		print ("performing embedding")
+		print ("\nperforming embedding")
 		batch_size = self.args.batch_size * (1 + self.args.num_positive_samples + self.args.num_negative_samples)
 		embedding = perform_prediction(self.G_neighbours, self.X, self.idx, self.embedder,
 			self.args.neighbourhood_sample_sizes, batch_size, self.args.scale_data)

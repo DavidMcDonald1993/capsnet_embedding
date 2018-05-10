@@ -207,7 +207,7 @@ def generate_graphcaps_model(data_dim, num_classes, args):
 		# if num_caps == num_classes:
 			# label_predictions.append(feature_prob)
 		layer_embedding = feature_prob
-		layer_embedding = layers.BatchNormalization(gamma_initializer=Constant(5), 
+		layer_embedding = layers.BatchNormalization(#gamma_initializer=Constant(5), 
 			name="embedding_normalization_layer_{}".format(i))(layer_embedding)
 		layer_embedding = layers.Lambda(embedding_function, name="embedding_layer_{}".format(i))(layer_embedding)
 		# layer_embedding = layers.Reshape([-1, num_caps*capsule_dim], name="embedding_layer_{}".format(i))(y)
