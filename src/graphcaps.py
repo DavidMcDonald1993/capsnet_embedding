@@ -32,7 +32,7 @@ config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
  
 # Only allow a total of half the GPU memory to be allocated
-config.gpu_options.per_process_gpu_memory_fraction = 0.5
+# config.gpu_options.per_process_gpu_memory_fraction = 0.5
 
 # config.allow_soft_placement = True
 # config.log_device_placement=True
@@ -67,6 +67,7 @@ def parse_args():
 		help="Use this flag to only test the model.")
 
 
+
 	parser.add_argument("-e", "--num_epochs", dest="num_epochs", type=int, default=10000,
 		help="The number of epochs to train for (default is 10000).")
 	parser.add_argument("-b", "--batch_size", dest="batch_size", type=int, default=100, 
@@ -75,6 +76,8 @@ def parse_args():
 		help="Number of negative samples for training (default is 10).")
 	parser.add_argument("--context-size", dest="context_size", type=int, default=5,
 		help="Context size for generating positive samples (default is 5).")
+	parser.add_argument("--patience", dest="patience", type=int, default=10,
+		help="The number of epochs of no improvement before training is stopped. (Default is 10)")
 
 	parser.add_argument("-s", "--sample_sizes", dest="neighbourhood_sample_sizes", type=int, nargs="+",
 		help="Number of neighbourhood node samples for each layer separated by a space (default is [25,5]).", default=[25,5])
@@ -132,7 +135,7 @@ def fix_parameters(args):
 		args.context_size = 3
 
 
-		args.neighbourhood_sample_sizes = [5,  5 ]
+		args.neighbourhood_sample_sizes = [5,  ]
 		# args.num_primary_caps_per_layer = [16, ]
 		# args.num_filters_per_layer = [ 1, ]
 		# args.agg_dim_per_layer = [8, ]
@@ -146,22 +149,22 @@ def fix_parameters(args):
 
 			num_classes = 7
 			args.scale_data = True
-			args.use_labels = True
-			args.num_primary_caps = 128
+			# args.use_labels = True
+			args.num_primary_caps = 4
 			args.primary_cap_dim = 8
 		else:
 
-			args.num_negative_samples = 3
+			args.num_negative_samples = 10
 
 			num_classes = 4
-			args.scale_data = True
+			# args.scale_data = True
 			# args.use_labels = True
-			args.num_primary_caps = 32
+			args.num_primary_caps = 4
 			args.primary_cap_dim = 8
 
 
-		args.number_of_capsules_per_layer = [32, num_classes,  ]
-		args.capsule_dim_per_layer = [16,  32]
+		args.number_of_capsules_per_layer = [4,  ]
+		args.capsule_dim_per_layer = [16, ]
 
 		return 
 
@@ -240,7 +243,7 @@ def configure_paths(args):
 	if not os.path.exists(args.model_path):
 		os.makedirs(args.model_path)
 
-def record_initial_losses(model, gen, val_label_idx, args, 
+def record_initial_losses(model, gen, num_classes, args, 
 	reconstruction_callback, label_prediction_callback):
 
 	'''
@@ -251,7 +254,7 @@ def record_initial_losses(model, gen, val_label_idx, args,
 
 	initial_losses = {}
 
-	if val_label_idx is not None:
+	if (args.number_of_capsules_per_layer == num_classes).any():
 		margin_loss, f1_micro, f1_macro, NMI, classification_accuracy =\
 		label_prediction_callback.make_and_evaluate_label_predictions()
 		initial_losses.update({"margin_loss": margin_loss, "f1_micro": f1_micro, "f1_macro": f1_macro, 
@@ -343,8 +346,8 @@ def main():
 		mode = "min"
 		print("using labels in training")
 	else:
-		monitor = "mean_precision_reconstruction"
-		mode = "max"
+		monitor = "mean_rank_reconstruction"
+		mode = "min"
 
 	# the path of the file that contains the random walks for this network
 	walk_file = os.path.join(args.walk_path, "walks-{}-{}".format(args.num_walks, args.walk_length))
@@ -389,7 +392,7 @@ def main():
 		# will load a model if an existing model exists on ther system with the same specifications
 		model, embedder, label_prediction_model, initial_epoch = load_models(X, Y, args.model_path, args)
 
-		patience = 1000
+		patience = args.patience
 
 		# callbacks
 		nan_terminate_callback = TerminateOnNaN()
@@ -407,16 +410,19 @@ def main():
 
 		callbacks = [\
 		nan_terminate_callback, 
-		reconstruction_callback, 
 
 		label_prediction_callback, 
+		reconstruction_callback, 
 
-		# early_stopping_callback, 
+		early_stopping_callback, 
 		reload_callback, best_model_callback, logger_callback]
+
+		# print patience, monitor, mode
+		# raise SystemExit
 
 		if initial_epoch == 0:
 			record_initial_losses(model, training_generator,
-			val_label_idx, args, reconstruction_callback, label_prediction_callback)
+			Y.shape[1], args, reconstruction_callback, label_prediction_callback)
 
 		
 		print ("BEGIN TRAINING")
@@ -428,7 +434,7 @@ def main():
 			steps_per_epoch=num_steps,
 			epochs=args.num_epochs, 
 			initial_epoch=initial_epoch,
-			verbose=0,
+			verbose=1,
 			callbacks=callbacks)
 
 		print ("TRAINING COMPLETE")
@@ -474,13 +480,14 @@ def main():
 	# print ("BEST MODEL IS FROM EPOCH {}".format(len(model.history.epoch)))
 
 
-	if test_label_idx is not None:
-		label_prediction_testing_callback = LabelPredictionCallback(G_test, X, Y, label_prediction_model, test_label_idx, args)
+	if (args.number_of_capsules_per_layer == Y.shape[1]).any():
+		label_prediction_testing_callback = LabelPredictionCallback(G_test, X, Y, 
+			label_prediction_model, test_label_idx, args, neighbours_G_train)
 		margin_loss, f1_micro, f1_macro, NMI, classification_accuracy =\
 		label_prediction_testing_callback.make_and_evaluate_label_predictions()
 
 	reconstruction_testing_callback = ReconstructionLinkPredictionCallback(G_train, X, Y, embedder,
-		all_edges, test_edges, ground_truth_negative_samples, args.embedding_path, args.plot_path, args)
+		all_edges, test_edges, ground_truth_negative_samples, args.embedding_path, args.plot_path, args, neighbours_G_train)
 
 	embedding = reconstruction_testing_callback.perform_embedding()
 	mean_rank_reconstruction, mean_precision_reconstruction =\

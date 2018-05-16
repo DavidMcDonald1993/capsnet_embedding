@@ -19,7 +19,7 @@ def masked_crossentropy(y_true, y_pred):
     y_true = y_true[:,1:]
     y_pred = K.clip(y_pred, min_value=K.epsilon(), max_value=1-K.epsilon())
 
-    mask /= K.sum(mask)
+    mask /= K.maximum(np.array(1., dtype=K.floatx()), K.sum(mask))
 
 
     # combine neighbours and batch dimension
@@ -44,10 +44,10 @@ def masked_margin_loss(y_true, y_pred):
     mask = y_true[:,:1]
     y_true = y_true[:,1:]
 
-    mask /= K.maximum(1., K.sum(mask))
+    mask /= K.maximum(np.array(1., dtype=K.floatx()), K.sum(mask))
 
-    L = y_true * K.square(K.maximum(0., 0.9 - y_pred)) + \
-        0.5 * (1 - y_true) * K.square(K.maximum(0., y_pred - 0.1))
+    L = y_true * K.square(K.maximum(np.array(0., dtype=K.floatx()), 0.9 - y_pred)) + \
+        0.5 * (1 - y_true) * K.square(K.maximum(np.array(0., dtype=K.floatx()), y_pred - 0.1))
         
     L *= mask
 
@@ -60,16 +60,15 @@ def hyperbolic_negative_sampling_loss(y_true, y_pred):
     y_true is a mask to allow for negative sampling over all levels 
     '''
 
-    # exp_minus_d = K.exp(-K.square(y_pred)) 
+    exp_minus_d = K.exp(-K.square(y_pred)) 
     # return -K.mean( exp_minus_d[:,0] - K.mean(exp_minus_d[:,1:], axis=-1) )
     # exp_minus_d = K.exp(-y_pred)
-    # exp_minus_d = K.clip(exp_minus_d, min_value=K.epsilon(), max_value=1-K.epsilon())
-    # return - K.mean( K.log(exp_minus_d[:,0]) - K.log(K.sum(exp_minus_d[:,0:], axis=-1) ) )
+    exp_minus_d = K.clip(exp_minus_d, min_value=1e-7, max_value=np.nextafter(1, 0, dtype=K.floatx()))
+    return - K.mean( K.log(exp_minus_d[:,0]) - K.log(K.sum(exp_minus_d[:,0:], axis=-1) ) )
 
     # P = K.softmax(-y_pred)
-    P = K.softmax(-K.square(y_pred))
+    # P = K.softmax(-K.square(y_pred))
+    # P = K.clip(P, min_value=0.01, max_value=0.99)
     
-    # P = K.clip(P, min_value=K.epsilon(), max_value=1-K.epsilon())
-    
-    return K.categorical_crossentropy(y_true, P)
+    # return K.categorical_crossentropy(y_true, P)
     # return -K.mean(K.log(P[:,0]))

@@ -59,7 +59,10 @@ def load_models(X, Y, model_path, args, load_best=False):
 							 "hyperbolic_negative_sampling_loss": hyperbolic_negative_sampling_loss, 
 							 "masked_margin_loss": masked_margin_loss,
 							 "masked_crossentropy": masked_crossentropy,
-							 "tf":tf})
+							 "tf":tf,
+							 "min_norm": 1e-7,
+								"max_norm":np.nextafter(1, 0, dtype=K.floatx()),
+								"max_": np.finfo(K.floatx()).max})
 		# K.set_value(model.optimizer.lr, 1e-3)
 		# print K.get_value(model.optimizer.lr)
 		# raise SystemExit
@@ -170,9 +173,10 @@ def generate_graphcaps_model(data_dim, num_classes, args):
 
 	if args.num_primary_caps is not None:
 		y = layers.Dense(args.num_primary_caps * args.primary_cap_dim, activation=None, 
-			kernel_regularizer=l2(1e-5), name="primary_cap_layer")(y)
+			kernel_regularizer=l2(1e-30), name="primary_cap_layer")(y)
 		y = layers.Reshape([-1, args.num_primary_caps, args.primary_cap_dim], name="primary_reshape_layer")(y)
-		y = layers.Lambda(squash, name="primary_squash_layer")(y)
+		y = layers.Lambda(squash, output_shape=lambda x: x, 
+			name="primary_squash_layer")(y)
 	# embeddings = []
 	hyperbolic_distances = []
 	label_predictions = []
@@ -208,8 +212,10 @@ def generate_graphcaps_model(data_dim, num_classes, args):
 			# label_predictions.append(feature_prob)
 		layer_embedding = feature_prob
 		layer_embedding = layers.BatchNormalization(#gamma_initializer=Constant(5), 
+			beta_regularizer=l2(0.01),
 			name="embedding_normalization_layer_{}".format(i))(layer_embedding)
-		layer_embedding = layers.Lambda(embedding_function, name="embedding_layer_{}".format(i))(layer_embedding)
+		layer_embedding = layers.Lambda(embedding_function, 
+			output_shape=lambda x : x, name="embedding_layer_{}".format(i))(layer_embedding)
 		# layer_embedding = layers.Reshape([-1, num_caps*capsule_dim], name="embedding_layer_{}".format(i))(y)
 		# layer_embedding = layers.Lambda(squash, name="embedding_squash_layer_{}".format(i))(layer_embedding)
 		layer_hyperbolic_distance = HyperbolicDistanceLayer(num_positive_samples=num_positive_samples,
@@ -249,7 +255,7 @@ def generate_graphcaps_model(data_dim, num_classes, args):
 	print ("generating model with loss weights:", loss_weights)
 
 	graphcaps = Model(x,  label_predictions + hyperbolic_distances)
-	# adam = Adam(lr=1e-4, clipnorm=1)
+	# adam = Adam(lr=1e-4, clipnorm=0.1)
 	adam = Adam( )
 	graphcaps.compile(optimizer=adam, loss=losses, loss_weights=loss_weights)
 	return graphcaps

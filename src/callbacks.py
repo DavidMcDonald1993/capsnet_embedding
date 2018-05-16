@@ -37,9 +37,11 @@ def perform_prediction(G_neighbours, X, idx, predictor, neighbourhood_sample_siz
 		nodes = input_nodes[step * batch_size : (step + 1) * batch_size]
 		if sp.sparse.issparse(X):
 			x = X[nodes.flatten()].toarray()
+			assert not np.isnan(x).any()
 			if scale_data:
 				# print "scaling input data"
 				x = preprocess_data(x)
+				assert not np.isnan(x).any()
 			# x = x.reshape(-1, nodes.shape[1], 1, X.shape[-1])
 		else:
 			x = X[nodes]
@@ -52,6 +54,8 @@ def perform_prediction(G_neighbours, X, idx, predictor, neighbourhood_sample_siz
 	dim = predictions.shape[-1]
 	predictions = predictions.reshape(-1, dim)
 	assert predictions.shape == (len(idx), dim)
+
+	predictions = predictions.astype(np.float32)
 
 	return predictions
 
@@ -145,6 +149,7 @@ class ReconstructionLinkPredictionCallback(Callback):
 		# dim = embedding.shape[-1]
 		# embedding = embedding.reshape(-1, dim)
 		# assert embedding.shape == (len(idx), dim)
+		print (embedding.shape)
 		print (embedding)
 		return embedding
 
@@ -332,7 +337,7 @@ class LabelPredictionCallback(Callback):
 
 	def on_epoch_end(self, epoch, logs={}):
 
-		if self.val_idx is not None:
+		if (self.args.number_of_capsules_per_layer == self.Y.shape[1]).any():
 			margin_loss, f1_micro, f1_macro, NMI, classification_accuracy = self.make_and_evaluate_label_predictions()
 			logs.update({"margin_loss": margin_loss, "f1_micro": f1_micro, "f1_macro": f1_macro, 
 				"NMI": NMI, "classification_accuracy": classification_accuracy})

@@ -4,13 +4,22 @@ Much of this code is adapted from code written by
 Xifeng Guo, E-mail: `guoxifeng1990@163.com`, Github: `https://github.com/XifengGuo/CapsNet-Keras`
 '''
 
+import numpy as np
+
 import keras.backend as K
 import tensorflow as tf
 from keras import initializers, layers, activations#, regularizers
 from keras.regularizers import l2
 from keras.initializers import RandomUniform
 
-reg = 1e-5
+reg = 1e-30
+# min_norm = np.nextafter(0, 1, dtype=K.floatx())
+max_norm = np.nextafter(1, 0, dtype=K.floatx())
+max_ = np.finfo(K.floatx()).max
+min_norm = 1e-7
+# max_norm = 0.999
+# max_ = 1e+4
+# raise SystemExit
 
 class Length(layers.Layer):
 	"""
@@ -22,7 +31,9 @@ class Length(layers.Layer):
 	Author: Xifeng Guo, E-mail: `guoxifeng1990@163.com`, Github: `https://github.com/XifengGuo/CapsNet-Keras`
 	"""
 	def call(self, inputs):
-		return K.sqrt(K.sum(K.square(inputs), axis=-1)) + K.epsilon()
+		outputs = K.sqrt(K.sum(K.square(inputs), axis=-1))
+		# return K.clip(outputs, min_value=K.epsilon(), max_value=1-K.epsilon())
+		return outputs
 
 	def compute_output_shape(self, input_shape):
 		return input_shape[:-1]
@@ -35,17 +46,21 @@ def squash(vectors, axis=-1):
 	:return: a Tensor with same shape as input vectors
 	Author: Xifeng Guo, E-mail: `guoxifeng1990@163.com`, Github: `https://github.com/XifengGuo/CapsNet-Keras`
 	"""
-	s_squared_norm = K.sum(K.square(vectors), axis, keepdims=True) + K.epsilon()
-	scale = s_squared_norm / ((1 + s_squared_norm) * (K.sqrt(s_squared_norm  )))
-	return scale * vectors
+	s_squared_norm = K.sum(K.square(vectors), axis, keepdims=True)# + 1e-32
+	scale = s_squared_norm / (1 + s_squared_norm) #(K.sqrt(s_squared_norm  )))
+	scale = tf.clip_by_value(scale, min_norm, max_norm)
+	s_norm = K.clip(K.sqrt(s_squared_norm), min_value=min_norm, max_value=max_  )
+	outputs = scale * vectors / s_norm
+	# outputs = K.clip(outputs, min_value=min_norm, max_value=max_norm)
+	return outputs
 
 def embedding_function(vectors, axis=-1):
 	"""
 	
 	"""
 
-	def length(vectors, axis=-1):
-	    return K.sqrt(K.sum(K.square(vectors,), axis=axis, keepdims=True, )) + K.epsilon()
+	# def length(vectors, axis=-1):
+	#     return K.sqrt(K.sum(K.square(vectors,), axis=axis, keepdims=True, )) + K.epsilon()
 
 
 	# vectors = K.clip(vectors, min_value=K.epsilon(), max_value=1-K.epsilon())
@@ -76,8 +91,8 @@ def embedding_function(vectors, axis=-1):
 	# output = K.concatenate(_output)
 
 	output = vectors
-
-	return squash(output)
+	# return output
+	return squash(output, axis=axis)
 
 class AggGraphCapsuleLayer(layers.Layer):
 	"""
@@ -146,7 +161,7 @@ class AggGraphCapsuleLayer(layers.Layer):
 		inputs = K.reshape(inputs, [-1, self.input_num_capsule, self.input_dim_capsule])
 		# shape is now [None*N, input num caps, input cap dim]
 		inputs = K.permute_dimensions(inputs, [1, 0, 2])
-		# shape is now [num_neighbours * input num caps, None*N, input cap dim]
+		# shape is now [input num caps, None*N, input cap dim]
 		# W shape is [input num caps, input cap dim, num_caps * cap dim]
 		inputs_hat = K.batch_dot(inputs, self.W, axes=[2, 1])
 		# shape is now [input num caps, None*N, num caps * cap dim]
@@ -209,7 +224,9 @@ class AggGraphCapsuleLayer(layers.Layer):
 		return outputs
 
 	def compute_output_shape(self, input_shape):
-		return tuple([input_shape[0], int(input_shape[1] // self.num_neighbours)] + [self.num_capsule, self.dim_capsule])
+		# return lambda input_shape : tuple([input_shape[0], int(input_shape[1] / self.num_neighbours)] +\
+		#  [self.num_capsule, self.dim_capsule])
+		return tuple([input_shape[0], int(input_shape[1] / self.num_neighbours)] + [self.num_capsule, self.dim_capsule])
 
 class GraphCapsuleLayer(layers.Layer):
 	"""
@@ -581,12 +598,20 @@ class HyperbolicDistanceLayer(layers.Layer):
 					   "num_negative_samples":self.num_negative_samples})
 		return config
 		
-	def safe_norm(self, x, axis=-1, sqrt=False, clip=False):
-		y = K.sum(K.square(x), axis=axis, keepdims=False) + K.epsilon()
-		if sqrt:
-			y = K.sqrt(y)
-		if clip:
-			y = K.clip(y, min_value=K.epsilon(), max_value=1-K.epsilon())
+	# def safe_norm(self, x, axis=-1, sqrt=False, clip=False):
+	# 	y = K.sum(K.square(x), axis=axis, keepdims=False) + K.epsilon()
+	# 	if sqrt:
+	# 		y = K.sqrt(y)
+	# 	if clip:
+	# 		y = K.clip(y, min_value=K.epsilon(), max_value=1-K.epsilon())
+	# 	return y
+
+	def squared_norm(self, x, axis=-1, sqrt=False, clip=False):
+		y = K.sum(K.square(x), axis=axis, keepdims=False)
+		# if sqrt:
+		# 	y = K.sqrt(y)
+		# if clip:
+		# 	y = K.clip(y, min_value=K.epsilon(), max_value=1-K.epsilon())
 		return y
 		
 	def call(self, inputs):
@@ -594,17 +619,35 @@ class HyperbolicDistanceLayer(layers.Layer):
 		input_shape = [None, N, D]
 		'''
 
+		def acosh(x):
+			return K.log(x + K.sqrt(K.square(x) - 1))
+
 		inputs = inputs[:,0:self.N:self.step_size]
 		# print inputs.shape, K.shape(inputs)[1], self.step_size
 		# raise SystemExit
 		u = inputs[:,:1]
 		v = inputs[:,1:]
 
+		num = self.squared_norm(u - v)
+		nu = self.squared_norm(u)
+		nv = self.squared_norm(v)
 
-		d = tf.acosh(1. + 2. * self.safe_norm(u - v) / 
-					 ((1. - self.safe_norm(u, clip=True)) * (1. - self.safe_norm(v, clip=True))))
-		# d = self.safe_norm(u - v, sqrt=True)
-		return d
+		num = tf.clip_by_value(num, min_norm, max_)
+		nu = tf.clip_by_value(nu, min_norm, max_norm)
+		nv = tf.clip_by_value(nv, min_norm, max_norm)
+		# nu = tf.clip_by_value(nu, np.sqrt(1-max_norm), max_norm)
+		# nv = tf.clip_by_value(nv, np.sqrt(1-max_norm), max_norm)
+
+		den = (1 - nu) * (1 - nv) 
+
+		d = num / den
+		d = tf.clip_by_value(d, min_norm, 
+			np.nextafter(np.sqrt(max_), 0, dtype=K.floatx()) / 2)
+
+		return acosh(1 + 2 * d)
+		# return K.clip(tf.sqrt(num), min_value=min_norm, max_value=max_)
+
+		# return K.sqrt(num)
 
 	def compute_output_shape(self, input_shape):
 		# print "hyp dist", tuple([input_shape[0], self.num_positive_samples + self.num_negative_samples])

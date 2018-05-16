@@ -208,7 +208,9 @@ def load_karate():
 
 	# identity features
 	N = len(G)
-	X = sp.sparse.identity(N, format="csr")
+	# X = sp.sparse.identity(N, format="csr")
+	X = np.genfromtxt("../data/karate/feats.csv", delimiter=",")
+	X = preprocess_data(X)
 
 	label_df = pd.read_csv("../data/karate/mod-based-clusters.txt", sep=" ", index_col=0, header=None,)
 	label_df.index = [str(idx) for idx in label_df.index]
@@ -217,11 +219,10 @@ def load_karate():
 	assignments = label_df.iloc[:,0].values
 
 	# sparse label matrix
-	Y = sp.sparse.csr_matrix(([1] * N, (range(N), assignments)), shape=(N, 4))
+	# Y = sp.sparse.csr_matrix(([1] * N, (range(N), assignments)), shape=(N, 4))
 
-	# Y = np.zeros((N, 4))
-	# for i, assignment in enumerate(assignments):
-	# 	Y[i, assignment] = 1
+	Y = np.zeros((N, 4))
+	Y[np.arange(N), assignments] = 1
 
 	G = nx.convert_node_labels_to_integers(G, label_attribute="original_name")
 	nx.set_edge_attributes(G=G, name="weight", values=1)

@@ -31,13 +31,10 @@ def get_neighbourhood_samples(nodes, neighbourhood_sample_sizes, G_neighbours):
 	for neighbourhood_sample_size in neighbourhood_sample_sizes[::-1]:
 
 		# neighbourhood_sample_list.append(np.array([np.concatenate([np.append(n, 
-			# neighbours[n][:neighbourhood_sample_size]) for n in batch]) for batch in neighbourhood_sample_list[-1]]))
+		# 	G_neighbours[n][:neighbourhood_sample_size]) for n in row]) for row in neighbourhood_sample_list[-1]]))
 
 		neighbourhood_sample_list.append(np.array([np.concatenate([np.append(n, 
-			# np.random.choice(np.append(n, neighbours[n]),
 			np.random.permutation(G_neighbours[n])[:neighbourhood_sample_size]) for n in row]) for row in neighbourhood_sample_list[-1]])) 
-			# np.random.choice(neighbours[n], 
-			# replace=True, size=neighbourhood_sample_size)) for n in batch]) for batch in neighbourhood_sample_list[-1]]))
 
 	# flip neighbour list
 	neighbourhood_sample_list = neighbourhood_sample_list[::-1]
