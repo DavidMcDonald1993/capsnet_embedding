@@ -418,7 +418,7 @@ def main():
 			# label_prediction_callback, 
 			# reconstruction_callback, 
 			validation_callback,
-			early_stopping_callback, 
+			# early_stopping_callback, 
 			reload_callback, best_model_callback, logger_callback
 		]
 

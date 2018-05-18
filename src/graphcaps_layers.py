@@ -299,13 +299,13 @@ class Mask(layers.Layer):
 			# raise SystemExit
 			# generate the mask which is a one-hot code.
 			# mask.shape=[None, n_classes]=[None, num_capsule]
-			mask = K.one_hot(indices=K.argmax(x, axis=1), num_classes=x.get_shape().as_list()[1])
-			mask = K.expand_dims(mask, axis=-1)
-			# x = K.log(x / (1-x))
-			# mask = tf.nn.softmax(x, axis=1)
-			# dist = RelaxedOneHotCategorical(probs=x, temperature=0.001)
-			# mask = dist.sample()
+			# mask = K.one_hot(indices=K.argmax(x, axis=1), num_classes=x.get_shape().as_list()[1])
 			# mask = K.expand_dims(mask, axis=-1)
+			x = K.log(x / (1-x))
+			# mask = tf.nn.softmax(x, axis=1)
+			dist = RelaxedOneHotCategorical(logits=x, temperature=0.001)
+			mask = dist.sample()
+			mask = K.expand_dims(mask, axis=-1)
 
 		# inputs.shape=[None, num_capsule, dim_capsule]
 		# mask.shape=[None, num_capsule]
