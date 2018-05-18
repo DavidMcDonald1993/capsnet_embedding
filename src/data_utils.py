@@ -12,6 +12,41 @@ import pickle as pkl
 
 from sklearn.preprocessing import StandardScaler
 
+def pad_neighbours(G, sample_sizes):
+	assert isinstance(sample_sizes, list)
+	def extend_l(l, n):
+		ex_l = l[:]
+		while len(ex_l) < n:
+			ex_l.append(np.random.choice(l))
+		return ex_l
+	neighbours = [list(G.neighbors(n)) for n in G.nodes()]
+	size = max(sample_sizes + [len(l) for l in neighbours])
+	print ("padding neighbours to length: {} with random uniform selection".format(size))
+	neighbours = [[n] + extend_l(nl, size) for n, nl in enumerate(neighbours)]
+	neighbours = np.array(neighbours)
+	print ("DONE padding")
+	# for u, V in zip(neighbours[:,0], neighbours[:,1:]):
+	# 	for v in V:
+	# 		assert (u, v) in G.edges() or (v, u) in G.edges()
+	print ("completed padding check")
+	return neighbours
+
+
+def determine_positive_and_ground_truth_negative_samples(G, undirected=True):
+
+	nodes = set(G.nodes())
+	positive_samples = G.edges()
+	if undirected:
+		positive_samples += [(v, u) for u, v in G.edges()]
+	all_positive_samples = {n : set(G.neighbors(n)) for n in G.nodes()}
+
+	ground_truth_negative_samples = {n: sorted(list(nodes.difference(all_positive_samples[n]))) for n in G.nodes()}
+	
+	for u in ground_truth_negative_samples:
+		assert len(ground_truth_negative_samples[u]) > 0, "node {} does not have any negative samples".format(u)
+
+	return positive_samples, ground_truth_negative_samples
+
 def select_label_split(Y, num_train=20, num_val=50):
 
 	num_samples, num_classes = Y.shape
@@ -25,33 +60,41 @@ def select_label_split(Y, num_train=20, num_val=50):
 
 	return train_idx, val_idx, test_idx
 
-def load_data(dataset):
+def load_data(dataset, sample_sizes):
 
 	if dataset == "karate":
-		G_train, G_val, G_test, X, Y, all_edges,\
-		val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx = load_karate()
+		G_train_neighbours, G_val_neighbours, G_test_neighbours,\
+		X_train, X_val, X_test, Y, positive_samples, ground_truth_negative_samples,\
+		val_edges, test_edges, train_label_idx, val_label_idx, test_label_idx = load_karate(sample_sizes)
 	# elif dataset == "wordnet":
-		# G_train, G_val, G_test, X, Y, all_edges,\
-		# val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx = load_wordnet()
+		# G_train_neighbours, G_val_neighbours, G_test_neighbours,\
+		# X_train, X_val, X_test,  Y, positive_samples, ground_truth_negative_samples,\
+		# val_edges, test_edges, train_label_idx, val_label_idx, test_label_idx = load_wordnet(sample_sizes)
 	# elif dataset == "wordnet_attributed":
-		# G_train, G_val, G_test, X, Y, all_edges,\
-		# val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx = load_wordnet_attributed()
+		# G_train_neighbours, G_val_neighbours, G_test_neighbours,\
+		# X_train, X_val, X_test,  Y, positive_samples, ground_truth_negative_samples,\
+		# val_edges, test_edges, train_label_idx, val_label_idx, test_label_idx = load_wordnet_attributed(sample_sizes)
 	
 	elif dataset in ["citeseer", "cora", "pubmed"]:
-		G_train, G_val, G_test, X, Y, all_edges,\
-		val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx = load_labelled_attributed_network(dataset)
+		G_train_neighbours, G_val_neighbours, G_test_neighbours,\
+		X_train, X_val, X_test, Y, positive_samples, ground_truth_negative_samples,\
+		val_edges, test_edges, train_label_idx, val_label_idx, test_label_idx = load_labelled_attributed_network(dataset, sample_sizes)
 	# elif dataset in ["AstroPh", "CondMat", "HepPh", "GrQc"]:
-		# G_train, G_val, G_test, X, Y, all_edges,\
-		# val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx = load_collaboration_network(dataset)
+		# G_train_neighbours, G_val_neighbours, G_test_neighbours,\
+		# X_train, X_val, X_test,  Y, positive_samples, ground_truth_negative_samples,\
+		# val_edges, test_edges, train_label_idx, val_label_idx, test_label_idx = load_collaboration_network(dataset, sample_sizes)
 	# elif dataset == "reddit":
-		# G_train, G_val, G_test, X, Y, all_edges,\
-		# val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx = load_reddit()
+		# G_train_neighbours, G_val_neighbours, G_test_neighbours,\
+		# X_train, X_val, X_test,  Y, positive_samples, ground_truth_negative_samples,\
+		# val_edges, test_edges, train_label_idx, val_label_idx, test_label_idx = load_reddit(sample_sizes)
 	else:
 		raise Exception
 
-	return G_train, G_val, G_test, X, Y, all_edges, val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx
+	return (G_train_neighbours, G_val_neighbours, G_test_neighbours, 
+		 X_train, X_val, X_test, Y, positive_samples, ground_truth_negative_samples,
+		val_edges, test_edges, train_label_idx, val_label_idx, test_label_idx)
 
-def load_labelled_attributed_network(dataset_str):
+def load_labelled_attributed_network(dataset_str, sample_sizes):
 	"""Load data."""
 
 	def parse_index_file(filename):
@@ -102,7 +145,8 @@ def load_labelled_attributed_network(dataset_str):
 	train_label_idx = list(range(len(y)))
 	val_label_idx = list(range(len(y), len(y)+500))
 
-	train_label_mask = sample_mask(train_label_idx, labels.shape[0])
+	# train_label_mask = sample_mask(train_label_idx, labels.shape[0])
+	# train_label_mask = train_label_mask.reshape(-1, 1).astype(np.float32)
 	# val_mask = sample_mask(idx_val, labels.shape[0])
 	# test_mask = sample_mask(idx_test, labels.shape[0])
 
@@ -119,27 +163,38 @@ def load_labelled_attributed_network(dataset_str):
 	G = nx.convert_node_labels_to_integers(G, label_attribute="original_name")
 	nx.set_edge_attributes(G=G, name="weight", values=1)
 
-	all_edges = G.edges()
+	# all_edges = G.edges()
+	features = features.A
+	scaler = StandardScaler()
+	features = scaler.fit_transform(features)
+	X_train = features
+	X_val = features
+	X_test = features
 
-	X = features
 	Y = labels
 
 	# same networks for train, test, val
 	G_train = G
 	G_val = G 
 	G_test = G
+	# all_edges = G_train.edges()
+	G_train_neighbours = pad_neighbours(G_train, sample_sizes)
+	G_val_neighbours = G_train_neighbours
+	G_test_neighbours = G_train_neighbours
 
 	# no removed edges for GCN networks
 	val_edges = None
 	test_edges = None
 
-	train_label_mask = train_label_mask.reshape(-1, 1).astype(np.float32)
+	positive_samples, ground_truth_negative_samples = determine_positive_and_ground_truth_negative_samples(G_train)
 
-	return G_train, G_val, G_test, X, Y, all_edges, val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx
+	return (G_train_neighbours, G_val_neighbours, G_test_neighbours, 
+		X_train, X_val, X_test, Y, positive_samples, ground_truth_negative_samples,
+		val_edges, test_edges, train_label_idx, val_label_idx, test_label_idx)
 
 
 
-def load_collaboration_network(dataset_str):
+def load_collaboration_network(dataset_str, sample_sizes):
 	'''
 	FOR LINK PREDICTION
 	removing random 20% edges for validation
@@ -153,12 +208,14 @@ def load_collaboration_network(dataset_str):
 
 	# reconstruct original network
 	# reconstruction_adj = nx.adjacency_matrix(G)
-	all_edges = G.edges()
+	# all_edges = G.edges()
 
 	N = len(G)
 
 	# sparse identity features
-	X = sp.sparse.identity(N, format="csr")
+	X_train = sp.sparse.identity(N, format="csr")
+	X_val = X_train
+	X_test = X_train
 	Y = np.ones((N, 1))
 
 	# X = preprocess_data(X)
@@ -189,8 +246,7 @@ def load_collaboration_network(dataset_str):
 
 
 	# not relevant for collaboration networks -- not testing label predicition capacity
-	train_label_mask = np.zeros((N, 1))
-
+	train_label_idx = None
 	val_label_idx = None
 	test_label_idx = None
 
@@ -198,11 +254,18 @@ def load_collaboration_network(dataset_str):
 	G_train = G 
 	G_val = G 
 	G_test = G
+	# all_edges = G_train.edges()
+	G_train_neighbours = pad_neighbours(G_train, sample_sizes)
+	G_val_neighbours = G_train_neighbours
+	G_test_neighbours = G_train_neighbours
 
-	return G_train, G_val, G_test, X, Y, all_edges, val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx
+	positive_samples, ground_truth_negative_samples = determine_positive_and_ground_truth_negative_samples(G_train)
 
+	return (G_train_neighbours, G_val_neighbours, G_test_neighbours, 
+		X_train, X_val, X_test, Y, positive_samples, ground_truth_negative_samples,
+		val_edges, test_edges, train_label_idx, val_label_idx, test_label_idx)
 
-def load_karate():
+def load_karate(sample_sizes):
 
 	G = nx.read_edgelist("../data/karate/karate.edg")
 
@@ -210,7 +273,11 @@ def load_karate():
 	N = len(G)
 	# X = sp.sparse.identity(N, format="csr")
 	X = np.genfromtxt("../data/karate/feats.csv", delimiter=",")
-	X = preprocess_data(X)
+	# X = preprocess_data(X)
+	scaler = StandardScaler()
+	X = scaler.fit_transform(X)
+	X_train, X_val, X_test = [X] * 3
+
 
 	label_df = pd.read_csv("../data/karate/mod-based-clusters.txt", sep=" ", index_col=0, header=None,)
 	label_df.index = [str(idx) for idx in label_df.index]
@@ -226,7 +293,7 @@ def load_karate():
 
 	G = nx.convert_node_labels_to_integers(G, label_attribute="original_name")
 	nx.set_edge_attributes(G=G, name="weight", values=1)
-	all_edges = G.edges()
+	# all_edges = G.edges()
 	
 	val_edges = None
 	test_edges = None
@@ -235,6 +302,10 @@ def load_karate():
 	G_train = G
 	G_val = G
 	G_test = G
+	# all_edges = G_train.edges()
+	G_train_neighbours = pad_neighbours(G_train, sample_sizes)
+	G_val_neighbours = G_train_neighbours
+	G_test_neighbours = G_train_neighbours
 
 	train_label_idx_file = "../data/karate/train_label_idx"
 	val_label_idx_file = "../data/karate/val_label_idx"
@@ -250,13 +321,16 @@ def load_karate():
 		val_label_idx = np.genfromtxt(val_label_idx_file, delimiter=",", dtype=int)
 		test_label_idx = np.genfromtxt(test_label_idx_file, delimiter=",", dtype=int)
 	# use selected train idx to mask all other labels
-	train_label_mask = np.zeros((Y.shape[0], 1))
-	train_label_mask[train_label_idx] = 1
+	# train_label_mask = np.zeros((Y.shape[0], 1))
+	# train_label_mask[train_label_idx] = 1
+	
+	positive_samples, ground_truth_negative_samples = determine_positive_and_ground_truth_negative_samples(G_train)
 
+	return (G_train_neighbours, G_val_neighbours, G_test_neighbours, 
+		X_train, X_val, X_test, Y, positive_samples, ground_truth_negative_samples,
+		val_edges, test_edges, train_label_idx, val_label_idx, test_label_idx)
 
-	return G_train, G_val, G_test, X, Y, all_edges, val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx
-
-def load_reddit():
+def load_reddit(sample_sizes):
 	
 	G = nx.read_edgelist("../data/reddit/reddit_G.edg", delimiter=" ", data=True)
 	nx.set_edge_attributes(G=G, name="weight", values=1)
@@ -268,7 +342,7 @@ def load_reddit():
 	
 	G = nx.relabel_nodes(G, id_map, )
 
-	all_edges = G.edges()
+	# all_edges = G.edges()
 
 	with open("../data/reddit/train_nodes", "rb") as f:
 		train_nodes = pkl.load(f)
@@ -287,7 +361,9 @@ def load_reddit():
 	scaler.fit(train_feats)
 	feats = scaler.transform(feats)
 	
-	X = feats
+	X_train = feats[train_label_idx]
+	X_val = feats[train_label_idx + val_label_idx]
+	X_test = feats
 	
 	class_map = json.load(open("../data/reddit/reddit-class_map.json"))
 	if isinstance(list(class_map.values())[0], list):
@@ -304,11 +380,18 @@ def load_reddit():
 		shape=(len(class_map), num_classes))
 		
 	G_train = G.subgraph(train_label_idx)
+	G_train = nx.convert_node_labels_to_integers(G_train, label_attribute="original_name")
 	G_val = G.subgraph(train_label_idx + val_label_idx)
+	G_val = nx.convert_node_labels_to_integers(G_val, label_attribute="original_name")	
 	G_test = G
+	G_test = nx.convert_node_labels_to_integers(G_test, label_attribute="original_name")	
+	
+	G_train_neighbours = pad_neighbours(G_train, sample_sizes)
+	G_val_neighbours = pad_neighbours(G_val, sample_sizes)
+	G_test_neighbours = pad_neighbours(G_test, sample_sizes)
 
 	# measure reconstruction capacity for trained network
-	reconstruction_adj = nx.adjacency_matrix(G_train)
+	# reconstruction_adj = nx.adjacency_matrix(G_train)
 
 	# no link prediction
 	val_edges = None
@@ -317,10 +400,13 @@ def load_reddit():
 	# no label masking -- train on all training labels
 	train_label_mask = np.ones(Y.shape[0])
 
-	# return train_G, val_G, test_G, X, Y, train_idx, val_idx, test_idx, train_mask
-	return G_train, G_val, G_test, X, Y, all_edges, val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx
+	positive_samples, ground_truth_negative_samples = determine_positive_and_ground_truth_negative_samples(G_train)
 
-def load_wordnet():
+	return (G_train_neighbours, G_val_neighbours, G_test_neighbours, 
+		X_train, X_val, X_test, Y, positive_samples, ground_truth_negative_samples,
+		val_edges, test_edges, train_label_idx, val_label_idx, test_label_idx)
+
+def load_wordnet(sample_sizes):
 
 	'''
 	testing link prediciton / reconstruction / lexical entailment
@@ -369,21 +455,30 @@ def load_wordnet():
 	# no label prediction
 
 	# same network for all label prediction phases
+	X_train, X_val, X_test = [X] * 3
 	G_train = G
 	G_val = G
 	G_test = G
+	# all_edges = G_train.edges()
+	G_train_neighbours = pad_neighbours(G_train, sample_sizes)
+	G_val_neighbours = G_train_neighbours
+	G_test_neighbours = G_train_neighbours
 
+	train_label_idx = None
 	val_label_idx = None
 	test_label_idx = None
 
 	# no masking
-	train_label_mask = np.zeros((N, 1))
+	# train_label_mask = np.zeros((N, 1))
 	# val_mask = np.zeros((N, 1))
 	# test_mask = np.zeros((N, 1))
+	positive_samples, ground_truth_negative_samples = determine_positive_and_ground_truth_negative_samples(G_train)
 
-	return G_train, G_val, G_test, X, Y, all_edges, val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx
+	return (G_train_neighbours, G_val_neighbours, G_test_neighbours, 
+		X_train, X_val, X_test, Y, positive_samples, ground_truth_negative_samples,
+		val_edges, test_edges, train_label_idx, val_label_idx, test_label_idx)
 
-def load_wordnet_attributed():
+def load_wordnet_attributed(sample_sizes):
 
 	'''
 	testing link prediciton / reconstruction / lexical entailment
@@ -393,7 +488,7 @@ def load_wordnet_attributed():
 
 	# mesaure capaity for reconstructing original network
 	# reconstruction_adj = nx.adjacency_matrix(G)
-	all_edges = G.edges()
+	# all_edges = G.edges()
 
 	# fasttext vectors?
 	N = len(G)
@@ -404,7 +499,9 @@ def load_wordnet_attributed():
 	X = feats_df.values
 	Y = np.ones((N, 1))
 
-	X = preprocess_data(X)
+	scaler = StandardScaler()
+	X = scaler.fit_transform(X)
+	X_train, X_val, X_test = [X] * 3
 
 	G = nx.convert_node_labels_to_integers(G, label_attribute="original_name")
 	nx.set_edge_attributes(G=G, name="weight", values=1)
@@ -438,23 +535,29 @@ def load_wordnet_attributed():
 	G_train = G
 	G_val = G
 	G_test = G
+	# all_edges = G_train.edges()
+	G_train_neighbours = pad_neighbours(G_train, sample_sizes)
+	G_val_neighbours = G_train_neighbours
+	G_test_neighbours = G_train_neighbours
 
+	train_label_idx = None
 	val_label_idx = None
 	test_label_idx = None
 
 	# no masking
-	train_label_mask = np.zeros((N, 1))
+	# train_label_mask = np.zeros((N, 1))
 	# val_mask = np.zeros((N, 1))
 	# test_mask = np.zeros((N, 1))
+	positive_samples, ground_truth_negative_samples = determine_positive_and_ground_truth_negative_samples(G_train)
 
-	return G_train, G_val, G_test, X, Y, all_edges, val_edges, test_edges, train_label_mask, val_label_idx, test_label_idx
+	return (G_train_neighbours, G_val_neighbours, G_test_neighbours, 
+		X_train, X_val, X_test, Y, positive_samples, ground_truth_negative_samples,
+		val_edges, test_edges, train_label_idx, val_label_idx, test_label_idx)
 
-
-
-def preprocess_data(X):
-	# X = VarianceThreshold().fit_transform(X)
-	X = StandardScaler().fit_transform(X)
-	return X
+# def preprocess_data(X):
+# 	# X = VarianceThreshold().fit_transform(X)
+# 	X = StandardScaler().fit_transform(X)
+# 	return X
 
 def split_data(G, X, Y, split=0.2):
 
