@@ -15,49 +15,14 @@ from sklearn.metrics.pairwise import pairwise_distances
 
 from keras.callbacks import Callback
 
-# from data_utils import preprocess_data
-# from generators import get_neighbourhood_samples
+def euclidean_distance(u, v):
+	return np.linalg.norm(u - v, axis=-1)
 
 def hyperbolic_distance(u, v):
 	assert (np.linalg.norm(u, axis=-1) < 1).all(), "u norm: {}, {}".format(np.linalg.norm(u, axis=-1), u)
 	assert (np.linalg.norm(v, axis=-1) < 1).all(), "v norm: {}, {}".format(np.linalg.norm(v, axis=-1), v)
 	return np.arccosh(1. + 2. * np.linalg.norm(u - v, axis=-1)**2 /\
 	((1. - np.linalg.norm(u, axis=-1)**2) * (1. - np.linalg.norm(v, axis=-1)**2)))
-	# return np.linalg.norm(u - v, axis=-1)
-
-# def perform_prediction(G_neighbours, X, idx, predictor, neighbourhood_sample_sizes, batch_size, scale_data):
-# 	# neighbours = {n: sorted(list(G.neighbors(n))) for n in G.nodes()}
-# 	nodes_to_embed = np.array(idx).reshape(-1, 1)
-# 	assert nodes_to_embed.shape == (len(idx), 1)
-# 	neighbourhood_sample_list = get_neighbourhood_samples(nodes_to_embed, neighbourhood_sample_sizes, G_neighbours)
-# 	input_nodes = neighbourhood_sample_list[0]
-# 	num_steps = int((len(idx) + batch_size - 1) // batch_size)
-# 	input_x = []
-# 	for step in range(num_steps):
-# 		nodes = input_nodes[step * batch_size : (step + 1) * batch_size]
-# 		if sp.sparse.issparse(X):
-# 			x = X[nodes.flatten()].toarray()
-# 			assert not np.isnan(x).any()
-# 			if scale_data:
-# 				# print "scaling input data"
-# 				x = preprocess_data(x)
-# 				assert not np.isnan(x).any()
-# 			# x = x.reshape(-1, nodes.shape[1], 1, X.shape[-1])
-# 		else:
-# 			x = X[nodes]
-# 		x = x.reshape(-1, nodes.shape[1], 1, X.shape[-1])
-# 		input_x.append(x)
-# 	input_x = np.concatenate(input_x)
-# 	assert input_x.shape == (len(idx), input_nodes.shape[1], 1, X.shape[-1])
-
-# 	predictions = predictor.predict(input_x, batch_size=batch_size)
-# 	dim = predictions.shape[-1]
-# 	predictions = predictions.reshape(-1, dim)
-# 	assert predictions.shape == (len(idx), dim)
-
-# 	predictions = predictions.astype(np.float32)
-
-# 	return predictions
 
 
 class ValidationCallback(Callback):
@@ -96,19 +61,20 @@ class ValidationCallback(Callback):
 		if not isinstance(predictions, list):
 			predictions = [predictions]
 
-		num_label_prediction_layers = len(np.where(self.args.number_of_capsules_per_layer==self.Y.shape[1])[0])
+		# num_label_prediction_layers = len(np.where(self.args.number_of_capsules_per_layer==self.Y.shape[1])[0])
+		num_label_prediction_layers = len(self.args.number_of_capsules_per_layer)
 		label_predictions = predictions[:num_label_prediction_layers]
 		embeddings = predictions[num_label_prediction_layers:-1]
 		reconstruction = predictions[-1]
 
 		for layer, prediction in enumerate(label_predictions):
 
+			# _, prediction = np.split(prediction, 2, axis=-1)
 			print ("Evaluating label predictions of layer {}".format(layer))
 			print (prediction)
 
-			margin_loss, f1_micro, f1_macro, NMI, classification_accuracy = self.evaluate_class_predictions(prediction)
-			logs.update({"margin_loss_layer_{}".format(layer): margin_loss, 
-				"f1_micro_layer_{}".format(layer): f1_micro, 
+			f1_micro, f1_macro, NMI, classification_accuracy = self.evaluate_class_predictions(prediction)
+			logs.update({"f1_micro_layer_{}".format(layer): f1_micro, 
 				"f1_macro_layer_{}".format(layer): f1_macro, 
 				"NMI_layer_{}".format(layer): NMI, 
 				"classification_accuracy_layer_{}".format(layer): classification_accuracy})
@@ -116,7 +82,8 @@ class ValidationCallback(Callback):
 		for layer, embedding in enumerate(embeddings): # ?
 
 			print ("Evaluating embedding at layer {}".format(layer))
-			print (embedding)
+			# print (embedding)
+			
 			mean_rank_reconstruction, mean_precision_reconstruction =\
 				self.evaluate_rank_and_MAP(embedding, self.all_edges_dict)
 			logs.update({"mean_rank_reconstruction_layer_{}".format(layer) : mean_rank_reconstruction, 
@@ -132,8 +99,8 @@ class ValidationCallback(Callback):
 				logs.update({"lex_r_{}".format(layer) : r, "lex_p_{}".format(layer) : p})
 			
 			# distortion = self.evaluate_distortion(embedding)
-			distortion = "none"
-			logs.update({"distortion_{}".format(layer): distortion})
+			distortion = 0.
+			# logs.update({"distortion_{}".format(layer): distortion})
 
 			if epoch is not None:
 				self.save_embedding(embedding, path="{}/embedding_epoch_{:04}_layer_{}.npy".format(self.args.embedding_path, epoch, layer))
@@ -280,20 +247,20 @@ class ValidationCallback(Callback):
 		print ("PREDICTED LABELS")
 		print(predicted_labels)
 
-		margin_loss = np.mean(np.sum(val_Y * np.square(np.maximum(0., 0.9 - predictions)) + \
-        0.5 * (1 - val_Y) * np.square(np.maximum(0., predictions - 0.1)), axis=-1))
+		# margin_loss = np.mean(np.sum(val_Y * np.square(np.maximum(0., 0.9 - predictions)) + \
+  #       0.5 * (1 - val_Y) * np.square(np.maximum(0., predictions - 0.1)), axis=-1))
 
 		f1_micro = f1_score(true_labels, predicted_labels, average="micro")
 		f1_macro = f1_score(true_labels, predicted_labels, average="macro")
 		NMI = normalized_mutual_info_score(true_labels, predicted_labels)
 		classification_accuracy = accuracy_score(true_labels, predicted_labels, normalize=True)
 
-		print ("margin_loss={}".format(margin_loss))
+		# print ("margin_loss={}".format(margin_loss))
 		print ("f1_micro={}, f1_macro={}".format(f1_micro, f1_macro))
 		print ("NMI of predictions: {}".format(NMI))
 		print ("Classification accuracy: {}".format(classification_accuracy))
 		
-		return margin_loss, f1_micro, f1_macro, NMI, classification_accuracy
+		return f1_micro, f1_macro, NMI, classification_accuracy
 
 # class ReconstructionLinkPredictionCallback(Callback):
 

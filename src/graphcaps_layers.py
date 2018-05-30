@@ -13,7 +13,8 @@ from keras.regularizers import l2
 from keras.initializers import RandomUniform
 reg = 1e-30
 
-from tensorflow.contrib.distributions.python.ops.relaxed_onehot_categorical import RelaxedOneHotCategorical
+from tensorflow.contrib.distributions import Bernoulli
+# from tensorflow.contrib.distributions.python.ops.relaxed_onehot_categorical import RelaxedOneHotCategorical
 
 # min_norm = np.nextafter(0, 1, dtype=K.floatx())
 max_norm = np.nextafter(1, 0, dtype=K.floatx())
@@ -32,12 +33,11 @@ class Length(layers.Layer):
 	
 	Author: Xifeng Guo, E-mail: `guoxifeng1990@163.com`, Github: `https://github.com/XifengGuo/CapsNet-Keras`
 	"""
-	def __init__(self, **kwargs):
-		super(Length, self).__init__(**kwargs)
+	# def __init__(self, **kwargs):
+	# 	super(Length, self).__init__(**kwargs)
 
 	def call(self, inputs):
-		outputs = K.sqrt(K.sum(K.square(inputs), axis=-1))
-		# return K.clip(outputs, min_value=K.epsilon(), max_value=1-K.epsilon())
+		outputs = K.sqrt(K.sum(K.square(inputs), axis=-1) + 1e-7)
 		return outputs
 
 	def compute_output_shape(self, input_shape):
@@ -54,7 +54,7 @@ def squash(vectors, axis=-1):
 	s_squared_norm = K.sum(K.square(vectors), axis, keepdims=True)# + 1e-32
 	scale = s_squared_norm / (1 + s_squared_norm) #(K.sqrt(s_squared_norm  )))
 	scale = tf.clip_by_value(scale, min_norm, max_norm)
-	s_norm = K.clip(K.sqrt(s_squared_norm), min_value=min_norm, max_value=max_  )
+	s_norm = K.clip(K.sqrt(s_squared_norm + 1e-7), min_value=min_norm, max_value=max_  )
 	outputs = scale * vectors / s_norm
 	# outputs = K.clip(outputs, min_value=min_norm, max_value=max_norm)
 	return outputs
@@ -65,7 +65,7 @@ def embedding_function(vectors, axis=-1):
 	"""
 
 	output = vectors
-	# output = -K.log(output)
+	output = K.log(output / (1 - output))
 
 	return squash(output, axis=axis)
 
@@ -181,29 +181,15 @@ class NeighbourhoodSamplingLayer(layers.Layer):
 
 		inputs, adj_input = inputs
 
-		# nodes = K.arange(K.shape(inputs)[0])
-		# nodes = K.reshape(nodes, [-1, 1])
 		nodes = adj_input[:,:1]
 		adj_input = adj_input[:,1:]
-		# print nodes.shape
-		# neighbour_samples = K.concatenate([[tf.random_shuffle(n)[:self.sample_size]] for n in self.neighbours], axis=0)
-		# print neighbour_samples.shape
 		neighbour_samples = K.transpose(adj_input)
 		neighbour_samples = tf.random_shuffle(neighbour_samples)
 		neighbour_samples = neighbour_samples[:self.sample_size]
 		neighbour_samples = K.transpose(neighbour_samples)
 		ids = K.concatenate([nodes, neighbour_samples])
 		ids = K.cast(ids, tf.int32)
-		# ids = K.map_fn(lambda x : tf.random_shuffle(x)[:self.sample_size], 
-		# 	elems=self.neighbours)
 		X = tf.nn.embedding_lookup(params=inputs, ids=ids)
-
-		# print X.shape
-		# raise SystemExit
-		# print K.reshape(X, [-1, (self.sample_size+1)*self.num_input_caps,
-		# 	self.num_caps, self.cap_dim]).shape
-		# raise SystemExit
-
 		return K.reshape(X, [-1, (self.sample_size+1)*self.num_input_caps,
 			self.num_caps, self.cap_dim])
 
@@ -274,6 +260,36 @@ class DynamicRoutingLayer(layers.Layer):
 		# output shape is [None, num_caps, cap_dim]
 		return input_shape[0], input_shape[2], input_shape[3]
 
+class ProbabilisticMask(layers.Layer):
+	"""
+	Mask a Tensor with shape=[None, num_capsule, dim_vector] either by the capsule with max length or by an additional 
+	input mask. Except the max-length capsule (or specified capsule), all vectors are masked to zeros. Then flatten the
+	masked Tensor.
+	For example:
+		```
+		x = keras.layers.Input(shape=[8, 3, 2])  # batch_size=8, each sample contains 3 capsules with dim_vector=2
+		y = keras.layers.Input(shape=[8, 3])  # True labels. 8 samples, 3 classes, one-hot coding.
+		out = Mask()(x)  # out.shape=[8, 6]
+		# or
+		out2 = Mask()([x, y])  # out2.shape=[8,6]. Masked with true labels y. Of course y can also be manipulated.
+		```
+	"""
+	def call(self, inputs, **kwargs):
+
+		logits = K.log(inputs / (1 - inputs))
+		mask = K.one_hot(K.flatten(tf.multinomial(logits=logits, num_samples=1,)), 
+			num_classes=K.shape(inputs)[1])
+		
+		# dist = Bernoulli(probs=inputs)
+		# mask = dist.sample()
+		# mask = K.cast(mask, dtype=K.floatx())
+		# mask = K.expand_dims(mask, axis=-1)
+
+		return mask
+
+	def compute_output_shape(self, input_shape):
+		return tuple([None, input_shape[1]])
+
 class Mask(layers.Layer):
 	"""
 	Mask a Tensor with shape=[None, num_capsule, dim_vector] either by the capsule with max length or by an additional 
@@ -294,17 +310,16 @@ class Mask(layers.Layer):
 			inputs, mask = inputs
 		else:  # if no true label, mask by the max length of capsules. Mainly used for prediction
 			# compute lengths of capsules
-			x = K.sqrt(K.sum(K.square(inputs), axis=-1, keepdims=False))
+			x = K.sqrt(K.sum(K.square(inputs), axis=-1, keepdims=False) + 1e-7)
 			# print x.shape
 			# raise SystemExit
 			# generate the mask which is a one-hot code.
 			# mask.shape=[None, n_classes]=[None, num_capsule]
-			# mask = K.one_hot(indices=K.argmax(x, axis=1), num_classes=x.get_shape().as_list()[1])
-			# mask = K.expand_dims(mask, axis=-1)
-			x = K.log(x / (1-x))
+			mask = K.one_hot(indices=K.argmax(x, axis=1), num_classes=x.get_shape().as_list()[1])
+			# x = K.log(x / (1-x))
 			# mask = tf.nn.softmax(x, axis=1)
-			dist = RelaxedOneHotCategorical(logits=x, temperature=0.001)
-			mask = dist.sample()
+			# dist = RelaxedOneHotCategorical(logits=x, temperature=0.001)
+			# mask = dist.sample()
 			mask = K.expand_dims(mask, axis=-1)
 
 		# inputs.shape=[None, num_capsule, dim_capsule]
@@ -454,6 +469,147 @@ class AggGraphCapsuleLayer(layers.Layer):
 		# return lambda input_shape : tuple([input_shape[0], int(input_shape[1] / self.num_neighbours)] +\
 		#  [self.num_capsule, self.dim_capsule])
 		return tuple([input_shape[0], int(input_shape[1] / self.num_neighbours)] + [self.num_capsule, self.dim_capsule])
+
+
+def bias_initializer(shape, dtype=None):
+
+	x = K.random_normal(shape=shape, dtype=dtype)
+	x_norm = K.sqrt(K.sum(K.square(x), axis=-1, keepdims=True))
+	u = K.random_uniform(shape=(shape[0], 1), dtype=dtype)
+	return u ** (1./shape[1]) * x / x_norm
+
+
+class EmbeddingCapsuleLayer(layers.Layer):
+	"""
+	The capsule layer. It is similar to Dense layer. Dense layer has `in_num` inputs, each is a scalar, the output of the 
+	neuron from the former layer, and it has `out_num` output neurons. CapsuleLayer just expand the output of the neuron
+	from scalar to vector. So its input shape = [None, input_num_capsule, input_dim_capsule] and output shape = \
+	[None, num_capsule, dim_capsule]. For Dense Layer, input_dim_capsule = dim_capsule = 1.
+	
+	:param num_capsule: number of capsules in this layer
+	:param dim_capsule: dimension of the output vectors of the capsules in this layer
+	:param num_routing: number of iterations for the routing algorithm
+
+	Author: David McDonald, E-mail: `dxm237@cs.bham.ac.uk`, Github: `https://github.com/DavidMcDonald1993/capsnet_embedding.git`
+	"""
+	def __init__(self, embedding_dim, num_routing=3,
+				 kernel_initializer='glorot_uniform', 
+				 kernel_regularizer=reg, use_bias=False,
+				 **kwargs):
+		super(EmbeddingCapsuleLayer, self).__init__(**kwargs)
+		self.embedding_dim = embedding_dim
+		self.num_routing = num_routing
+		self.kernel_initializer = kernel_initializer#RandomUniform(minval=-1e-8, maxval=1e-8)#kernel_initializer
+		self.kernel_regularizer = kernel_regularizer
+		self.use_bias = use_bias
+
+	def build(self, input_shape):
+		assert len(input_shape) == 3, "The input Tensor should have shape=[None, input_num_capsule, input_dim_capsule]"
+
+		self.input_num_capsule = input_shape[1]
+		self.input_dim_capsule = input_shape[2]
+		
+		initializer = initializers.get(self.kernel_initializer)
+		# regularizer = regularizers.get(self.kernel_regularizer)
+		regularizer = l2(self.kernel_regularizer)
+
+		# Transform matrix
+		self.W = self.add_weight(shape=[self.input_num_capsule, self.input_dim_capsule,
+										self.embedding_dim],
+								 initializer=initializer,
+								 regularizer=regularizer,
+								 name='W')
+		if self.use_bias:
+			self.bias = self.add_weight(shape=[self.input_num_capsule, self.embedding_dim],
+									initializer=initializer,
+									# initializer=bias_initializer, 
+									regularizer=regularizer,
+									# trainable=False,
+									name="bias")
+
+		self.built = True
+
+	def get_config(self):
+		config = super(EmbeddingCapsuleLayer, self).get_config()
+		config.update({"embedding_dim":self.embedding_dim, "num_routing":self.num_routing, "use_bias": self.use_bias,
+			"kernel_initializer":self.kernel_initializer, "kernel_regularizer":self.kernel_regularizer})
+		return config
+
+	def _call(self, inputs):
+		# print inputs[:,0,:2].shape
+		# raise SystemExit
+		return inputs[:,0,:2]
+
+	def call(self, inputs):
+		# inputs.shape=[None, input_num_capsule, input_dim_capsule]
+
+		# inputs shape is [None, input_num_caps, input_cap_dim]
+		# batch_size = K.shape(inputs)[0]
+		# N = K.shape(inputs)[1]
+
+		inputs_hat = K.permute_dimensions(inputs, [1, 0, 2])
+		# shape is now [input num caps, None, input cap dim]
+		# W shape is [input num caps, input cap dim, embedding_dim]
+		inputs_hat = K.batch_dot(inputs_hat, self.W, axes=[2, 1])
+		# shape is now [input num caps, None, embedding_dim]
+		inputs_hat = K.permute_dimensions(inputs_hat, [1, 0, 2])
+		# shape is now [None, input num caps, embedding_dim]
+
+		if self.use_bias:
+			inputs_hat = K.bias_add(inputs_hat, self.bias)
+
+
+		# inputs_hat = K.permute_dimensions(inputs_hat, pattern=[0,2,1,])
+		# # shape is now [None, embedding_dim, num_input_caps]
+
+		
+		# Begin: Routing algorithm ---------------------------------------------------------------------#
+		# In forward pass, `inputs_hat_stopped` = `inputs_hat`;
+		# In backward, no gradient can flow from `inputs_hat_stopped` back to `inputs_hat`.
+		inputs_hat_stopped = K.stop_gradient(inputs_hat)
+		
+		# The prior for coupling coefficient, initialized as zeros.
+		# b.shape = [None, self.num_capsule, self.input_num_capsule].
+		# b = tf.zeros(shape=[batch_size, self.input_num_capsule])
+		probs = K.sqrt(K.sum(K.square(inputs), axis=-1, keepdims=False) + K.epsilon())
+		# probs = K.clip(probs, min_value=min_norm, max_value=max_norm)
+		b = K.log(probs / (1 - probs))
+
+
+		# assert self.num_routing > 0, 'The num_routing should be > 0.'
+		for i in range(self.num_routing):
+			# c.shape=[batch_size, input_num_capsule]
+			c = tf.nn.softmax(b, dim=1)
+
+			# At last iteration, use `inputs_hat` to compute `outputs` in order to backpropagate gradient
+			if i == self.num_routing - 1:
+				# c.shape =  [None, input_num_capsule]
+				# inputs_hat.shape=[None, input_num_capsule, embedding_dim]
+				# The first three dimensions as `batch` dimension,
+				# then matmal: [input_num_capsule] x [input_num_capsule, dim_capsule] -> [dim_capsule].
+				# outputs.shape=[None, embedding_dim]
+
+				outputs = squash(K.batch_dot(c, inputs_hat, axes=[1, 1]))  
+				# outputs = K.batch_dot(c, inputs_hat, axes=[2, 2])
+			else:  # Otherwise, use `inputs_hat_stopped` to update `b`. No gradients flow on this path.
+				outputs = squash(K.batch_dot(c, inputs_hat_stopped, axes=[1, 1]))
+				# outputs.shape =  [None, embedding_dim]
+				# inputs_hat.shape=[None, input_num_capsule, embedding_dim]
+				# The first two dimensions as `batch` dimension,
+				# then matmal: [dim_capsule] x [input_num_capsule, dim_capsule]^T -> [input_num_capsule].
+				# b.shape=[None, input_num_capsule]
+				b += K.batch_dot(outputs, inputs_hat_stopped, axes=[1,2]) 
+		# End: Routing algorithm -----------------------------------------------------------------------#
+
+		# outputs = K.reshape(outputs, 
+		# 	shape=tf.stack([batch_size, -1, self.num_capsule, self.dim_capsule]) )
+
+		return outputs
+
+	def compute_output_shape(self, input_shape):
+		# return lambda input_shape : tuple([input_shape[0], int(input_shape[1] / self.num_neighbours)] +\
+		#  [self.num_capsule, self.dim_capsule])
+		return input_shape[0], self.embedding_dim
 
 # class GraphCapsuleLayer(layers.Layer):
 # 	"""

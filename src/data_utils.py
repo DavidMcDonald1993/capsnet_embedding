@@ -15,20 +15,25 @@ from sklearn.preprocessing import StandardScaler
 def pad_neighbours(G, sample_sizes):
 	assert isinstance(sample_sizes, list)
 	def extend_l(l, n):
-		ex_l = l[:]
-		while len(ex_l) < n:
-			ex_l.append(np.random.choice(l))
-		return ex_l
+		# ex_l = np.array(l)
+		# while len(ex_l) < n:
+		# 	ex_l.append(np.random.choice(l))
+		# return ex_l
+		return np.append(l, np.random.choice(l, size=n-len(l)))
 	neighbours = [list(G.neighbors(n)) for n in G.nodes()]
 	size = max(sample_sizes + [len(l) for l in neighbours])
 	print ("padding neighbours to length: {} with random uniform selection".format(size))
-	neighbours = [[n] + extend_l(nl, size) for n, nl in enumerate(neighbours)]
-	neighbours = np.array(neighbours)
+	# neighbours = [[n] + extend_l(nl, size) for n, nl in enumerate(neighbours)]
+	neighbours = np.row_stack([np.append(n, extend_l(nl, size)) for n, nl in enumerate(neighbours)])
+	# neighbours = np.array(neighbours)
 	print ("DONE padding")
+	# print neighbours.shape
 	# for u, V in zip(neighbours[:,0], neighbours[:,1:]):
 	# 	for v in V:
 	# 		assert (u, v) in G.edges() or (v, u) in G.edges()
 	print ("completed padding check")
+	# raise SystemExit
+
 	return neighbours
 
 
@@ -70,10 +75,10 @@ def load_data(dataset, sample_sizes):
 		# G_train_neighbours, G_val_neighbours, G_test_neighbours,\
 		# X_train, X_val, X_test,  Y, positive_samples, ground_truth_negative_samples,\
 		# val_edges, test_edges, train_label_idx, val_label_idx, test_label_idx = load_wordnet(sample_sizes)
-	# elif dataset == "wordnet_attributed":
-		# G_train_neighbours, G_val_neighbours, G_test_neighbours,\
-		# X_train, X_val, X_test,  Y, positive_samples, ground_truth_negative_samples,\
-		# val_edges, test_edges, train_label_idx, val_label_idx, test_label_idx = load_wordnet_attributed(sample_sizes)
+	elif dataset == "wordnet_attributed":
+		G_train_neighbours, G_val_neighbours, G_test_neighbours,\
+		X_train, X_val, X_test,  Y, positive_samples, ground_truth_negative_samples,\
+		val_edges, test_edges, train_label_idx, val_label_idx, test_label_idx = load_wordnet_attributed(sample_sizes)
 	
 	elif dataset in ["citeseer", "cora", "pubmed"]:
 		G_train_neighbours, G_val_neighbours, G_test_neighbours,\
@@ -272,10 +277,10 @@ def load_karate(sample_sizes):
 	# identity features
 	N = len(G)
 	# X = sp.sparse.identity(N, format="csr")
-	X = np.genfromtxt("../data/karate/feats.csv", delimiter=",")
-	# X = preprocess_data(X)
-	scaler = StandardScaler()
-	X = scaler.fit_transform(X)
+	X = np.identity(N)
+	# X = np.genfromtxt("../data/karate/feats.csv", delimiter=",")
+	# scaler = StandardScaler()
+	# X = scaler.fit_transform(X)
 	X_train, X_val, X_test = [X] * 3
 
 
@@ -302,7 +307,6 @@ def load_karate(sample_sizes):
 	G_train = G
 	G_val = G
 	G_test = G
-	# all_edges = G_train.edges()
 	G_train_neighbours = pad_neighbours(G_train, sample_sizes)
 	G_val_neighbours = G_train_neighbours
 	G_test_neighbours = G_train_neighbours

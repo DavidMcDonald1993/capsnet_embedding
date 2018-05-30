@@ -6,20 +6,22 @@ from pandas import Index
 
 import tensorflow as tf
 from keras import backend as K
-from keras.callbacks import TerminateOnNaN, EarlyStopping, ModelCheckpoint, CSVLogger
+from keras.callbacks import TerminateOnNaN, EarlyStopping, ModelCheckpoint, CSVLogger, TensorBoard
 
 import argparse
 import os
 # import pickle as pkl
 
 from models import load_graphcaps#, generate_graphcaps_model
-from generators import training_generator#neighbourhood_sample_generator
+from generators import training_generator, get_training_sample#neighbourhood_sample_generator
 # from data_utils import load_karate, load_wordnet, load_collaboration_network, load_data_gcn, load_reddit
 from data_utils import load_data#, preprocess_data
 # from utils import load_positive_samples_and_ground_truth_negative_samples#, load_walks#, ValidationCallback
 # from metrics import evaluate_lexical_entailment#evaluate_link_prediction, make_and_evaluate_label_predictions, evaluate_lexical_entailment
 # from callbacks import ReconstructionLinkPredictionCallback, LabelPredictionCallback
 from callbacks import ValidationCallback
+
+np.set_printoptions(suppress=True)
 
 # Set random seed
 seed = 0
@@ -33,7 +35,7 @@ config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
  
 # Only allow a total of half the GPU memory to be allocated
-# config.gpu_options.per_process_gpu_memory_fraction = 0.5
+config.gpu_options.per_process_gpu_memory_fraction = 0.75
 
 # config.allow_soft_placement = True
 # config.log_device_placement=True
@@ -60,6 +62,19 @@ def parse_args():
 		help="Use this flag to not include loss from intermediary hyperbolic embeddings in final loss function.")
 	parser.add_argument("--no-embedding-loss", action="store_true", 
 		help="Use this flag to not include loss from all hyperbolic embeddings in final loss function.")
+	parser.add_argument("--no-reconstruction", action="store_true", 
+		help="Use this flag to not include loss from reconstruction in loss function.")
+	
+	parser.add_argument('--feature_prob_loss_weight', dest="feature_prob_loss_weight", 
+		type=float, default=1e-0, 
+		help="Weighting of feature prob loss (default is 1.).")
+	parser.add_argument('--embedding_loss_weight', dest="embedding_loss_weight", 
+		type=float, default=1e-2, 
+		help="Weighting of embedding loss (default is 1.).")
+	parser.add_argument('--reconstruction_loss_weight', dest="reconstruction_loss_weight", 
+			type=float, default=0.0005, 
+			help="Weighting of reconstruction loss (default is 0.0005).")
+
 	parser.add_argument("--scale_data", action="store_true", 
 		help="Use this flag to standard scale input data.")
 
@@ -73,6 +88,8 @@ def parse_args():
 		help="The number of epochs to train for (default is 10000).")
 	parser.add_argument("-b", "--batch_size", dest="batch_size", type=int, default=100, 
 		help="Batch size for training (default is 100).")
+	parser.add_argument("--num_steps", dest="num_steps", type=int, default=1000, 
+		help="Number of batch steps per epoch for training (default is 1000).")
 	parser.add_argument("--nneg", dest="num_negative_samples", type=int, default=10, 
 		help="Number of negative samples for training (default is 10).")
 	parser.add_argument("--context-size", dest="context_size", type=int, default=5,
@@ -96,10 +113,10 @@ def parse_args():
 		help="Dimension of capule output for each layer separated by a space (default is [8, 2]).", default=[8, 2])
 	parser.add_argument("--num_routing", dest="num_routing", type=int,
 		help="Number of iterations of routing algorithm (default is 3).", default=3)
-	parser.add_argument("--dim", dest="embedding_dim", type=int,
-		help="Dimension of embedding capsule (default is 10).", default=10)
+	parser.add_argument("--dim", dest="embedding_dims", type=int, nargs="+",
+		help="Dimension of embeddings for each layer (default is [10]).", default=[10])
 
-	parser.add_argument("-p", dest="p", type=float, default=1.,
+	parser.add_argument("-p", dest="p", type=float, default=1,
 		help="node2vec return parameter (default is 1.).")
 	parser.add_argument("-q", dest="q", type=float, default=1.,
 		help="node2vec in-out parameter (default is 1.).")
@@ -108,9 +125,10 @@ def parse_args():
 	parser.add_argument('--walk-length', dest="walk_length", type=int, default=15, 
 		help="Length of random walk from source (default is 15).")
 	
-	parser.add_argument('--reconstruction_loss', dest="reconstruction_loss", 
-		type=float, default=0.0005, 
-		help="Weighting of reconstruction loss (default is 0.0005).")
+	
+	parser.add_argument('--reconstruction_dim', dest="reconstruction_dim", 
+		type=int, default=512, 
+		help="Number of hidden units for reconstrction model (default is 512).")
 	
 
 	parser.add_argument("--plot", dest="plot_path", default="../plots/", 
@@ -119,6 +137,8 @@ def parse_args():
 		help="path to save embeddings (default is '../embeddings/)'.")
 	parser.add_argument("--logs", dest="log_path", default="../logs/", 
 		help="path to save logs (default is '../logs/)'.")
+	parser.add_argument("--boards", dest="board_path", default="../tensorboards/", 
+		help="path to save tensorboards (default is '..tensorboards/)'.")
 	parser.add_argument("--walks", dest="walk_path", default="../walks/", 
 		help="path to save random walks (default is '../walks/)'.")
 	parser.add_argument("--model", dest="model_path", default="../models/", 
@@ -134,14 +154,14 @@ def fix_parameters(args):
 	'''
 	dataset = args.dataset
 
-	if dataset in ["cora", "karate"]:
+	if dataset in ["cora", "karate", "wordnet_attributed"]:
 
 		# args.num_walks = 25
 		# args.walk_length = 2
 		args.context_size = 3
 
 
-		args.neighbourhood_sample_sizes = [5 , ]
+
 		# args.num_primary_caps_per_layer = [16, ]
 		# args.num_filters_per_layer = [ 1, ]
 		# args.agg_dim_per_layer = [8, ]
@@ -151,34 +171,45 @@ def fix_parameters(args):
 
 		if dataset == "cora":
 
+			args.neighbourhood_sample_sizes = [0 , ]
 			args.num_negative_samples = 10
 
 			num_classes = 7
 			args.scale_data = True
 			# args.use_labels = True
-			args.num_primary_caps = 1
-			args.primary_cap_dim = 512
-		else:
+			args.num_primary_caps = 64
+			args.primary_cap_dim = 8
 
+
+			args.embedding_dims = [2,  ]
+
+
+
+			args.number_of_capsules_per_layer = [8, ]
+			args.capsule_dim_per_layer = [ 16, ]
+
+		else:
+			args.neighbourhood_sample_sizes = [0, ]
 			args.num_negative_samples = 10
 
 			num_classes = 4
 			args.scale_data = True
 			# args.use_labels = True
-			args.num_primary_caps = 1
+			args.num_primary_caps = 32
 			args.primary_cap_dim = 8
 
+			args.reconstruction_dim = 32
 
-		args.number_of_capsules_per_layer = [ num_classes, ]
-		args.capsule_dim_per_layer = [16, ]
+			args.embedding_dims = [2,  ]
+
+
+			args.number_of_capsules_per_layer = [4, ]
+			args.capsule_dim_per_layer = [ 16, ]
 
 		return 
 
 
 	args.neighbourhood_sample_sizes = [5, 5]
-	# args.num_primary_caps_per_layer = [16, 16]
-	# args.num_filters_per_layer = [16, 16]
-	# args.agg_dim_per_layer = [16, 8]
 	args.batch_size = 100
 
 
@@ -209,8 +240,10 @@ def configure_paths(args):
 	'''
 
 	dataset = args.dataset
-	directory = "neighbourhood_sample_sizes={}_num_primary_caps={}_primary_cap_dim={}_num_caps={}_caps_dim={}".format(args.neighbourhood_sample_sizes, 
-				args.num_primary_caps, args.primary_cap_dim, args.number_of_capsules_per_layer, args.capsule_dim_per_layer)
+	directory = "neighbourhood_sample_sizes={}_num_primary_caps={}_primary_cap_dim={}_num_caps={}_caps_dim={}_embedding_dims={}".format(args.neighbourhood_sample_sizes, 
+				args.num_primary_caps, args.primary_cap_dim, 
+				args.number_of_capsules_per_layer, args.capsule_dim_per_layer, 
+				args.embedding_dims)
 	if args.no_embedding_loss:
 		directory = "no_embedding_loss_" + directory
 	elif args.no_intermediary_loss:
@@ -238,6 +271,19 @@ def configure_paths(args):
 		os.makedirs(args.log_path)
 	args.log_path = os.path.join(args.log_path, directory + ".log")
 
+	args.board_path = os.path.join(args.board_path, dataset)
+	if not os.path.exists(args.board_path):
+		os.makedirs(args.board_path)
+	args.board_path = os.path.join(args.board_path, directory)
+	if not os.path.exists(args.board_path):
+		os.makedirs(args.board_path)
+	
+
+	# args.log_path = os.path.join(args.log_path, directory)
+	# print args.log_path, args.logger_path
+	# raise SystemExit
+
+
 	args.walk_path = os.path.join(args.walk_path, dataset)
 	if not os.path.exists(args.walk_path):
 		os.makedirs(args.walk_path)
@@ -258,27 +304,6 @@ def record_initial_losses(model, validation_callback, training_gen, args):
 	print ("recording losses before training begins")
 
 	initial_losses = validation_callback.evaluate(None)
-
-	# if (args.number_of_capsules_per_layer == num_classes).any():
-	# 	margin_loss, f1_micro, f1_macro, NMI, classification_accuracy =\
-	# 	label_prediction_callback.make_and_evaluate_label_predictions()
-	# 	initial_losses.update({"margin_loss": margin_loss, "f1_micro": f1_micro, "f1_macro": f1_macro, 
-	# 			"NMI": NMI, "classification_accuracy": classification_accuracy})
-
-	# embedding = reconstruction_callback.perform_embedding()
-	# mean_rank_reconstruction, mean_precision_reconstruction =\
-	# 	reconstruction_callback.evaluate_rank_and_MAP(embedding, reconstruction_callback.all_edges_dict)
-	# initial_losses.update({"mean_rank_reconstruction" : mean_rank_reconstruction, 
-	# 	"mean_precision_reconstruction" : mean_precision_reconstruction,})
-	# if reconstruction_callback.removed_edges_dict is not None:
-	# 	mean_rank_link_prediction, mean_precision_link_prediction =\
-	# 	reconstruction_callback.evaluate_rank_and_MAP(embedding, reconstruction_callback.removed_edges_dict)
-	# 	initial_losses.update({"mean_rank_link_prediction": mean_rank_link_prediction,
-	# 		"mean_precision_link_prediction": mean_precision_link_prediction})
-
-	# if args.dataset in ["wordnet", "wordnet_attributed"]:
-	# 	r, p = reconstruction_callback.evaluate_lexical_entailment(embedding)
-	# 	initial_losses.update({"lex_r" : r, "lex_p" : p})
 
 	print ("evaluating model on one step of training generator")
 	evaluations = model.evaluate_generator(training_gen, steps=1)
@@ -317,35 +342,16 @@ def main():
 	X_train, X_val, X_test, Y, positive_samples, ground_truth_negative_samples,\
 	val_edges, test_edges,\
 	train_idx, val_idx, test_idx = load_data(dataset, args.neighbourhood_sample_sizes)
-	# val_label_idx = None
-	# test_label_idx = None
-
-	# if sp.sparse.issparse(X):
-	# 	X = X.A
-	# if args.scale_data:
-	# 	X = preprocess_data(X)
+	
 	if sp.sparse.issparse(Y):
 		Y = Y.A
 
-	# neighbours_G_train = {n: list(G_train.neighbors(n)) for n in G_train.nodes()}
-	# neighbours_G_train = pad_neighbours(neighbours_G_train, args.neighbourhood_sample_sizes)
-
-	# print neighbours_G_train
-	# for n in neighbours_G_train:
-	# 	print n, len(neighbours_G_train[n])
-	# raise SystemExit 
 
 	neighbourhood_sample_sizes = np.array(args.neighbourhood_sample_sizes[::-1])
-	# num_primary_caps_per_layer = np.array(args.num_primary_caps_per_layer)
-	# num_filters_per_layer = np.array(args.num_filters_per_layer)
-	# agg_dim_per_layer = np.array(args.agg_dim_per_layer)
 	number_of_capsules_per_layer = np.array(args.number_of_capsules_per_layer)
 	capsule_dim_per_layer = np.array(args.capsule_dim_per_layer)
 
 	args.neighbourhood_sample_sizes = neighbourhood_sample_sizes
-	# args.num_primary_caps_per_layer = num_primary_caps_per_layer
-	# args.num_filters_per_layer = num_filters_per_layer
-	# args.agg_dim_per_layer = agg_dim_per_layer
 	args.number_of_capsules_per_layer = number_of_capsules_per_layer
 	args.capsule_dim_per_layer = capsule_dim_per_layer
 
@@ -376,18 +382,13 @@ def main():
 		print ("Only precomputing walks -- terminating")
 		return
 
-
-
 	if not args.test_only:
 
+		# train_input, train_output = get_training_sample(X_train, Y, G_train_neighbours, train_idx,
+		# 	positive_samples[:len(X_train)], ground_truth_negative_samples, args)
 		training_gen = training_generator(X_train, Y, G_train_neighbours, train_idx, 
 			positive_samples, ground_truth_negative_samples,
 			args)
-
-		# training_generator.next()
-
-		# raise SystemExit
-
 
 		# generates / loads a graph caps model according the args passed in from the command line
 		# will load a model if an existing model exists on ther system with the same specifications
@@ -395,35 +396,37 @@ def main():
 
 		patience = args.patience
 
+		# validation data -- for tensorboard
+		val_input, val_output = get_training_sample(X_val, Y, G_val_neighbours, val_idx,
+			positive_samples[:len(X_val)], ground_truth_negative_samples, args)
+
 		# callbacks
 		nan_terminate_callback = TerminateOnNaN()
 		validation_callback = ValidationCallback(G_val_neighbours, X_val, Y, model,
 		positive_samples, val_edges, ground_truth_negative_samples, 
 		train_idx, val_idx, args,)
-		# reconstruction_callback = ReconstructionLinkPredictionCallback(G_train, X, Y, embedder,
-		# 	all_edges, val_edges, ground_truth_negative_samples, 
-		# 	args.embedding_path, args.plot_path, args, neighbours_G_train)
-		# label_prediction_callback = LabelPredictionCallback(G_val, X, Y, 
-		# 	label_prediction_model, val_label_idx, args, neighbours_G_train)
 		early_stopping_callback = EarlyStopping(monitor=monitor, patience=patience, mode=mode, verbose=1)
 		reload_callback = ModelCheckpoint(os.path.join(args.model_path, 
 			"{epoch:04d}.h5"), save_weights_only=False)
 		best_model_callback = ModelCheckpoint(os.path.join(args.model_path, "best_model.h5"),
 			monitor=monitor, mode=mode, save_weights_only=False, save_best_only=True, verbose=1)
+
+		# print args.log_path
+		# raise SystemExit
+
+		tensorboard_callback = TensorBoard(log_dir=args.board_path, 
+			histogram_freq=1, write_grads=True, write_images=True, batch_size=X_val.shape[0])
 		logger_callback = CSVLogger(args.log_path, append=True)
 
 		callbacks = [
 			nan_terminate_callback, 
-
-			# label_prediction_callback, 
-			# reconstruction_callback, 
 			validation_callback,
 			# early_stopping_callback, 
-			reload_callback, best_model_callback, logger_callback
+			reload_callback, 
+			best_model_callback, 
+			logger_callback,
+			tensorboard_callback
 		]
-
-		# print patience, monitor, mode
-		# raise SystemExit
 
 		if initial_epoch == 0:
 			record_initial_losses(model, validation_callback, training_gen, args)
@@ -433,12 +436,14 @@ def main():
 
 		# num_steps = int((len(positive_samples) // args.num_walks + args.batch_size - 1) // args.batch_size)
 		# num_steps = int((len(positive_samples) + args.batch_size - 1) // args.batch_size)
-		num_steps = 1000
+		# num_steps = args.num_steps
 		model.fit_generator(training_gen, 
-			steps_per_epoch=num_steps,
+			steps_per_epoch=args.num_steps,
+		# model.fit(train_input, train_output, batch_size=len(X_train),
 			epochs=args.num_epochs, 
 			initial_epoch=initial_epoch,
 			verbose=1,
+			validation_data=[val_input, val_output],
 			callbacks=callbacks)
 
 		print ("TRAINING COMPLETE")
@@ -455,29 +460,6 @@ def main():
 	testing_results = testing_callback.evaluate(None)
 	for k, v in testing_results.items():
 		print (k, v)
-
-	# if (args.number_of_capsules_per_layer == Y.shape[1]).any():
-	# 	label_prediction_testing_callback = LabelPredictionCallback(G_test, X, Y, 
-	# 		label_prediction_model, test_label_idx, args, neighbours_G_train)
-	# 	margin_loss, f1_micro, f1_macro, NMI, classification_accuracy =\
-	# 	label_prediction_testing_callback.make_and_evaluate_label_predictions()
-
-	# reconstruction_testing_callback = ReconstructionLinkPredictionCallback(G_train, X, Y, embedder,
-	# 	all_edges, test_edges, ground_truth_negative_samples, args.embedding_path, args.plot_path, args, neighbours_G_train)
-
-	# embedding = reconstruction_testing_callback.perform_embedding()
-	# mean_rank_reconstruction, mean_precision_reconstruction =\
-	# 	reconstruction_testing_callback.evaluate_rank_and_MAP(embedding, reconstruction_testing_callback.all_edges_dict)
-	# print ("Mean rank reconstruction:", mean_rank_reconstruction, 
-	# 	"MAP reconstruction:", mean_precision_reconstruction)
-	# if test_edges is not None:
-	# 	mean_rank_link_prediction, mean_precision_link_prediction =\
-	# 		reconstruction_testing_callback.evaluate_rank_and_MAP(embedding, reconstruction_testing_callback.removed_edges_dict)
-	# 	print ("Mean rank link predicion:",mean_rank_link_prediction,
-	# 	 "MAP link prediction:", mean_precision_link_prediction)
-
-	# if dataset in ["wordnet", "wordnet_attributed"]:
-	# 	r, p = reconstruction_testing_callback.evaluate_lexical_entailment(embedding, dataset)
 
 if __name__  == "__main__":
 	main()
