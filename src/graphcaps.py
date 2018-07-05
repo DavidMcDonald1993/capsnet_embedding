@@ -38,7 +38,7 @@ config.gpu_options.allow_growth = True
 config.gpu_options.per_process_gpu_memory_fraction = 0.75
 
 # config.allow_soft_placement = True
-# config.log_device_placement=True
+config.log_device_placement=True
 
 # Create a session with the above options specified.
 K.tensorflow_backend.set_session(tf.Session(config=config))
@@ -430,7 +430,7 @@ def main():
 
 		if initial_epoch == 0:
 			record_initial_losses(model, validation_callback, training_gen, args)
-
+		raise SystemExit
 		
 		print ("BEGIN TRAINING")
 
