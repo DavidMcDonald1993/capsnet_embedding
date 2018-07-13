@@ -64,6 +64,18 @@ config.allow_soft_placement=True
 # Create a session with the above options specified.
 K.tensorflow_backend.set_session(tf.Session(config=config))
 
+def create_second_order_topology_graph(topology_graph, args):
+
+	adj = nx.adjacency_matrix(topology_graph).A
+	adj_sim = cosine_similarity(adj)
+	adj_sim -= np.identity(len(topology_graph))
+	adj_sim [adj_sim  < args.rho] = 0
+	second_order_topology_graph = nx.from_numpy_matrix(adj_sim)
+
+	print "Created second order topology graph graph with {} edges".format(len(second_order_topology_graph.edges()))
+
+	return second_order_topology_graph
+
 
 def create_feature_graph(features, args):
 
@@ -89,7 +101,7 @@ def load_karate():
 	labels = label_df.iloc[:,0].values
 
 	topology_graph = nx.convert_node_labels_to_integers(topology_graph, label_attribute="original_name")
-	nx.set_edge_attributes(G=topology_graph, name="weight", values=1)
+	nx.set_edge_attributes(G=topology_graph, name="weight", values=1.)
 
 
 	# node2vec_graph = Graph(nx_G=G, is_directed=False, p=1, q=1)
@@ -171,7 +183,7 @@ def load_labelled_attributed_network(dataset_str, scale=True):
 
 	topology_graph = nx.from_numpy_matrix(adj.toarray())
 	topology_graph = nx.convert_node_labels_to_integers(topology_graph, label_attribute="original_name")
-	nx.set_edge_attributes(G=topology_graph, name="weight", values=1)
+	nx.set_edge_attributes(G=topology_graph, name="weight", values=1.)
 
 	# node2vec_graph = Graph(nx_G=G, is_directed=False, p=1, q=1)
 	# node2vec_graph.preprocess_transition_probs()
@@ -211,9 +223,9 @@ def get_training_sample(batch_positive_samples, negative_samples, num_negative_s
 		np.random.choice(negative_samples[u], 
 		replace=True, size=(num_negative_samples,), p=probs[u])
 		for u in input_nodes
-	], dtype=np.float32)
+	], dtype=K.floatx())
 	batch_nodes = np.append(batch_positive_samples, batch_negative_samples, axis=1)
-	return batch_nodes, np.zeros(list(batch_nodes.shape) + [1], dtype=np.float32)
+	return batch_nodes, np.zeros(list(batch_nodes.shape) + [1], dtype=K.floatx())
 
 
 def training_generator(positive_samples, negative_samples, probs,
@@ -227,7 +239,8 @@ def training_generator(positive_samples, negative_samples, probs,
 
 		for step in range(num_steps):
 
-			batch_positive_samples = np.array(positive_samples[step * batch_size : (step + 1) * batch_size])
+			batch_positive_samples = np.array(
+				positive_samples[step * batch_size : (step + 1) * batch_size])
 			training_sample = get_training_sample(batch_positive_samples, 
 												  negative_samples, num_negative_samples, probs)
 			yield training_sample
@@ -326,12 +339,12 @@ def hyperbolic_negative_sampling_loss(r, t):
 		d_uv = tf.acosh(-inner_uv)
 		out_uv = (r - d_uv ** 2) / t
 		pos_out_uv = out_uv[:,0]
-		neg_out_uv = -out_uv[:,1:]
+		neg_out_uv = out_uv[:,1:]
 		
 		pos_p_uv = tf.nn.sigmoid(pos_out_uv)
 		neg_p_uv = tf.nn.sigmoid(neg_out_uv)
 		
-		return -tf.reduce_mean(tf.log(pos_p_uv) + tf.reduce_sum(tf.log(neg_p_uv), axis=-1))
+		return -tf.reduce_mean(tf.log(pos_p_uv) + tf.reduce_sum(tf.log(1 - neg_p_uv), axis=-1))
 
 	return loss
 
@@ -349,7 +362,7 @@ def hyperbolic_sigmoid_loss(y_true, y_pred,):
 	pos_p_uv = tf.nn.sigmoid(pos_inner_uv)
 	neg_p_uv = tf.nn.sigmoid(neg_inner_uv)
 
-	return - tf.reduce_mean( tf.log( pos_p_uv ) + tf.reduce_mean( tf.log(neg_p_uv), axis=-1) )
+	return - tf.reduce_mean( tf.log( pos_p_uv ) + tf.reduce_sum( tf.log(neg_p_uv), axis=-1) )
 
 def hyperbolic_softmax_loss(y_true, y_pred,):
 
@@ -361,6 +374,18 @@ def hyperbolic_softmax_loss(y_true, y_pred,):
 
 	return - tf.reduce_mean(tf.log(tf.nn.softmax(inner_uv, axis=-1,)[:,0], ))
 
+def expectation_loss(y_true, y_pred):
+
+	u_emb = y_pred[:,0]
+	samples_emb = y_pred[:,1:]
+	
+	# inner_uv = K.concatenate([minkowski_dot(u_emb, samples_emb[:,j]) for j in range(samples_emb.shape[1])], axis=-1)
+	inner_uv = minkowski_dot(u_emb, samples_emb)
+
+	# minimuse expected difference of 
+
+	return - tf.reduce_mean( inner_uv[:,0]  -  tf.reduce_mean( inner_uv[:,1:], axis=-1)  )
+
 
 def hyperboloid_initializer(shape, r_max=1e-3):
 
@@ -371,11 +396,11 @@ def hyperboloid_initializer(shape, r_max=1e-3):
 			x = K.concatenate([x, t], axis=-1)
 		return 1 / (1 - K.sum(K.square(X), axis=-1, keepdims=True)) * x
 
-	def sphere_uniform_sample(shape, r_max=1):
+	def sphere_uniform_sample(shape, r_max=1e-3):
 		num_samples, dim = shape
-		X = tf.random_normal(shape=shape)
+		X = tf.random_normal(shape=shape, dtype=K.floatx())
 		X_norm = K.sqrt(K.sum(K.square(X), axis=-1, keepdims=True))
-		U = tf.random_uniform(shape=(num_samples, 1))
+		U = tf.random_uniform(shape=(num_samples, 1), dtype=K.floatx())
 		return r_max * U ** (1./dim) * X / X_norm
 
 	w = sphere_uniform_sample(shape, r_max=r_max)
@@ -424,12 +449,13 @@ class ExponentialMappingOptimizer(optimizer.Optimizer):
 		# self._lr_t = None
 
 	def _prepare(self):
-		self._lr_t = ops.convert_to_tensor(self._lr, name="learning_rate")
+		self._lr_t = ops.convert_to_tensor(self._lr, name="learning_rate", dtype=K.floatx())
 
 	def _apply_dense(self, grad, var):
 #         print "dense"
 		assert False
 		lr_t = math_ops.cast(self._lr_t, var.dtype.base_dtype)
+			# K.floatx())
 		spacial_grad = grad[:,:-1]
 		t_grad = -grad[:,-1:]
 		
@@ -459,11 +485,11 @@ class ExponentialMappingOptimizer(optimizer.Optimizer):
 	        t = tf.sqrt(1. + tf.reduce_sum(tf.square(x), axis=-1, keepdims=True))
 	        return tf.concat([x,t], axis=-1)
 
-	    norm_x = tf.sqrt( tf.maximum(0., minkowski_dot(x, x), name="maximum") )
+	    norm_x = tf.sqrt( tf.maximum(K.cast(0., K.floatx()), minkowski_dot(x, x), name="maximum") )
 	    #####################################################
 	    exp_map_p = tf.cosh(norm_x) * p
 	    
-	    idx = tf.where(norm_x > 0., )[:,0]
+	    idx = tf.where(norm_x > K.cast(0., K.floatx()), )[:,0]
 	    non_zero_norm = tf.gather(norm_x, idx)
 	    z = tf.gather(x, idx) / non_zero_norm
 
@@ -499,6 +525,12 @@ class ExponentialMappingOptimizer(optimizer.Optimizer):
 	    # exp_map = tf.cosh(norm_x) * y + tf.sinh(norm_x) * z
 	    #####################################################
 	    exp_map = adjust_to_hyperboloid(exp_map)
+	    # idx = tf.where(tf.abs(exp_map + 1) < K.epsilon())[:,0]
+	    # params = tf.gather(exp_map, idx)
+
+	    # params = adjust_to_hyperboloid(params)
+	    # exp_map = tf.scatter_update(ref=exp_map, updates=params, indices=idx)
+
 
 	    return exp_map
 
@@ -528,9 +560,9 @@ class ExponentialMappingOptimizer(optimizer.Optimizer):
 
 class PeriodicStdoutLogger(Callback):
 
-	def __init__(self, topology_graph, labels,
+	def __init__(self, reconstruction_edges, labels,
 	epoch, n, edge_dict, args):
-		self.topology_graph = topology_graph
+		self.reconstruction_edges = reconstruction_edges
 		self.labels = labels
 		self.epoch = epoch
 		self.n = n
@@ -541,16 +573,19 @@ class PeriodicStdoutLogger(Callback):
 	
 		self.epoch += 1
 		if self.epoch % self.n == 0:
-			print "Completed epoch {}, loss={}".format(self.epoch, logs["loss"])
+			print "Completed epoch {}, loss={}, val_loss={}".format(self.epoch, logs["loss"], logs["val_loss"])
 
 			hyperboloid_embedding = self.model.layers[-1].get_weights()[0]
+			print hyperboloid_embedding
+			# print minkowski_dot_np(hyperboloid_embedding, hyperboloid_embedding)
 
 			mean_rank, mean_average_precision = evaluate_rank_and_MAP(hyperboloid_embedding, self.edge_dict)
 
 			poincare_embedding = hyperboloid_to_poincare_ball(hyperboloid_embedding)
 			klein_embedding = hyperboloid_to_klein(hyperboloid_embedding)
 
-			plot_disk_embeddings(self.epoch, self.topology_graph, poincare_embedding, klein_embedding,
+			plot_disk_embeddings(self.epoch, self.reconstruction_edges, 
+				poincare_embedding, klein_embedding,
 				self.labels, 
 				mean_rank, mean_average_precision,
 				self.args)
@@ -574,10 +609,9 @@ def build_model(num_nodes, args):
 
 		print model.layers[-1].get_weights()[0]
 
-
 	return model, initial_epoch
 
-def plot_disk_embeddings(epoch, G, poincare_embedding, klein_embedding, labels, 
+def plot_disk_embeddings(epoch, edges, poincare_embedding, klein_embedding, labels, 
 	mean_rank, mean_average_precision, args):
 
 	fig = plt.figure(figsize=[14, 7])
@@ -586,22 +620,22 @@ def plot_disk_embeddings(epoch, G, poincare_embedding, klein_embedding, labels,
 	ax = fig.add_subplot(121)
 	plt.title("Poincare")
 	ax.add_artist(plt.Circle([0,0], 1, fill=False))
-	for u, v in G.edges():
+	for u, v in edges:
 		u_emb = poincare_embedding[u]
 		v_emb = poincare_embedding[v]
 		plt.plot([u_emb[0], v_emb[0]], [u_emb[1], v_emb[1]], c="k", linewidth=0.05, zorder=0)
-	plt.scatter(poincare_embedding[:,0], poincare_embedding[:,1], c=labels, zorder=1)
+	plt.scatter(poincare_embedding[:,0], poincare_embedding[:,1], s=10, c=labels, zorder=1)
 	plt.xlim([-1,1])
 	plt.ylim([-1,1])
 
 	ax = fig.add_subplot(122)
 	plt.title("Klein")
 	ax.add_artist(plt.Circle([0,0], 1, fill=False))
-	for u, v in G.edges():
+	for u, v in edges:
 		u_emb = klein_embedding[u]
 		v_emb = klein_embedding[v]
 		plt.plot([u_emb[0], v_emb[0]], [u_emb[1], v_emb[1]], c="k", linewidth=0.05, zorder=0)
-	plt.scatter(klein_embedding[:,0], klein_embedding[:,1], c=labels, zorder=1)
+	plt.scatter(klein_embedding[:,0], klein_embedding[:,1], s=10, c=labels, zorder=1)
 	plt.xlim([-1,1])
 	plt.ylim([-1,1])
 	
@@ -622,8 +656,8 @@ def parse_args():
 
 	parser.add_argument("-r", dest="r", type=float, default=10.,
 		help="Radius of hypercircle (defaut is 10).")
-	parser.add_argument("-t", dest="t", type=float, default=1.,
-		help="Steepness of logistic function (defaut is 1).")
+	parser.add_argument("-t", dest="t", type=float, default=3.,
+		help="Steepness of logistic function (defaut is 3).")
 
 
 	parser.add_argument("-lr", dest="lr", type=float, default=1e-2,
@@ -634,14 +668,17 @@ def parse_args():
 
 	parser.add_argument("-e", "--num_epochs", dest="num_epochs", type=int, default=10000,
 		help="The number of epochs to train for (default is 10000).")
-	parser.add_argument("-b", "--batch_size", dest="batch_size", type=int, default=100, 
-		help="Batch size for training (default is 100).")
+	parser.add_argument("-b", "--batch_size", dest="batch_size", type=int, default=512, 
+		help="Batch size for training (default is 512).")
 	parser.add_argument("--nneg", dest="num_negative_samples", type=int, default=10, 
 		help="Number of negative samples for training (default is 10).")
 	parser.add_argument("--context-size", dest="context_size", type=int, default=1,
 		help="Context size for generating positive samples (default is 1).")
 	parser.add_argument("--patience", dest="patience", type=int, default=1000,
-		help="The number of epochs of no improvement before training is stopped. (Default is 100)")
+		help="The number of epochs of no improvement before training is stopped. (Default is 1000)")
+
+	parser.add_argument("--plot-freq", dest="plot_freq", type=int, default=1000, 
+		help="Frequency for plotting (default is 1000).")
 
 	parser.add_argument("--dim", dest="embedding_dim", type=int,
 		help="Dimension of embeddings for each layer (default is 2).", default=2)
@@ -655,7 +692,9 @@ def parse_args():
 	parser.add_argument('--walk-length', dest="walk_length", type=int, default=5, 
 		help="Length of random walk from source (default is 15).")
 
-	
+
+	parser.add_argument("--second-order", action="store_true", 
+		help="Use this flag to use second order topological similarity information.")
 	parser.add_argument("--use-attributes", action="store_true", 
 		help="Use this flag to use attributes in the embedding.")
 	parser.add_argument("--combine-attributes", action="store_true", 
@@ -695,6 +734,8 @@ def configure_paths(args):
 
 	dataset = args.dataset
 	directory = "embedding_dim={}_r={}_t={}_rho={}".format(args.embedding_dim, args.r, args.t, args.rho)
+	if args.second_order:
+		directory += "_second_order"
 	if args.combine_attributes:
 		directory += "_combine_attributes"
 	elif args.use_attributes:
@@ -747,6 +788,8 @@ def main():
 
 	args = parse_args()
 	args.num_positive_samples = 1
+	if args.combine_attributes:
+		args.use_attributes = True
 	configure_paths(args)
 
 	dataset = args.dataset
@@ -757,30 +800,52 @@ def main():
 	else:
 		raise Exception
 
+	# original edges for reconstruction
+	reconstruction_edges = topology_graph.edges()
+	edge_dict = convert_edgelist_to_dict(reconstruction_edges)
 
-	feature_graph = create_feature_graph(features, args)
 
-	if args.combine_attributes:
-
+	topology_walk_file = os.path.join(args.walk_path, "top_walks-{}-{}-{}-{}".format(args.num_walks, 
+		args.walk_length, args.p, args.q))
+	if args.second_order:
+		topology_walk_file += "_second_order"
+		print ("weighting edges by second order similarity")
+		second_order_topology_graph = create_second_order_topology_graph(topology_graph, args)
 		top_adj = nx.adjacency_matrix(topology_graph).A
-		feat_adj = nx.adjacency_matrix(feature_graph).A
+		second_order_top_adj = nx.adjacency_matrix(second_order_topology_graph).A
+		combined_adjacency = top_adj + second_order_top_adj 
+		topology_graph = nx.from_numpy_matrix(combined_adjacency)
 
-		combined_adjacency = top_adj * feat_adj
-		combined_graph = nx.from_numpy_matrix(combined_adjacency)
-		combined_walk_file = os.path.join(args.walk_path, "combined_walks-{}-{}".format(args.num_walks, args.walk_length))
-		walks = load_walks(combined_graph, combined_walk_file, args)
-	else:
+	walks = load_walks(topology_graph, topology_walk_file, args)
 
-		topology_walk_file = os.path.join(args.walk_path, "top_walks-{}-{}".format(args.num_walks, args.walk_length))
-		walks = load_walks(topology_graph, topology_walk_file, args)
-		if args.use_attributes:
-			feature_walk_file = os.path.join(args.walk_path, "feat_walks-{}-{}".format(args.num_walks, args.walk_length))
+
+	if args.use_attributes:
+		feature_graph = create_feature_graph(features, args)
+
+		if args.combine_attributes:
+			top_adj = nx.adjacency_matrix(topology_graph).A
+			feat_adj = nx.adjacency_matrix(feature_graph).A
+
+			combined_adjacency = top_adj + feat_adj
+			combined_graph = nx.from_numpy_matrix(combined_adjacency)
+			combined_walk_file = os.path.join(args.walk_path, "combined_walks-{}-{}-{}-{}".format(args.num_walks, 
+				args.walk_length, args.p, args.q))
+			if args.second_order:
+				combined_walk_file += "_second_order"
+			walks = load_walks(combined_graph, combined_walk_file, args)
+
+		else:
+
+			feature_walk_file = os.path.join(args.walk_path, "feat_walks-{}-{}-{}-{}".format(args.num_walks, 
+				args.walk_length, args.p, args.q))
 			walks += load_walks(feature_graph, feature_walk_file, args)
 
-	positive_samples, negative_samples, probs = determine_positive_and_negative_samples(nodes=topology_graph.nodes(), 
+
+	positive_samples, negative_samples, probs =\
+		determine_positive_and_negative_samples(nodes=topology_graph.nodes(), 
 		walks=walks, context_size=args.context_size)
 
-	edge_dict = convert_edgelist_to_dict(topology_graph.edges())
+
 
 	num_nodes = len(topology_graph)
 	num_steps = int((len(positive_samples) + args.batch_size - 1) / args.batch_size)
@@ -788,31 +853,42 @@ def main():
 
 	training_gen = training_generator(positive_samples, negative_samples, probs,
 									  num_negative_samples=args.num_negative_samples, batch_size=args.batch_size)
-	# with tf.device("/cpu:0"):
+	with tf.device("/gpu:0"):
 
-	model, initial_epoch = build_model(num_nodes, args)
-	optimizer = ExponentialMappingOptimizer(learning_rate=args.lr)
-	loss = hyperbolic_softmax_loss if args.softmax else hyperbolic_sigmoid_loss if args.sigmoid else hyperbolic_negative_sampling_loss(r=args.r, t=args.t)
-	model.compile(optimizer=optimizer, loss=loss)
-	model.summary()
+		model, initial_epoch = build_model(num_nodes, args)
+		optimizer = ExponentialMappingOptimizer(learning_rate=args.lr)
+		loss = (
+			hyperbolic_softmax_loss 
+			if args.softmax 
+			else hyperbolic_sigmoid_loss 
+			if args.sigmoid 
+			else hyperbolic_negative_sampling_loss(r=args.r, t=args.t)
+		)
+		model.compile(optimizer=optimizer, loss=loss)
+		model.summary()
 
-	# _in, _out = training_gen.next()
+		val_in, val_out = training_gen.next()
 
-	# model.fit(_in, _out, epochs=1, verbose=args.verbose)
-	# raise SystemExit
+		# model.fit(_in, _out, epochs=1, verbose=args.verbose)
+		# raise SystemExit
 
-	model.fit_generator(training_gen, epochs=args.num_epochs, 
-		steps_per_epoch=num_steps, verbose=args.verbose, initial_epoch=initial_epoch,
-		callbacks=[
-			# TerminateOnNan(), 
-			PeriodicStdoutLogger(topology_graph, labels, 
-				n=1000, epoch=initial_epoch, edge_dict=edge_dict, args=args), 
-			TensorBoard(log_dir=args.board_path),
-			ModelCheckpoint(os.path.join(args.model_path, 
-				"{epoch:05d}.h5"), save_weights_only=True),
-			CSVLogger(args.log_path, append=False), 
-			EarlyStopping(monitor="loss", patience=args.patience, verbose=1)
-		])
+		model.fit_generator(training_gen, epochs=args.num_epochs, 
+			steps_per_epoch=num_steps, verbose=args.verbose, initial_epoch=initial_epoch,
+			validation_data=[val_in, val_out],
+			callbacks=[
+				TerminateOnNaN(), 
+				PeriodicStdoutLogger(reconstruction_edges, labels, 
+					n=args.plot_freq, epoch=initial_epoch, edge_dict=edge_dict, args=args), 
+				TensorBoard(log_dir=args.board_path, histogram_freq=1, 
+					batch_size=args.batch_size, write_graph=True, write_grads=True, write_images=True, 
+					embeddings_freq=1, embeddings_layer_names="embedding_layer", 
+					embeddings_metadata="/home/david/Documents/capsnet_embedding/data/karate/labels.tsv"
+					),
+				ModelCheckpoint(os.path.join(args.model_path, 
+					"{epoch:05d}.h5"), save_weights_only=True),
+				CSVLogger(args.log_path, append=True), 
+				EarlyStopping(monitor="val_loss", patience=args.patience, verbose=1)
+			])
 
 
 
