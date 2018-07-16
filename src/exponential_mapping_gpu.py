@@ -72,7 +72,7 @@ def create_second_order_topology_graph(topology_graph, args):
 	adj_sim [adj_sim  < args.rho] = 0
 	second_order_topology_graph = nx.from_numpy_matrix(adj_sim)
 
-	print "Created second order topology graph graph with {} edges".format(len(second_order_topology_graph.edges()))
+	print ("Created second order topology graph graph with {} edges".format(len(second_order_topology_graph.edges())))
 
 	return second_order_topology_graph
 
@@ -84,7 +84,7 @@ def create_feature_graph(features, args):
 	features_sim [features_sim  < args.rho] = 0
 	feature_graph = nx.from_numpy_matrix(features_sim)
 
-	print "Created feature correlation graph with {} edges".format(len(feature_graph.edges()))
+	print ("Created feature correlation graph with {} edges".format(len(feature_graph.edges())))
 
 	return feature_graph
 
@@ -573,10 +573,10 @@ class PeriodicStdoutLogger(Callback):
 	
 		self.epoch += 1
 		if self.epoch % self.n == 0:
-			print "Completed epoch {}, loss={}, val_loss={}".format(self.epoch, logs["loss"], logs["val_loss"])
+			print ("Completed epoch {}, loss={}, val_loss={}".format(self.epoch, logs["loss"], logs["val_loss"]))
 
 			hyperboloid_embedding = self.model.layers[-1].get_weights()[0]
-			print hyperboloid_embedding
+			print (hyperboloid_embedding)
 			# print minkowski_dot_np(hyperboloid_embedding, hyperboloid_embedding)
 
 			mean_rank, mean_average_precision = evaluate_rank_and_MAP(hyperboloid_embedding, self.edge_dict)
@@ -600,14 +600,14 @@ def build_model(num_nodes, args):
 	saved_models = sorted([f for f in os.listdir(args.model_path) if re.match(r"^[0-9][0-9][0-9][0-9]*", f)])
 	initial_epoch = len(saved_models)
 
-	print model.layers[-1].get_weights()[0]
+	print (model.layers[-1].get_weights()[0])
 
 	if initial_epoch > 0:
 		model_file = os.path.join(args.model_path, saved_models[-1])
 		print ("Loading model from file: {}".format(model_file))
 		model.load_weights(model_file)
 
-		print model.layers[-1].get_weights()[0]
+		print (model.layers[-1].get_weights()[0])
 
 	return model, initial_epoch
 
@@ -656,8 +656,8 @@ def parse_args():
 
 	parser.add_argument("-r", dest="r", type=float, default=10.,
 		help="Radius of hypercircle (defaut is 10).")
-	parser.add_argument("-t", dest="t", type=float, default=3.,
-		help="Steepness of logistic function (defaut is 3).")
+	parser.add_argument("-t", dest="t", type=float, default=1.,
+		help="Steepness of logistic function (defaut is 1).")
 
 
 	parser.add_argument("-lr", dest="lr", type=float, default=1e-2,
@@ -668,8 +668,8 @@ def parse_args():
 
 	parser.add_argument("-e", "--num_epochs", dest="num_epochs", type=int, default=10000,
 		help="The number of epochs to train for (default is 10000).")
-	parser.add_argument("-b", "--batch_size", dest="batch_size", type=int, default=512, 
-		help="Batch size for training (default is 512).")
+	parser.add_argument("-b", "--batch_size", dest="batch_size", type=int, default=128, 
+		help="Batch size for training (default is 128).")
 	parser.add_argument("--nneg", dest="num_negative_samples", type=int, default=10, 
 		help="Number of negative samples for training (default is 10).")
 	parser.add_argument("--context-size", dest="context_size", type=int, default=1,
