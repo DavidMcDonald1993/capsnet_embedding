@@ -660,14 +660,14 @@ def parse_args():
 		help="Steepness of logistic function (defaut is 1).")
 
 
-	parser.add_argument("-lr", dest="lr", type=float, default=1e-2,
-		help="Learning rate (default is 1e-2).")
+	parser.add_argument("--lr", dest="lr", type=float, default=1e-1,
+		help="Learning rate (default is 1e-1).")
 
 	parser.add_argument("--rho", dest="rho", type=float, default=0,
 		help="Minimum feature correlation (default is 0).")
 
-	parser.add_argument("-e", "--num_epochs", dest="num_epochs", type=int, default=10000,
-		help="The number of epochs to train for (default is 10000).")
+	parser.add_argument("-e", "--num_epochs", dest="num_epochs", type=int, default=50000,
+		help="The number of epochs to train for (default is 50000).")
 	parser.add_argument("-b", "--batch_size", dest="batch_size", type=int, default=128, 
 		help="Batch size for training (default is 128).")
 	parser.add_argument("--nneg", dest="num_negative_samples", type=int, default=10, 

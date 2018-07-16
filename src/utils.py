@@ -72,7 +72,7 @@ def determine_positive_and_negative_samples(nodes, walks, context_size):
 	for u in negative_samples:
 		assert len(negative_samples[u]) > 0, "node {} does not have any negative samples".format(u)
 
-	counts = np.array(counts.values()) ** 0.75
+	counts = np.array(list(counts.values())) ** 0.75
 
 	probs = {n: counts[negative_samples[n]] / counts[negative_samples[n]].sum() for n in sorted(nodes)}
 
