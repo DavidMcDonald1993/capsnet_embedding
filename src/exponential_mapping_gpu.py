@@ -645,8 +645,8 @@ def parse_args():
 		AstroPh, CondMat, GrQc, HepPh, karate]. (Default is karate)")
 
 
-	parser.add_argument("-r", dest="r", type=float, default=10.,
-		help="Radius of hypercircle (default is 10).")
+	parser.add_argument("-r", dest="r", type=float, default=3.,
+		help="Radius of hypercircle (default is 3).")
 	parser.add_argument("-t", dest="t", type=float, default=1.,
 		help="Steepness of logistic function (defaut is 1).")
 
