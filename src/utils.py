@@ -67,19 +67,22 @@ def determine_positive_and_negative_samples(nodes, walks, context_size):
  
 		if num_walk % 1000 == 0:  
 			print ("processed walk {}/{}".format(num_walk, len(walks)))
-			
+
 	negative_samples = {n: sorted(list(nodes.difference(all_positive_samples[n]))) for n in nodes}
 	for u in negative_samples:
 		assert len(negative_samples[u]) > 0, "node {} does not have any negative samples".format(u)
 
-	counts = np.array(list(counts.values())) ** 0.75
+	counts = np.array(list(counts.values()))# ** 0.75
+	probs = counts / counts.sum()
 
-	probs = {n: counts[negative_samples[n]] / counts[negative_samples[n]].sum() for n in sorted(nodes)}
+	prob_dict = {n: probs[n] * probs[negative_samples[n]] ** .75 for n in sorted(nodes)}
+	prob_dict = {n: probs / probs.sum() for n, probs in prob_dict.items()}
+	# probs = {n: counts[negative_samples[n]] / counts[negative_samples[n]].sum() for n in sorted(nodes)}
 
 	print ("DETERMINED POSITIVE AND NEGATIVE SAMPLES")
 	print ("found {} positive sample pairs".format(len(positive_samples)))
 
-	return positive_samples, negative_samples, probs
+	return positive_samples, negative_samples, prob_dict
 
 def load_walks(G, walk_file, args):
 

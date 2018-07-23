@@ -26,7 +26,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 # from node2vec_sampling import Graph
 from utils import load_walks, determine_positive_and_negative_samples
 
-from keras.layers import Input, Layer 
+from keras.layers import Input, Layer, Dense
 from keras.models import Model
 from keras import backend as K
 from keras.callbacks import Callback, TerminateOnNaN, TensorBoard, ModelCheckpoint, CSVLogger, EarlyStopping
@@ -57,7 +57,7 @@ config.gpu_options.allow_growth = True
 config.gpu_options.per_process_gpu_memory_fraction = 0.5
 
 # config.allow_soft_placement = True
-config.log_device_placement=False
+config.log_device_placement=True
 
 config.allow_soft_placement=True
 
@@ -225,13 +225,15 @@ def get_training_sample(batch_positive_samples, negative_samples, num_negative_s
 		for u in input_nodes
 	], dtype=K.floatx())
 	batch_nodes = np.append(batch_positive_samples, batch_negative_samples, axis=1)
-	return batch_nodes, np.zeros(list(batch_nodes.shape) + [1], dtype=K.floatx())
+	return batch_nodes
 
 
 def training_generator(positive_samples, negative_samples, probs,
 	num_negative_samples, batch_size=10):
 	
+	n = len(negative_samples)
 	num_steps = int((len(positive_samples) + batch_size - 1 )/ batch_size)
+	# I = sp.sparse.csr_matrix(sp.sparse.identity(n))
 
 	while True:
 
@@ -243,7 +245,8 @@ def training_generator(positive_samples, negative_samples, probs,
 				positive_samples[step * batch_size : (step + 1) * batch_size])
 			training_sample = get_training_sample(batch_positive_samples, 
 												  negative_samples, num_negative_samples, probs)
-			yield training_sample
+			# training_sample = I[training_sample.flatten()].A.reshape(list(training_sample.shape) + [-1])
+			yield training_sample, np.zeros(list(training_sample.shape)+[1], dtype=K.floatx())
 
 def convert_edgelist_to_dict(edgelist, undirected=True, self_edges=False):
 	if edgelist is None:
@@ -337,7 +340,9 @@ def hyperbolic_negative_sampling_loss(r, t):
 		inner_uv = minkowski_dot(u_emb, samples_emb)
 		inner_uv = K.clip(inner_uv, min_value=-np.inf, max_value=-(1+K.epsilon()))
 		d_uv = tf.acosh(-inner_uv)
-		out_uv = (r - d_uv ** 2) / t
+		# out_uv = (r - d_uv ** 2) / t
+		out_uv = (r - d_uv) / t
+
 		pos_out_uv = out_uv[:,0]
 		neg_out_uv = out_uv[:,1:]
 		
@@ -374,17 +379,17 @@ def hyperbolic_softmax_loss(y_true, y_pred,):
 
 	return - tf.reduce_mean(tf.log(tf.nn.softmax(inner_uv, axis=-1,)[:,0], ))
 
-def expectation_loss(y_true, y_pred):
+# def expectation_loss(y_true, y_pred):
 
-	u_emb = y_pred[:,0]
-	samples_emb = y_pred[:,1:]
+# 	u_emb = y_pred[:,0]
+# 	samples_emb = y_pred[:,1:]
 	
-	# inner_uv = K.concatenate([minkowski_dot(u_emb, samples_emb[:,j]) for j in range(samples_emb.shape[1])], axis=-1)
-	inner_uv = minkowski_dot(u_emb, samples_emb)
+# 	# inner_uv = K.concatenate([minkowski_dot(u_emb, samples_emb[:,j]) for j in range(samples_emb.shape[1])], axis=-1)
+# 	inner_uv = minkowski_dot(u_emb, samples_emb)
 
-	# minimuse expected difference of 
+# 	# minimuse expected difference of 
 
-	return - tf.reduce_mean( inner_uv[:,0]  -  tf.reduce_mean( inner_uv[:,1:], axis=-1)  )
+# 	return - tf.reduce_mean( inner_uv[:,0]  -  tf.reduce_mean( inner_uv[:,1:], axis=-1)  )
 
 
 def hyperboloid_initializer(shape, r_max=1e-3):
@@ -425,8 +430,9 @@ class EmbeddingLayer(Layer):
 
 	def call(self, x):
 		x = K.cast(x, dtype=tf.int32)
-		# embedding = tf.nn.embedding_lookup(params=self.embedding, ids=x)
 		embedding = tf.gather(self.embedding, x, name="embedding_gather")
+		
+		# embedding = K.dot(x, self.embedding, )
 
 		return embedding
 
@@ -495,28 +501,10 @@ class ExponentialMappingOptimizer(optimizer.Optimizer):
 
 
 	    updates = tf.sinh(non_zero_norm) * z
-	    # updates = tf.reshape( updates , [-1,])
 	    dense_shape = tf.cast( tf.shape(p), tf.int64)
 	    exp_map_x = tf.scatter_nd(indices=idx, updates=updates, shape=dense_shape)
 
 	    
-	    # _, num_cols = p.shape
-	    
-	    # a = idx
-	    # b = K.arange(num_cols, dtype=tf.int64)
-	    
-	    # tile_a = tf.tile(tf.expand_dims(a, 1), [1, tf.shape(b)[0]])  
-	    # tile_a = tf.expand_dims(tile_a, 2) 
-	    # tile_b = tf.tile(tf.expand_dims(b, 0), [tf.shape(a)[0], 1]) 
-	    # tile_b = tf.expand_dims(tile_b, 2) 
-	    # indices = tf.concat([tile_a, tile_b], axis=2) 
-	    # indices = tf.reshape(indices,[-1,2])
-	    
-	    # 
-	    
-	    # sparse_update = tf.SparseTensor(indices=indices, values=updates, dense_shape=dense_shape)
-	    # exp_map_x = tf.sparse_tensor_to_dense(sparse_update)
-
 	    exp_map = exp_map_p + exp_map_x    
 	    ###################################################
 	    # y = p
@@ -535,6 +523,7 @@ class ExponentialMappingOptimizer(optimizer.Optimizer):
 	    return exp_map
 
 	def _apply_sparse(self, grad, var):
+		# assert False
 	# def _apply_sparse_duplicate_indices(self, grad, var):
 		indices = grad.indices
 		values = grad.values
@@ -577,7 +566,7 @@ class PeriodicStdoutLogger(Callback):
 
 			hyperboloid_embedding = self.model.layers[-1].get_weights()[0]
 			print (hyperboloid_embedding)
-			# print minkowski_dot_np(hyperboloid_embedding, hyperboloid_embedding)
+			print minkowski_dot_np(hyperboloid_embedding, hyperboloid_embedding)
 
 			mean_rank, mean_average_precision = evaluate_rank_and_MAP(hyperboloid_embedding, self.edge_dict)
 
@@ -594,6 +583,8 @@ def build_model(num_nodes, args):
 
 	x = Input(shape=(1+args.num_positive_samples+args.num_negative_samples,), name="model_input")
 	y = EmbeddingLayer(num_nodes, args.embedding_dim, name="embedding_layer")(x)
+	# y = Dense(args.embedding_dim, use_bias=False, activation=None, 
+	# 	kernel_initializer=hyperboloid_initializer, name="embedding_layer")(x)
 
 	model = Model(x, y)
 
@@ -655,13 +646,13 @@ def parse_args():
 
 
 	parser.add_argument("-r", dest="r", type=float, default=10.,
-		help="Radius of hypercircle (defaut is 10).")
+		help="Radius of hypercircle (default is 10).")
 	parser.add_argument("-t", dest="t", type=float, default=1.,
 		help="Steepness of logistic function (defaut is 1).")
 
 
-	parser.add_argument("--lr", dest="lr", type=float, default=1e-1,
-		help="Learning rate (default is 1e-1).")
+	parser.add_argument("--lr", dest="lr", type=float, default=1e-2,
+		help="Learning rate (default is 1e-2).")
 
 	parser.add_argument("--rho", dest="rho", type=float, default=0,
 		help="Minimum feature correlation (default is 0).")
@@ -670,8 +661,8 @@ def parse_args():
 		help="The number of epochs to train for (default is 50000).")
 	parser.add_argument("-b", "--batch_size", dest="batch_size", type=int, default=128, 
 		help="Batch size for training (default is 128).")
-	parser.add_argument("--nneg", dest="num_negative_samples", type=int, default=10, 
-		help="Number of negative samples for training (default is 10).")
+	parser.add_argument("--nneg", dest="num_negative_samples", type=int, default=5, 
+		help="Number of negative samples for training (default is 5).")
 	parser.add_argument("--context-size", dest="context_size", type=int, default=1,
 		help="Context size for generating positive samples (default is 1).")
 	parser.add_argument("--patience", dest="patience", type=int, default=1000,
@@ -813,7 +804,7 @@ def main():
 		second_order_topology_graph = create_second_order_topology_graph(topology_graph, args)
 		top_adj = nx.adjacency_matrix(topology_graph).A
 		second_order_top_adj = nx.adjacency_matrix(second_order_topology_graph).A
-		combined_adjacency = top_adj + second_order_top_adj 
+		combined_adjacency = top_adj * second_order_top_adj 
 		topology_graph = nx.from_numpy_matrix(combined_adjacency)
 
 	walks = load_walks(topology_graph, topology_walk_file, args)
@@ -826,7 +817,7 @@ def main():
 			top_adj = nx.adjacency_matrix(topology_graph).A
 			feat_adj = nx.adjacency_matrix(feature_graph).A
 
-			combined_adjacency = top_adj + feat_adj
+			combined_adjacency = top_adj * feat_adj
 			combined_graph = nx.from_numpy_matrix(combined_adjacency)
 			combined_walk_file = os.path.join(args.walk_path, "combined_walks-{}-{}-{}-{}".format(args.num_walks, 
 				args.walk_length, args.p, args.q))
@@ -853,42 +844,45 @@ def main():
 
 	training_gen = training_generator(positive_samples, negative_samples, probs,
 									  num_negative_samples=args.num_negative_samples, batch_size=args.batch_size)
-	with tf.device("/gpu:0"):
+	# with tf.device("/gpu:0"):
 
-		model, initial_epoch = build_model(num_nodes, args)
-		optimizer = ExponentialMappingOptimizer(learning_rate=args.lr)
-		loss = (
-			hyperbolic_softmax_loss 
-			if args.softmax 
-			else hyperbolic_sigmoid_loss 
-			if args.sigmoid 
-			else hyperbolic_negative_sampling_loss(r=args.r, t=args.t)
-		)
-		model.compile(optimizer=optimizer, loss=loss)
-		model.summary()
+	model, initial_epoch = build_model(num_nodes, args)
+	optimizer = ExponentialMappingOptimizer(learning_rate=args.lr)
+	loss = (
+		hyperbolic_softmax_loss 
+		if args.softmax 
+		else hyperbolic_sigmoid_loss 
+		if args.sigmoid 
+		else hyperbolic_negative_sampling_loss(r=args.r, t=args.t)
+	)
+	model.compile(optimizer=optimizer, loss=loss)
+	model.summary()
 
+	if sys.version_info[0] == 2:
 		val_in, val_out = training_gen.next()
+	else:
+		val_in, val_out = training_gen.__next__()
 
-		# model.fit(_in, _out, epochs=1, verbose=args.verbose)
-		# raise SystemExit
+	# model.fit(_in, _out, epochs=1, verbose=args.verbose)
+	# raise SystemExit
 
-		model.fit_generator(training_gen, epochs=args.num_epochs, 
-			steps_per_epoch=num_steps, verbose=args.verbose, initial_epoch=initial_epoch,
-			validation_data=[val_in, val_out],
-			callbacks=[
-				TerminateOnNaN(), 
-				PeriodicStdoutLogger(reconstruction_edges, labels, 
-					n=args.plot_freq, epoch=initial_epoch, edge_dict=edge_dict, args=args), 
-				TensorBoard(log_dir=args.board_path, histogram_freq=1, 
-					batch_size=args.batch_size, write_graph=True, write_grads=True, write_images=True, 
-					embeddings_freq=1, embeddings_layer_names="embedding_layer", 
-					embeddings_metadata="/home/david/Documents/capsnet_embedding/data/karate/labels.tsv"
-					),
-				ModelCheckpoint(os.path.join(args.model_path, 
-					"{epoch:05d}.h5"), save_weights_only=True),
-				CSVLogger(args.log_path, append=True), 
-				EarlyStopping(monitor="val_loss", patience=args.patience, verbose=1)
-			])
+	model.fit_generator(training_gen, epochs=args.num_epochs, 
+		steps_per_epoch=num_steps, verbose=args.verbose, initial_epoch=initial_epoch,
+		validation_data=[val_in, val_out],
+		callbacks=[
+			TerminateOnNaN(), 
+			PeriodicStdoutLogger(reconstruction_edges, labels, 
+				n=args.plot_freq, epoch=initial_epoch, edge_dict=edge_dict, args=args), 
+			TensorBoard(log_dir=args.board_path, histogram_freq=1, 
+				batch_size=args.batch_size, write_graph=True, write_grads=True, write_images=True, 
+				embeddings_freq=1, embeddings_layer_names="embedding_layer", 
+				embeddings_metadata="/home/david/Documents/capsnet_embedding/data/karate/labels.tsv"
+				),
+			ModelCheckpoint(os.path.join(args.model_path, 
+				"{epoch:05d}.h5"), save_weights_only=True),
+			CSVLogger(args.log_path, append=True), 
+			EarlyStopping(monitor="val_loss", patience=args.patience, verbose=1)
+		])
 
 
 
