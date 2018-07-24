@@ -49,6 +49,7 @@ tf.set_random_seed(seed)
 
 # TensorFlow wizardry
 config = tf.ConfigProto()
+
  
 # Don't pre-allocate memory; allocate as-needed
 config.gpu_options.allow_growth = True
@@ -566,7 +567,7 @@ class PeriodicStdoutLogger(Callback):
 
 			hyperboloid_embedding = self.model.layers[-1].get_weights()[0]
 			print (hyperboloid_embedding)
-			print minkowski_dot_np(hyperboloid_embedding, hyperboloid_embedding)
+			# print minkowski_dot_np(hyperboloid_embedding, hyperboloid_embedding)
 
 			mean_rank, mean_average_precision = evaluate_rank_and_MAP(hyperboloid_embedding, self.edge_dict)
 
@@ -844,7 +845,7 @@ def main():
 
 	training_gen = training_generator(positive_samples, negative_samples, probs,
 									  num_negative_samples=args.num_negative_samples, batch_size=args.batch_size)
-	# with tf.device("/gpu:0"):
+	# with tf.device("/cpu:0"):
 
 	model, initial_epoch = build_model(num_nodes, args)
 	optimizer = ExponentialMappingOptimizer(learning_rate=args.lr)
