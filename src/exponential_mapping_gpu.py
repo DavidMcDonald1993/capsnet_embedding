@@ -50,7 +50,7 @@ tf.set_random_seed(seed)
 # TensorFlow wizardry
 config = tf.ConfigProto()
 
- 
+
 # Don't pre-allocate memory; allocate as-needed
 config.gpu_options.allow_growth = True
  
@@ -350,7 +350,7 @@ def hyperbolic_negative_sampling_loss(r, t):
 		pos_p_uv = tf.nn.sigmoid(pos_out_uv)
 		neg_p_uv = tf.nn.sigmoid(neg_out_uv)
 		
-		return -tf.reduce_mean(tf.log(pos_p_uv) + tf.reduce_sum(tf.log(1 - neg_p_uv), axis=-1))
+		return -K.mean(K.log(pos_p_uv) + K.sum(K.log(1 - neg_p_uv), axis=-1))
 
 	return loss
 
@@ -368,7 +368,7 @@ def hyperbolic_sigmoid_loss(y_true, y_pred,):
 	pos_p_uv = tf.nn.sigmoid(pos_inner_uv)
 	neg_p_uv = tf.nn.sigmoid(neg_inner_uv)
 
-	return - tf.reduce_mean( tf.log( pos_p_uv ) + tf.reduce_sum( tf.log(neg_p_uv), axis=-1) )
+	return - K.mean( K.log( pos_p_uv ) + K.sum( K.log(neg_p_uv), axis=-1) )
 
 def hyperbolic_softmax_loss(y_true, y_pred,):
 
@@ -378,7 +378,7 @@ def hyperbolic_softmax_loss(y_true, y_pred,):
 	# inner_uv = K.concatenate([minkowski_dot(u_emb, samples_emb[:,j]) for j in range(samples_emb.shape[1])], axis=-1)
 	inner_uv = minkowski_dot(u_emb, samples_emb)
 
-	return - tf.reduce_mean(tf.log(tf.nn.softmax(inner_uv, axis=-1,)[:,0], ))
+	return - K.mean(K.log(tf.nn.softmax(inner_uv, axis=-1,)[:,0], ))
 
 # def expectation_loss(y_true, y_pred):
 
@@ -489,7 +489,7 @@ class ExponentialMappingOptimizer(optimizer.Optimizer):
 
 	    def adjust_to_hyperboloid(x):
 	        x = x[:,:-1]
-	        t = tf.sqrt(1. + tf.reduce_sum(tf.square(x), axis=-1, keepdims=True))
+	        t = K.sqrt(1. + K.sum(K.square(x), axis=-1, keepdims=True))
 	        return tf.concat([x,t], axis=-1)
 
 	    norm_x = tf.sqrt( tf.maximum(K.cast(0., K.floatx()), minkowski_dot(x, x), name="maximum") )
