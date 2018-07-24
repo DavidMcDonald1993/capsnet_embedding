@@ -18,4 +18,4 @@ module load apps/keras/2.0.8-python-3.5.2-cuda-8.0.44
 
 cd src/
 
-python graphcaps.py --dataset karate
+python exponential_mapping_gpu.py --dataset karate
