@@ -4,13 +4,17 @@ import networkx as nx
 import random
 
 class Graph():
-	def __init__(self, nx_G, is_directed, p, q):
+	def __init__(self, nx_G, is_directed, p, q, jump_prob=0, feature_sim=None):
 		self.G = nx_G
 		# self.A = nx.adjacency_matrix(nx_G).astype(np.float32)
 		# self.A_with_self_links = self.A + sp.sparse.identity(self.A.shape[0])
 		self.is_directed = is_directed
 		self.p = p
 		self.q = q
+		self.jump_prob = jump_prob
+		self.feature_sim = feature_sim 
+		if self.feature_sim is not None:
+			self.feature_sim /= self.feature_sim.sum(axis=1, keepdims=True)
 
 	def node2vec_walk(self, walk_length, start_node):
 		'''
@@ -19,28 +23,52 @@ class Graph():
 		G = self.G
 		alias_nodes = self.alias_nodes
 		alias_edges = self.alias_edges
+		feature_sim = self.feature_sim
 
 		walk = [start_node]
 
-		while len(walk) < walk_length:
-			cur = walk[-1]
-			# print cur
-			cur_nbrs = sorted(G.neighbors(cur))
-			# cur_nbrs = sorted(A[cur].nonzero()[1])
-			if len(cur_nbrs) > 0:
-				if len(walk) == 1:
-					walk.append(cur_nbrs[alias_draw(alias_nodes[cur][0], alias_nodes[cur][1])])
-					# probs = self.compute_node_probs(cur)
-					# walk.append(alias_draw(probs))
-				else:
-					prev = walk[-2]
-					next_ = cur_nbrs[alias_draw(alias_edges[(prev, cur)][0], 
-						alias_edges[(prev, cur)][1])]
-					# probs = self.compute_edge_probs(prev, cur)
-					# next = alias_draw(probs)
+		if self.jump_prob > 0:
+
+			while len(walk) < walk_length:
+				cur = walk[-1]
+
+				if np.random.rand() < self.jump_prob:
+					# random jump based on attribute similarity
+					next_ = np.random.choice(len(feature_sim), replace=False, p=feature_sim[cur])
 					walk.append(next_)
-			else:
-				break
+
+				else:
+					
+					# random walk
+					cur_nbrs = sorted(G.neighbors(cur))
+					if len(cur_nbrs) > 0:
+						next_ = np.random.choice(cur_nbrs)
+						walk.append(next_)
+					else:
+						break
+
+
+		else:
+
+			while len(walk) < walk_length:
+				cur = walk[-1]
+
+				# node2vec style random walk
+				cur_nbrs = sorted(G.neighbors(cur))
+				if len(cur_nbrs) > 0:
+					if len(walk) == 1:
+						walk.append(cur_nbrs[alias_draw(alias_nodes[cur][0], alias_nodes[cur][1])])
+						# probs = self.compute_node_probs(cur)
+						# walk.append(alias_draw(probs))
+					else:
+						prev = walk[-2]
+						next_ = cur_nbrs[alias_draw(alias_edges[(prev, cur)][0], 
+							alias_edges[(prev, cur)][1])]
+						# probs = self.compute_edge_probs(prev, cur)
+						# next = alias_draw(probs)
+						walk.append(next_)
+				else:
+					break
 
 		return walk
 

@@ -43,7 +43,7 @@ def determine_positive_and_negative_samples(nodes, walks, context_size):
 	if not isinstance(nodes, set):
 		nodes = set(nodes)
 	
-	all_positive_samples = {n: set() for n in sorted(nodes)}
+	all_positive_samples = {n: {n}for n in sorted(nodes)}
 	positive_samples = []
 
 	counts = {n: 0. for n in sorted(nodes)}
@@ -70,6 +70,7 @@ def determine_positive_and_negative_samples(nodes, walks, context_size):
 
 	negative_samples = {n: sorted(list(nodes.difference(all_positive_samples[n]))) for n in nodes}
 	for u in negative_samples:
+		assert u not in negative_samples[u], "u should not be in negative samples"
 		assert len(negative_samples[u]) > 0, "node {} does not have any negative samples".format(u)
 
 	counts = np.array(list(counts.values()))# ** 0.75
@@ -84,7 +85,7 @@ def determine_positive_and_negative_samples(nodes, walks, context_size):
 
 	return positive_samples, negative_samples, prob_dict
 
-def load_walks(G, walk_file, args):
+def load_walks(G, walk_file, feature_sim, args):
 
 	def save_walks_to_file(walks, walk_file):
 		with open(walk_file, "w") as f:
@@ -102,7 +103,8 @@ def load_walks(G, walk_file, args):
 
 
 	if not os.path.exists(walk_file):
-		node2vec_graph = Graph(nx_G=G, is_directed=False, p=args.p, q=args.q)
+		node2vec_graph = Graph(nx_G=G, is_directed=False, p=args.p, q=args.q,
+			jump_prob=args.jump_prob, feature_sim=feature_sim)
 		node2vec_graph.preprocess_transition_probs()
 		walks = node2vec_graph.simulate_walks(num_walks=args.num_walks, walk_length=args.walk_length)
 		save_walks_to_file(walks, walk_file)
