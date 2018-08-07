@@ -1,5 +1,5 @@
 import os
-# os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
 import re
 import argparse
@@ -20,8 +20,9 @@ import pickle as pkl
 import networkx as nx
 
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import average_precision_score
+from sklearn.metrics import average_precision_score, roc_auc_score, f1_score, roc_curve
 from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.linear_model import LogisticRegression
 
 # from node2vec_sampling import Graph
 from utils import load_walks, determine_positive_and_negative_samples
@@ -91,6 +92,18 @@ def create_feature_graph(features, args):
 
 	return feature_graph
 
+def split_edges(edges, val_split=0.05, test_split=0.1):
+	num_val_edges = int(len(edges) * val_split)
+	num_test_edges = int(len(edges) * test_split)
+
+
+	random.shuffle(edges)
+
+	val_edges = edges[:num_val_edges]
+	test_edges = edges[num_val_edges:num_val_edges+num_test_edges]
+	train_edges = edges[num_val_edges+num_test_edges:]
+
+	return train_edges, val_edges, test_edges
 
 
 def load_karate():
@@ -130,7 +143,7 @@ def load_karate():
 
 
 
-def load_labelled_attributed_network(dataset_str, scale=True):
+def load_labelled_attributed_network(dataset_str, args, scale=True):
 	"""Load data."""
 
 	def parse_index_file(filename):
@@ -185,6 +198,13 @@ def load_labelled_attributed_network(dataset_str, scale=True):
 	topology_graph = nx.from_numpy_matrix(adj.toarray())
 	topology_graph = nx.convert_node_labels_to_integers(topology_graph, label_attribute="original_name")
 	nx.set_edge_attributes(G=topology_graph, name="weight", values=1.)
+
+	if args.only_lcc:
+		topology_graph = max(nx.connected_component_subgraphs(topology_graph), key=len)
+		features = features[topology_graph.nodes()]
+		labels = labels[topology_graph.nodes()]
+		topology_graph = nx.convert_node_labels_to_integers(topology_graph, label_attribute="original_name")
+		nx.set_edge_attributes(G=topology_graph, name="weight", values=1.)
 
 	# node2vec_graph = Graph(nx_G=G, is_directed=False, p=1, q=1)
 	# node2vec_graph.preprocess_transition_probs()
@@ -262,41 +282,82 @@ def convert_edgelist_to_dict(edgelist, undirected=True, self_edges=False):
 	edge_dict = {}
 	for u, v in edges:
 		if self_edges:
-			default = set(u)
+			default = [u]#set(u)
 		else:
-			default = set()
-		edge_dict.setdefault(u, default).add(v)
+			default = []#set()
+		edge_dict.setdefault(u, default).append(v)
 	for u, v in edgelist:
 		assert v in edge_dict[u]
 		if undirected:
 			assert u in edge_dict[v]
 	return edge_dict
 
-def evaluate_rank_and_MAP(embedding, edge_dict):
+def evaluate_rank_and_MAP(dists, edge_dict, non_edge_dict):
 
 	ranks = []
 	ap_scores = []
+	roc_auc_scores = []
 	
-	dists = hyperbolic_distance_hyperboloid_pairwise(embedding, embedding)
 
-	for u, v_list in edge_dict.items():
-		_dists = dists[u]
-		_dists[u] = 1e+12
-		_labels = np.zeros(embedding.shape[0])
-		_dists_masked = _dists.copy()
-		_ranks = []
-		for v in v_list:
-			_dists_masked[v] = np.Inf
-			_labels[v] = 1
+	for u, neighbours in edge_dict.items():
+		_dists = dists[u, neighbours + non_edge_dict[u]]
+		_labels = np.append(np.ones(len(neighbours)), np.zeros(len(non_edge_dict[u])))
+		# _dists = dists[u]
+		# _dists[u] = 1e+12
+		# _labels = np.zeros(embedding.shape[0])
+		# _dists_masked = _dists.copy()
+		# _ranks = []
+		# for v in v_set:
+		# 	_labels[v] = 1
+		# 	_dists_masked[v] = np.Inf
 		ap_scores.append(average_precision_score(_labels, -_dists))
-		for v in v_list:
-			d = _dists_masked.copy()
-			d[v] = _dists[v]
-			r = np.argsort(d)
-			_ranks.append(np.where(r==v)[0][0] + 1)
+		roc_auc_scores.append(roc_auc_score(_labels, -_dists))
+
+		neighbour_dists = dists[u, neighbours]
+		non_neighbour_dists = dists[u, non_edge_dict[u]]
+		idx = non_neighbour_dists.argsort()
+		_ranks = np.searchsorted(non_neighbour_dists, neighbour_dists, sorter=idx)
+
+		# _ranks = []
+		# _dists_masked = _dists.copy()
+		# _dists_masked[:len(neighbours)] = np.inf
+
+		# for v in neighbours:
+		# 	d = _dists_masked.copy()
+		# 	d[v] = _dists[v]
+		# 	r = np.argsort(d)
+		# 	raise Exception
+		# 	_ranks.append(np.where(r==v)[0][0] + 1)
+
 		ranks.append(np.mean(_ranks))
-	print ("MEAN RANK=", np.mean(ranks), "MEAN AP=", np.mean(ap_scores))
-	return np.mean(ranks), np.mean(ap_scores)
+	print ("MEAN RANK=", np.mean(ranks), "MEAN AP=", np.mean(ap_scores), 
+		"MEAN ROC AUC=", np.mean(roc_auc_scores))
+	return np.mean(ranks), np.mean(ap_scores), np.mean(roc_auc_scores)
+
+def evaluate_classification(klein_embedding, labels, 
+	label_percentages=np.arange(0.02, 0.11, 0.01),):
+
+	num_nodes, dim = klein_embedding.shape
+
+	f1_micros = []
+	f1_macros = []
+	
+	for label_percentage in label_percentages:
+		num_labels = int(num_nodes * label_percentage)
+		idx = np.random.permutation(num_nodes)
+		model = LogisticRegression(multi_class="multinomial", solver="newton-cg", random_state=0)
+		model.fit(klein_embedding[idx[:num_labels]], labels[idx[:num_labels]])
+		predictions = model.predict(klein_embedding[idx[num_labels:]])
+		f1_micro = f1_score(labels[idx[num_labels:]], predictions, average="micro")
+		f1_macro = f1_score(labels[idx[num_labels:]], predictions, average="macro")
+		f1_micros.append(f1_micro)
+		f1_macros.append(f1_macro)
+
+	return label_percentages, f1_micros, f1_macros
+
+
+
+	
 
 def minkowski_dot_np(x, y):
 	assert len(x.shape) == 2
@@ -343,6 +404,8 @@ def hyperbolic_negative_sampling_loss(r, t):
 
 	def loss(y_true, y_pred, r=r, t=t):
 
+		# r = 5
+ 
 		r = K.cast(r, K.floatx())
 		t = K.cast(r, K.floatx())
 
@@ -353,7 +416,6 @@ def hyperbolic_negative_sampling_loss(r, t):
 		u_emb = y_pred[:,0]
 		samples_emb = y_pred[:,1:]
 		
-		# inner_uv = K.concatenate([minkowski_dot(u_emb, samples_emb[:,j]) for j in range(samples_emb.shape[1])], axis=-1)
 		inner_uv = minkowski_dot(u_emb, samples_emb)
 		inner_uv = K.clip(inner_uv, min_value=-np.inf, max_value=-(1+K.epsilon()))
 		# d_uv = acosh(-inner_uv)
@@ -380,7 +442,6 @@ def hyperbolic_sigmoid_loss(y_true, y_pred,):
 	u_emb = y_pred[:,0]
 	samples_emb = y_pred[:,1:]
 	
-	# inner_uv = K.concatenate([minkowski_dot(u_emb, samples_emb[:,j]) for j in range(samples_emb.shape[1])], axis=-1)
 	inner_uv = minkowski_dot(u_emb, samples_emb)
 
 	pos_inner_uv = inner_uv[:,0]
@@ -389,6 +450,9 @@ def hyperbolic_sigmoid_loss(y_true, y_pred,):
 	pos_p_uv = tf.nn.sigmoid(pos_inner_uv)
 	neg_p_uv = 1. - tf.nn.sigmoid(neg_inner_uv)
 
+	pos_p_uv = K.clip(pos_p_uv, min_value=K.epsilon(), max_value=1-K.epsilon())
+	neg_p_uv = K.clip(neg_p_uv, min_value=K.epsilon(), max_value=1-K.epsilon())
+
 	return - K.mean( K.log( pos_p_uv ) + K.sum( K.log(neg_p_uv), axis=-1) )
 
 def hyperbolic_softmax_loss(y_true, y_pred,):
@@ -396,7 +460,6 @@ def hyperbolic_softmax_loss(y_true, y_pred,):
 	u_emb = y_pred[:,0]
 	samples_emb = y_pred[:,1:]
 	
-	# inner_uv = K.concatenate([minkowski_dot(u_emb, samples_emb[:,j]) for j in range(samples_emb.shape[1])], axis=-1)
 	inner_uv = minkowski_dot(u_emb, samples_emb)
 
 	return - K.mean(K.log(tf.nn.softmax(inner_uv, axis=-1,)[:,0], ))
@@ -414,14 +477,14 @@ def hyperbolic_softmax_loss(y_true, y_pred,):
 # 	return - tf.reduce_mean( inner_uv[:,0]  -  tf.reduce_mean( inner_uv[:,1:], axis=-1)  )
 
 
-def hyperboloid_initializer(shape, r_max=1e-4):
+def hyperboloid_initializer(shape, r_max=1e-3):
 
 	def poincare_ball_to_hyperboloid(X, append_t=True):
 		x = 2 * X
 		t = 1. + K.sum(K.square(X), axis=-1, keepdims=True)
 		if append_t:
 			x = K.concatenate([x, t], axis=-1)
-		return 1 / (1 - K.sum(K.square(X), axis=-1, keepdims=True)) * x
+		return 1 / (1. - K.sum(K.square(X), axis=-1, keepdims=True)) * x
 
 	def sphere_uniform_sample(shape, r_max):
 		num_samples, dim = shape
@@ -432,6 +495,7 @@ def hyperboloid_initializer(shape, r_max=1e-4):
 
 	w = sphere_uniform_sample(shape, r_max=r_max)
 	return poincare_ball_to_hyperboloid(w)
+	# return np.genfromtxt("../data/labelled_attributed_networks/cora-lcc-warmstart.weights")
 
 class EmbeddingLayer(Layer):
 	
@@ -574,40 +638,82 @@ class ExponentialMappingOptimizer(optimizer.Optimizer):
 
 class PeriodicStdoutLogger(Callback):
 
-	def __init__(self, reconstruction_edges, labels,
-	epoch, n, edge_dict, args):
+	def __init__(self, reconstruction_edges, val_edges, non_edges, labels, 
+	epoch, n, args):
 		self.reconstruction_edges = reconstruction_edges
+		self.reconstruction_edge_dict = convert_edgelist_to_dict(reconstruction_edges)
+		self.val_edges = val_edges
+		self.non_edges = non_edges
+		self.non_edge_dict = convert_edgelist_to_dict(non_edges)
 		self.labels = labels
 		self.epoch = epoch
 		self.n = n
-		self.edge_dict = edge_dict
 		self.args = args
 
 	def on_epoch_end(self, batch, logs={}):
 	
 		self.epoch += 1
+
+
+		s = "Completed epoch {}, loss={}".format(self.epoch, logs["loss"])
+		if "val_loss" in logs.keys():
+			s += ", val_loss={}".format(logs["val_loss"])
+		print (s)
+
+		hyperboloid_embedding = self.model.layers[-1].get_weights()[0]
+		print (hyperboloid_embedding)
+
+		dists = hyperbolic_distance_hyperboloid_pairwise(hyperboloid_embeddding, 
+		hyperboloid_embedding)
+
+		# print minkowski_dot_np(hyperboloid_embedding, hyperboloid_embedding)
+
+		print ("reconstruction")
+		(mean_rank_reconstruction, map_reconstruction, 
+			mean_roc_reconstruction) = evaluate_rank_and_MAP(dists, 
+			self.reconstruction_edge_dict, self.non_edge_dict)
+
+		logs.update({"mean_rank_reconstruction": mean_rank_reconstruction, 
+			"map_reconstruction": map_reconstruction,
+			"mean_roc_reconstruction": mean_roc_reconstruction})
+
+
+		if self.args.evaluate_link_prediction:
+			print ("link prediction")
+			(mean_rank_lp, map_lp, 
+			mean_roc_lp) = evaluate_rank_and_MAP(dists, 
+			self.val_edges, self.non_edge_dict)
+
+			logs.update({"mean_rank_lp": mean_rank_lp, 
+				"map_lp": map_lp,
+				"mean_roc_lp": mean_roc_lp})
+		else:
+
+			mean_rank_lp, map_lp, mean_roc_lp = None, None, None
+
+		poincare_embedding = hyperboloid_to_poincare_ball(hyperboloid_embedding)
+		klein_embedding = hyperboloid_to_klein(hyperboloid_embedding)
+
+		if self.args.evaluate_class_prediction:
+			label_percentages, f1_micros, f1_macros = evaluate_classification(klein_embedding, self.labels)
+
+
 		if self.epoch % self.n == 0:
-			s = "Completed epoch {}, loss={}".format(self.epoch, logs["loss"])
-			if "val_loss" in logs.keys():
-				s += ", val_loss={}".format(logs["val_loss"])
-			print (s)
 
-			hyperboloid_embedding = self.model.layers[-1].get_weights()[0]
-			print (hyperboloid_embedding)
-			# print minkowski_dot_np(hyperboloid_embedding, hyperboloid_embedding)
-
-			mean_rank, mean_average_precision = evaluate_rank_and_MAP(hyperboloid_embedding, self.edge_dict)
-
-			# logs.update({"mean_rank": mean_rank, "mean_average_precision": mean_average_precision})
-
-			poincare_embedding = hyperboloid_to_poincare_ball(hyperboloid_embedding)
-			klein_embedding = hyperboloid_to_klein(hyperboloid_embedding)
-
+			plot_path = os.path.join(args.plot_path, "epoch_{:05d}_plot.png".format(self.epoch) )
 			plot_disk_embeddings(self.epoch, self.reconstruction_edges, 
 				poincare_embedding, klein_embedding,
 				self.labels, 
-				mean_rank, mean_average_precision,
-				self.args)
+				mean_rank_reconstruction, map_reconstruction, mean_roc_reconstruction,
+				mean_rank_lp, map_lp, mean_roc_lp,
+				plot_path)
+
+			roc_path = os.path.join(args.plot_path, "epoch_{:05d}_roc_curve.png".format(self.epoch) )
+			plot_roc(dists, self.reconstruction_edges, self.val_edges, self.non_edges, roc_path)
+
+			if self.args.evaluate_class_prediction:
+				f1_path = os.path.join(args.plot_path, "epoch_{:05d}_class_prediction_f1.png".format(self.epoch))
+				plot_classification(label_percentages, f1_micros, f1_macros, f1_path)
 
 def build_model(num_nodes, args):
 
@@ -618,7 +724,8 @@ def build_model(num_nodes, args):
 
 	model = Model(x, y)
 
-	saved_models = sorted([f for f in os.listdir(args.model_path) if re.match(r"^[0-9][0-9][0-9][0-9]*", f)])
+	saved_models = sorted([f for f in os.listdir(args.model_path) 
+		if re.match(r"^[0-9][0-9][0-9][0-9]*", f)])
 	initial_epoch = len(saved_models)
 
 	print (model.layers[-1].get_weights()[0])
@@ -633,10 +740,16 @@ def build_model(num_nodes, args):
 	return model, initial_epoch
 
 def plot_disk_embeddings(epoch, edges, poincare_embedding, klein_embedding, labels, 
-	mean_rank, mean_average_precision, args):
+	mean_rank_reconstruction, map_reconstruction, mean_roc_reconstruction,
+	mean_rank_lp, map_lp, mean_roc_lp, path):
 
 	fig = plt.figure(figsize=[14, 7])
-	plt.suptitle("Epoch={:05d}, Mean Rank={}, MAP={}".format(epoch, mean_rank, mean_average_precision))
+	title = "Epoch={:05d}, Mean_rank_recon={}, MAP_recon={}, Mean_AUC_recon={}".format(epoch, 
+		mean_rank_reconstruction, map_reconstruction, mean_roc_reconstruction)
+	if mean_rank_lp is not None:
+		title += "\nMean_rank_lp={}, MAP_lp={}, Mean_AUC_lp={}".format(mean_rank_lp,
+			map_lp, mean_roc_lp)
+	plt.suptitle(title)
 	
 	ax = fig.add_subplot(121)
 	plt.title("Poincare")
@@ -660,12 +773,65 @@ def plot_disk_embeddings(epoch, edges, poincare_embedding, klein_embedding, labe
 	plt.xlim([-1,1])
 	plt.ylim([-1,1])
 
-	path = os.path.join(args.plot_path, "epoch_{:05d}.png".format(epoch) )
 	print ("saving plot to {}".format(path))
 	
 	plt.savefig(path)
 	plt.close()
 
+def plot_roc(dists, reconstruction_edges, removed_edges, non_edges, path):
+	fig = plt.figure(figsize=[7, 7])
+	title = "Reconstruction ROC curve"
+	plt.suptitle(title)
+
+	reconstruction_edges = np.array(reconstruction_edges)
+	non_edges = np.array(non_edges)
+	
+	edge_dists = dists[reconstruction_edges[:,0], reconstruction_edges[:,1]]
+	non_edge_dists = dists[non_edges[:,0], non_edges[:,1]]
+
+	targets = np.append(np.ones_like(edge_dists), np.zeros_like(non_edge_dists))
+	dists = np.append(edge_dists, non_edge_dists)
+
+	fpr, tpr, _ = roc_curve(targets, -dists)
+
+	plt.plot(fpr, tpr, c="r")
+
+	legend = ["reconstruction"]
+
+	if removed_edges is not None:
+		removed_edges = np.array(removed_edges)
+		removed_edges_dists = dists[removed_edges[:,0], removed_edges[:,1]]
+
+		targets = np.append(np.ones_like(removed_edge_dists), np.zeros_like(non_edge_dists))
+		dists = np.append(removed_edge_dists, non_edge_dists)
+
+		fpr, tpr, _ = roc_curve(targets, -dists)
+
+		plt.plot(fpr, tpr, c="b")
+
+		legend += ["link prediction"]
+
+
+	plt.plot([0,1], [0,1], c="k")
+
+	plt.xlabel("fpr")
+	plt.ylabel("tpr")
+	plt.legend(legend)
+	plt.savefig(path)
+	plt.close()
+
+def plot_classification(label_percentages, f1_micros, f1_macros, path):
+	fig = plt.figure(figsize=[7, 7])
+	title = "Node classification"
+	plt.suptitle(title)
+	
+	plt.plot(label_percentages, f1_micros, c="r")
+	plt.plot(label_percentages, f1_macros, c="b")
+	plt.legend(["f1_micros", "f1_macros"])
+	plt.xlabel("label_percentages")
+	plt.ylabel("f1 score")
+	plt.savefig(path)
+	plt.close()
 
 def parse_args():
 	'''
@@ -756,6 +922,11 @@ def parse_args():
 
 	parser.add_argument('--no-gpu', action="store_true", help='flag to train on cpu')
 
+	parser.add_argument('--only-lcc', action="store_true", help='flag to train on only lcc')
+
+	parser.add_argument('--evaluate-class-prediction', action="store_true", help='flag to evaluate class prediction')
+	parser.add_argument('--evaluate-link-prediction', action="store_true", help='flag to evaluate link prediction')
+
 
 	args = parser.parse_args()
 	return args
@@ -766,16 +937,27 @@ def configure_paths(args):
 	'''
 
 	dataset = args.dataset
-	directory = "dim={}/r={}_t={}/seed={}/".format(args.embedding_dim, 
-		args.r, args.t, args.seed)
+	directory = "dim={}/seed={}/".format(args.embedding_dim, args.seed)
+
+	if args.only_lcc:
+		directory += "lcc/"
+	else:
+		directory += "all_components/"
+
+	if args.evaluate_link_prediction:
+		directory += "eval_lp/"
+	elif args.evaluate_class_prediction:
+		directory += "eval_class_pred/"
+	else: 
+		directory += "no_lp/"
 
 
-	# if args.softmax:
-	# 	directory += "softmax/"
-	# elif args.sigmoid:
-	# 	directory += "sigmoid/"
-	# else:
-	# 	directory += "hyperbolic_distance_loss/"
+	if args.softmax:
+		directory += "softmax_loss/"
+	elif args.sigmoid:
+		directory += "sigmoid_loss/"
+	else:
+		directory += "hyperbolic_distance_loss/r={}_t={}/".format(args.r, args.t)
 
 
 	
@@ -825,6 +1007,18 @@ def configure_paths(args):
 	args.walk_path = os.path.join(args.walk_path, dataset)
 	if not os.path.exists(args.walk_path):
 		os.makedirs(args.walk_path)
+	if args.only_lcc:
+		args.walk_path += "/lcc/"
+	else:
+		args.walk_path += "/all_components/"
+	if args.evaluate_link_prediction:
+		args.walk_path += "eval_lp/"
+	# elif args.evaluate_class_prediction:
+	# 	args.walk_path += "/eval_class_pred/"
+	else:
+		args.walk_path += "no_lp/"
+	if not os.path.exists(args.walk_path):
+		os.makedirs(args.walk_path)
 
 	args.model_path = os.path.join(args.model_path, dataset)
 	if not os.path.exists(args.model_path):
@@ -837,9 +1031,12 @@ def main():
 
 	args = parse_args()
 	args.num_positive_samples = 1
+	args.only_lcc = True
+	# args.evaluate_class_prediction = True
 
 	assert not sum([args.multiply_attributes, args.add_attributes, args.jump_prob>0]) > 1
 
+	random.seed(args.seed)
 	np.random.seed(args.seed)
 	tf.set_random_seed(args.seed)
 
@@ -853,13 +1050,15 @@ def main():
 	if dataset == "karate":
 		topology_graph, features, labels = load_karate()
 	elif dataset in ["cora", "pubmed", "citeseer"]:
-		topology_graph, features, labels = load_labelled_attributed_network(dataset)
+		topology_graph, features, labels = load_labelled_attributed_network(dataset, args)
 	else:
 		raise Exception
 
 	# original edges for reconstruction
 	reconstruction_edges = topology_graph.edges()
-	edge_dict = convert_edgelist_to_dict(reconstruction_edges)
+	non_edges = list(nx.non_edges(topology_graph))
+
+	# edge_dict = convert_edgelist_to_dict(reconstruction_edges)
 
 	if features is not None:
 		feature_sim = cosine_similarity(features)
@@ -867,6 +1066,20 @@ def main():
 		feature_sim [feature_sim  < args.rho] = 0
 	else:
 		feature_sim = None
+
+	if args.evaluate_link_prediction:
+		train_edges, val_edges, test_edges = split_edges(reconstruction_edges)
+		topology_graph.remove_edges_from(val_edges + test_edges)
+
+		train_edges = convert_edgelist_to_dict(train_edges)
+		val_edges = convert_edgelist_to_dict(val_edges)
+		test_edges = convert_edgelist_to_dict(test_edges)
+
+	else:
+		train_edges = convert_edgelist_to_dict(reconstruction_edges)
+		val_edges = None
+		test_edges = None
+
 
 
 	if args.add_attributes:
@@ -884,71 +1097,19 @@ def main():
 	walk_file += "_num_walks={}-walk_len={}-p={}-q={}.walk".format(args.num_walks, 
 	 			args.walk_length, args.p, args.q)
 
-
-	# if args.second_order:
-	# 	topology_walk_file += "_second_order"
-	# 	print ("weighting edges by second order similarity")
-	# 	second_order_topology_graph = create_second_order_topology_graph(topology_graph, args)
-	# 	top_adj = nx.adjacency_matrix(topology_graph).A
-	# 	second_order_top_adj = nx.adjacency_matrix(second_order_topology_graph).A
-	# 	combined_adjacency = top_adj * second_order_top_adj 
-	# 	topology_graph = nx.from_numpy_matrix(combined_adjacency)
-
-
 	walks = load_walks(g, walk_file, feature_sim, args)
 
-	# if args.use_attributes:
-	# 	feature_graph = create_feature_graph(features, args)
-
-	# 	if args.combine_attributes:
-	# 		top_adj = nx.adjacency_matrix(topology_graph).A
-	# 		feat_adj = nx.adjacency_matrix(feature_graph).A
-
-	# 		combined_adjacency = top_adj * feat_adj
-	# 		combined_graph = nx.from_numpy_matrix(combined_adjacency)
-	# 		combined_walk_file = os.path.join(args.walk_path,
-	# 			"combined_walks-{}-{}-{}-{}".format(args.num_walks, 
-	# 			args.walk_length, args.p, args.q, ))
-	# 		if args.second_order:
-	# 			combined_walk_file += "_second_order"
-	# 		walks = load_walks(combined_graph, combined_walk_file, args)
-
-	# 		# print (len(combined_graph.edges()))
-	# 		# raise SystemExit
-
-	# 	else:
-
-	# 		# feature_walk_file = os.path.join(args.walk_path, "feat_walks-{}-{}-{}-{}".format(args.num_walks, 
-	# 		# 	args.walk_length, args.p, args.q))
-	# 		# walks += load_walks(feature_graph, feature_walk_file, args)
-
-	# 		top_adj = nx.adjacency_matrix(topology_graph).A
-	# 		feat_adj = nx.adjacency_matrix(feature_graph).A
-
-	# 		# combined_adjacency = (1 - args.alpha) * top_adj + args.alpha * feat_adj
-	# 		combined_adjacency = top_adj + top_adj * feat_adj
-	# 		combined_graph = nx.from_numpy_matrix(combined_adjacency)
-	# 		combined_walk_file = os.path.join(args.walk_path,
-	# 			"feat_walks-{}-{}-{}-{}-{}".format(args.num_walks, 
-	# 			args.walk_length, args.p, args.q, args.alpha))
-	# 		if args.second_order:
-	# 			combined_walk_file += "_second_order"
-
-
-	# 		# print (combined_graph.edges(data=True), len(reconstruction_edges),
-	# 		 # len(combined_graph.edges()))
-	# 		# raise SystemExit
-
-	# 		walks = load_walks(combined_graph, combined_walk_file, args)
-
+	
 
 	positive_samples, negative_samples, probs =\
 		determine_positive_and_negative_samples(nodes=topology_graph.nodes(), 
 		walks=walks, context_size=args.context_size)
 
-	for e in topology_graph.edges():
-		assert e in positive_samples, "edge {} is not in positive_samples".format(e)
-	print "passed"
+	# for e in topology_graph.edges():
+	# 	assert e in positive_samples, "edge {} is not in positive_samples".format(e)
+	# print "passed"
+	# print "missing {} edges".format(sum([e not in positive_samples for e in topology_graph.edges()]))
+	# raise SystemExit
 
 	num_nodes = len(topology_graph)
 	num_steps = int((len(positive_samples) + args.batch_size - 1) / args.batch_size)
@@ -971,17 +1132,20 @@ def main():
 	model.compile(optimizer=optimizer, loss=loss)
 	model.summary()
 
-	if sys.version_info[0] == 2:
-		val_in, val_out = training_gen.next()
-	else:
-		val_in, val_out = training_gen.__next__()
+	# if sys.version_info[0] == 2:
+	# 	val_in, val_out = training_gen.next()
+	# else:
+	# 	val_in, val_out = training_gen.__next__()
 
+	val_in = get_training_sample(np.array(reconstruction_edges[:100]), 
+		negative_samples, args.num_negative_samples, probs)
+	val_target = np.zeros(list(val_in.shape)+[1], dtype=np.int64)
 	# model.fit(_in, _out, epochs=1, verbose=args.verbose)
 	# raise SystemExit
 
 	early_stopping = EarlyStopping(monitor="val_loss", patience=args.patience, verbose=1)
-	logger = PeriodicStdoutLogger(reconstruction_edges, labels, 
-				n=args.plot_freq, epoch=initial_epoch, edge_dict=edge_dict, args=args) 
+	logger = PeriodicStdoutLogger(reconstruction_edges, val_edges, non_edges, labels, 
+				n=args.plot_freq, epoch=initial_epoch, args=args) 
 	# for epoch in range(initial_epoch, args.num_epochs):
 	# 	for step in range(num_steps):
 	# 		x, y = training_gen.next()
@@ -991,10 +1155,10 @@ def main():
 	# y = np.zeros(list(x.shape) + [1])
 	# num_steps=1
 	model.fit_generator(training_gen, epochs=args.num_epochs, 
-		workers=8, max_queue_size=100, use_multiprocessing=False,
+		workers=0, max_queue_size=100, use_multiprocessing=False,
 		steps_per_epoch=num_steps, verbose=args.verbose, initial_epoch=initial_epoch,
 	# model.fit(x, y, batch_size=args.batch_size, epochs=args.num_epochs,
-		validation_data=[val_in, val_out],
+		validation_data=[val_in, val_target],
 		callbacks=[
 			TerminateOnNaN(), 
 			logger,
@@ -1016,7 +1180,17 @@ def main():
 	print (hyperboloid_embedding)
 	# print minkowski_dot_np(hyperboloid_embedding, hyperboloid_embedding)
 
-	mean_rank, mean_average_precision = evaluate_rank_and_MAP(hyperboloid_embedding, edge_dict)
+	reconstruction_edge_dict = convert_edgelist_to_dict(reconstruction_edges)
+	non_edge_dict = convert_edgelist_to_dict(non_edges)
+	(mean_rank_reconstruction, map_reconstruction, 
+		mean_roc_reconstruction) = evaluate_rank_and_MAP(hyperboloid_embedding, 
+		reconstruction_edge_dict, non_edge_dict)
+
+	if args.evaluate_link_prediction:
+			(mean_rank_lp, map_lp, 
+			mean_roc_lp) = evaluate_rank_and_MAP(hyperboloid_embedding, test_edges, non_edge_dict)
+	else:
+		mean_rank_lp, map_lp, mean_roc_lp = None, None, None 
 
 	poincare_embedding = hyperboloid_to_poincare_ball(hyperboloid_embedding)
 	klein_embedding = hyperboloid_to_klein(hyperboloid_embedding)
@@ -1027,7 +1201,8 @@ def main():
 	plot_disk_embeddings(epoch, reconstruction_edges, 
 		poincare_embedding, klein_embedding,
 		labels, 
-		mean_rank, mean_average_precision,
+		mean_rank_reconstruction, map_reconstruction, mean_roc_reconstruction,
+		mean_rank_lp, map_lp, mean_roc_lp,
 		args)
 
 
