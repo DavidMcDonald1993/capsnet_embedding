@@ -20,7 +20,7 @@ import pickle as pkl
 import networkx as nx
 
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import average_precision_score, roc_auc_score, f1_score, roc_curve
+from sklearn.metrics import average_precision_score, roc_auc_score, f1_score, roc_curve, precision_recall_curve
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.linear_model import LogisticRegression
 
@@ -39,7 +39,7 @@ from tensorflow.python.training import optimizer
 
 # K.clear_session() # ?
 K.set_floatx("float64")
-K.set_epsilon(1e-32)
+K.set_epsilon(1e-15)
 
 # eps = 1e-6
 np.set_printoptions(suppress=True)
@@ -143,7 +143,7 @@ def load_karate():
 
 
 
-def load_labelled_attributed_network(dataset_str, args, scale=True):
+def load_labelled_attributed_network(dataset_str, args, scale=False):
 	"""Load data."""
 
 	def parse_index_file(filename):
@@ -234,6 +234,33 @@ def load_labelled_attributed_network(dataset_str, args, scale=True):
 	# return (G, Y.argmax(axis=-1), positive_samples, ground_truth_negative_samples,)
 
 
+# def pad_negative_samples(negative_samples):
+# 	def pad_l(l, len_):
+# 		i = 0
+# 		while len(l) < len_:
+# 			l.append(l[i])
+# 			i += 1 
+
+# 	max_len = 0
+# 	for l in negative_samples.values():
+# 		if len(l) > max_len:
+# 			max_len = len(l)
+	
+# 	for l in negative_samples.values():
+# 		pad_l(l, max_len)
+
+# 	return np.array(negative_samples.values(), dtype=int)
+
+# def get_training_sample(batch_positive_samples, negative_samples, num_negative_samples, probs):
+# 	input_nodes = batch_positive_samples[:,0]
+# 	negative_samples = negative_samples[input_nodes]
+# 	a = np.random.random(negative_samples.shape)
+# 	idx = a.argsort(axis=-1)[:,:num_negative_samples]
+	
+# 	batch_negative_samples = negative_samples[np.arange(negative_samples.shape[0])[:,None],idx]
+
+# 	batch_nodes = np.append(batch_positive_samples, batch_negative_samples, axis=1)
+# 	return batch_nodes
 
 
 def get_training_sample(batch_positive_samples, negative_samples, num_negative_samples, probs):
@@ -243,7 +270,7 @@ def get_training_sample(batch_positive_samples, negative_samples, num_negative_s
 	batch_negative_samples = np.array([
 		np.random.choice(negative_samples[u], 
 		replace=True, size=(num_negative_samples,), 
-		# p=probs[u]
+		p=probs[u] if probs is not None else probs
 		)
 		for u in input_nodes
 	], dtype=np.int64)
@@ -292,13 +319,37 @@ def convert_edgelist_to_dict(edgelist, undirected=True, self_edges=False):
 			assert u in edge_dict[v]
 	return edge_dict
 
+# def evaluate_rank_and_MAP(dists, edgelist, non_edgelist):
+# 	assert isinstance(edgelist, list)
+
+# 	if not isinstance(edgelist, np.ndarray):
+# 		edgelist = np.array(edgelist)
+
+# 	if not isinstance(non_edgelist, np.ndarray):
+# 		non_edgelist = np.array(non_edgelist)
+
+# 	edge_dists = dists[edgelist[:,0], edgelist[:,1]]
+# 	non_edge_dists = dists[non_edgelist[:,0], non_edgelist[:,1]]
+
+# 	targets = np.append(np.ones_like(edge_dists), np.zeros_like(non_edge_dists))
+# 	ap_score = average_precision_score(targets, -np.append(edge_dists, non_edge_dists))
+# 	auc_score = roc_auc_score(targets, -np.append(edge_dists, non_edge_dists))
+
+
+# 	idx = non_edge_dists.argsort()
+# 	ranks = np.searchsorted(non_edge_dists, edge_dists, sorter=idx).mean()
+
+# 	print ("MEAN RANK=", ranks, "MEAN AP=", ap_score, 
+# 		"MEAN ROC AUC=", auc_score)
+
+# 	return ranks, ap_score, auc_score
+
 def evaluate_rank_and_MAP(dists, edge_dict, non_edge_dict):
 
 	ranks = []
 	ap_scores = []
 	roc_auc_scores = []
 	
-
 	for u, neighbours in edge_dict.items():
 		_dists = dists[u, neighbours + non_edge_dict[u]]
 		_labels = np.append(np.ones(len(neighbours)), np.zeros(len(non_edge_dict[u])))
@@ -316,7 +367,7 @@ def evaluate_rank_and_MAP(dists, edge_dict, non_edge_dict):
 		neighbour_dists = dists[u, neighbours]
 		non_neighbour_dists = dists[u, non_edge_dict[u]]
 		idx = non_neighbour_dists.argsort()
-		_ranks = np.searchsorted(non_neighbour_dists, neighbour_dists, sorter=idx)
+		_ranks = np.searchsorted(non_neighbour_dists, neighbour_dists, sorter=idx) + 1
 
 		# _ranks = []
 		# _dists_masked = _dists.copy()
@@ -337,14 +388,30 @@ def evaluate_rank_and_MAP(dists, edge_dict, non_edge_dict):
 def evaluate_classification(klein_embedding, labels, 
 	label_percentages=np.arange(0.02, 0.11, 0.01),):
 
+	def idx_shuffle(labels):
+		class_memberships = [list(np.random.permutation(np.where(labels==c)[0])) for c in sorted(set(labels))]
+		idx = []
+		while len(class_memberships) > 0:
+			for _class in class_memberships:
+				idx.append(_class.pop(0))
+				if len(_class) == 0:
+					class_memberships.remove(_class)
+		return idx
+
 	num_nodes, dim = klein_embedding.shape
 
 	f1_micros = []
 	f1_macros = []
+
+	classes = sorted(set(labels))
+
+	# print len(classes)
+	idx = idx_shuffle(labels)
+
 	
 	for label_percentage in label_percentages:
-		num_labels = int(num_nodes * label_percentage)
-		idx = np.random.permutation(num_nodes)
+		num_labels = int(max(num_nodes * label_percentage, len(classes)))
+		# idx = np.random.permutation(num_nodes)
 		model = LogisticRegression(multi_class="multinomial", solver="newton-cg", random_state=0)
 		model.fit(klein_embedding[idx[:num_labels]], labels[idx[:num_labels]])
 		predictions = model.predict(klein_embedding[idx[num_labels:]])
@@ -352,6 +419,9 @@ def evaluate_classification(klein_embedding, labels,
 		f1_macro = f1_score(labels[idx[num_labels:]], predictions, average="macro")
 		f1_micros.append(f1_micro)
 		f1_macros.append(f1_macro)
+
+	# print label_percentages, f1_micros, f1_macros
+	# raise SystemExit
 
 	return label_percentages, f1_micros, f1_macros
 
@@ -381,7 +451,7 @@ def hyperboloid_to_poincare_ball(X):
 	return X[:,:-1] / (1 + X[:,-1,None])
 
 def hyperboloid_to_klein(X):
-    return X[:,:-1] / X[:,-1,None]
+	return X[:,:-1] / X[:,-1,None]
 
 
 def minkowski_dot(x, y):
@@ -404,23 +474,16 @@ def hyperbolic_negative_sampling_loss(r, t):
 
 	def loss(y_true, y_pred, r=r, t=t):
 
-		# r = 5
- 
 		r = K.cast(r, K.floatx())
-		t = K.cast(r, K.floatx())
-
-		# print r
-		# raise SystemExit
-
+		t = K.cast(t, K.floatx())
 
 		u_emb = y_pred[:,0]
 		samples_emb = y_pred[:,1:]
 		
 		inner_uv = minkowski_dot(u_emb, samples_emb)
 		inner_uv = K.clip(inner_uv, min_value=-np.inf, max_value=-(1+K.epsilon()))
-		# d_uv = acosh(-inner_uv)
 		d_uv = tf.acosh(-inner_uv)
-		out_uv = (K.square(r)- K.square(d_uv)) / t
+		out_uv = (K.square(r) - K.square(d_uv)) / t
 		# out_uv = (r - d_uv) / t
 
 		pos_out_uv = out_uv[:,0]
@@ -572,45 +635,45 @@ class ExponentialMappingOptimizer(optimizer.Optimizer):
    
 	def exponential_mapping( self, p, x, ):
 
-	    def adjust_to_hyperboloid(x):
-	        x = x[:,:-1]
-	        t = K.sqrt(1. + K.sum(K.square(x), axis=-1, keepdims=True))
-	        return tf.concat([x,t], axis=-1)
+		def adjust_to_hyperboloid(x):
+			x = x[:,:-1]
+			t = K.sqrt(1. + K.sum(K.square(x), axis=-1, keepdims=True))
+			return tf.concat([x,t], axis=-1)
 
-	    norm_x = tf.sqrt( tf.maximum(K.cast(0., K.floatx()), minkowski_dot(x, x), name="maximum") )
+		norm_x = tf.sqrt( tf.maximum(K.cast(0., K.floatx()), minkowski_dot(x, x), name="maximum") )
 
-	    # norm_x = tf.minimum(norm_x, 1.)
-	    #####################################################
-	    # exp_map_p = tf.cosh(norm_x) * p
-	    
-	    # idx = tf.cast( tf.where(norm_x > K.cast(0., K.floatx()), )[:,0], tf.int32)
-	    # non_zero_norm = tf.gather(norm_x, idx)
-	    # z = tf.gather(x, idx) / non_zero_norm
+		# norm_x = tf.minimum(norm_x, 1.)
+		#####################################################
+		# exp_map_p = tf.cosh(norm_x) * p
+		
+		# idx = tf.cast( tf.where(norm_x > K.cast(0., K.floatx()), )[:,0], tf.int32)
+		# non_zero_norm = tf.gather(norm_x, idx)
+		# z = tf.gather(x, idx) / non_zero_norm
 
-	    # updates = tf.sinh(non_zero_norm) * z
-	    # dense_shape = tf.cast( tf.shape(p), tf.int32)
-	    # exp_map_x = tf.scatter_nd(indices=idx, updates=updates, shape=dense_shape)
+		# updates = tf.sinh(non_zero_norm) * z
+		# dense_shape = tf.cast( tf.shape(p), tf.int32)
+		# exp_map_x = tf.scatter_nd(indices=idx, updates=updates, shape=dense_shape)
 
-	    
-	    # exp_map = exp_map_p + exp_map_x    
-	    ###################################################
-	    y = p
-	    # z = x / norm_x
-	    z = x / tf.clip_by_value(norm_x, clip_value_min=K.epsilon(), clip_value_max=np.inf)
+		
+		# exp_map = exp_map_p + exp_map_x    
+		###################################################
+		y = p
+		# z = x / norm_x
+		z = x / tf.clip_by_value(norm_x, clip_value_min=K.epsilon(), clip_value_max=np.inf)
 
-	    exp_map = tf.cosh(norm_x) * y + tf.sinh(norm_x) * z
-	    #####################################################
-	    exp_map = adjust_to_hyperboloid(exp_map)
-	    # idx = tf.where(tf.abs(exp_map + 1) < K.epsilon())[:,0]
-	    # params = tf.gather(exp_map, idx)
+		exp_map = tf.cosh(norm_x) * y + tf.sinh(norm_x) * z
+		#####################################################
+		exp_map = adjust_to_hyperboloid(exp_map)
+		# idx = tf.where(tf.abs(exp_map + 1) < K.epsilon())[:,0]
+		# params = tf.gather(exp_map, idx)
 
-	    # params = adjust_to_hyperboloid(params)
-	    # exp_map = tf.scatter_update(ref=exp_map, updates=params, indices=idx)
+		# params = adjust_to_hyperboloid(params)
+		# exp_map = tf.scatter_update(ref=exp_map, updates=params, indices=idx)
 
-	    # exp_map = K.minimum(exp_map, 10000)
+		# exp_map = K.minimum(exp_map, 10000)
 
 
-	    return exp_map
+		return exp_map
 
 	def _apply_sparse(self, grad, var):
 		# assert False
@@ -626,7 +689,7 @@ class ExponentialMappingOptimizer(optimizer.Optimizer):
 
 		ambient_grad = tf.concat([spacial_grad, t_grad], axis=-1, name="optimizer_concat")
 		tangent_grad = self.project_onto_tangent_space(p, ambient_grad)
-		# exp_map = tangent_grad
+		# exp_map = ambient_grad
 		exp_map = self.exponential_mapping(p, - lr_t * tangent_grad)
 
 		out = tf.scatter_update(ref=var, updates=exp_map, indices=indices, name="scatter_update")
@@ -638,13 +701,15 @@ class ExponentialMappingOptimizer(optimizer.Optimizer):
 
 class PeriodicStdoutLogger(Callback):
 
-	def __init__(self, reconstruction_edges, val_edges, non_edges, labels, 
+	def __init__(self, reconstruction_edges, val_edges, non_edges, non_edge_dict, labels, 
 	epoch, n, args):
 		self.reconstruction_edges = reconstruction_edges
 		self.reconstruction_edge_dict = convert_edgelist_to_dict(reconstruction_edges)
 		self.val_edges = val_edges
+		self.val_edge_dict = convert_edgelist_to_dict(val_edges)
 		self.non_edges = non_edges
-		self.non_edge_dict = convert_edgelist_to_dict(non_edges)
+		# self.non_edge_dict = convert_edgelist_to_dict(non_edges)
+		self.non_edge_dict = non_edge_dict
 		self.labels = labels
 		self.epoch = epoch
 		self.n = n
@@ -661,10 +726,9 @@ class PeriodicStdoutLogger(Callback):
 		print (s)
 
 		hyperboloid_embedding = self.model.layers[-1].get_weights()[0]
-		print (hyperboloid_embedding)
+		# print (hyperboloid_embedding)
 
-		dists = hyperbolic_distance_hyperboloid_pairwise(hyperboloid_embeddding, 
-		hyperboloid_embedding)
+		dists = hyperbolic_distance_hyperboloid_pairwise(hyperboloid_embedding, hyperboloid_embedding)
 
 		# print minkowski_dot_np(hyperboloid_embedding, hyperboloid_embedding)
 
@@ -672,6 +736,9 @@ class PeriodicStdoutLogger(Callback):
 		(mean_rank_reconstruction, map_reconstruction, 
 			mean_roc_reconstruction) = evaluate_rank_and_MAP(dists, 
 			self.reconstruction_edge_dict, self.non_edge_dict)
+		# (mean_rank_reconstruction, map_reconstruction, 
+		# 	mean_roc_reconstruction) = evaluate_rank_and_MAP(dists, 
+		# 	self.reconstruction_edges, self.non_edges)
 
 		logs.update({"mean_rank_reconstruction": mean_rank_reconstruction, 
 			"map_reconstruction": map_reconstruction,
@@ -682,7 +749,11 @@ class PeriodicStdoutLogger(Callback):
 			print ("link prediction")
 			(mean_rank_lp, map_lp, 
 			mean_roc_lp) = evaluate_rank_and_MAP(dists, 
-			self.val_edges, self.non_edge_dict)
+			self.val_edge_dict, self.non_edge_dict)
+
+			# (mean_rank_lp, map_lp, 
+			# mean_roc_lp) = evaluate_rank_and_MAP(dists, 
+			# self.val_edges, self.non_edges)
 
 			logs.update({"mean_rank_lp": mean_rank_lp, 
 				"map_lp": map_lp,
@@ -697,10 +768,15 @@ class PeriodicStdoutLogger(Callback):
 		if self.args.evaluate_class_prediction:
 			label_percentages, f1_micros, f1_macros = evaluate_classification(klein_embedding, self.labels)
 
+			for label_percentage, f1_micro, f1_macro in zip(label_percentages, f1_micros, f1_macros):
+				logs.update({"{}_micro".format(label_percentage): f1_micro})
+				logs.update({"{}_macro".format(label_percentage): f1_macro})
+
+
 
 		if self.epoch % self.n == 0:
 
-			plot_path = os.path.join(args.plot_path, "epoch_{:05d}_plot.png".format(self.epoch) )
+			plot_path = os.path.join(self.args.plot_path, "epoch_{:05d}_plot.png".format(self.epoch) )
 			plot_disk_embeddings(self.epoch, self.reconstruction_edges, 
 				poincare_embedding, klein_embedding,
 				self.labels, 
@@ -708,11 +784,15 @@ class PeriodicStdoutLogger(Callback):
 				mean_rank_lp, map_lp, mean_roc_lp,
 				plot_path)
 
-			roc_path = os.path.join(args.plot_path, "epoch_{:05d}_roc_curve.png".format(self.epoch) )
+			roc_path = os.path.join(self.args.plot_path, "epoch_{:05d}_roc_curve.png".format(self.epoch) )
 			plot_roc(dists, self.reconstruction_edges, self.val_edges, self.non_edges, roc_path)
 
+			precision_recall_path = os.path.join(self.args.plot_path, "epoch_{:05d}_precision_recall_curve.png".format(self.epoch) )
+			plot_precisions_recalls(dists, self.reconstruction_edges, 
+				self.val_edges, self.non_edges, precision_recall_path)
+
 			if self.args.evaluate_class_prediction:
-				f1_path = os.path.join(args.plot_path, "epoch_{:05d}_class_prediction_f1.png".format(self.epoch))
+				f1_path = os.path.join(self.args.plot_path, "epoch_{:05d}_class_prediction_f1.png".format(self.epoch))
 				plot_classification(label_percentages, f1_micros, f1_macros, f1_path)
 
 def build_model(num_nodes, args):
@@ -742,6 +822,8 @@ def build_model(num_nodes, args):
 def plot_disk_embeddings(epoch, edges, poincare_embedding, klein_embedding, labels, 
 	mean_rank_reconstruction, map_reconstruction, mean_roc_reconstruction,
 	mean_rank_lp, map_lp, mean_roc_lp, path):
+
+	print ("saving plot to {}".format(path))
 
 	fig = plt.figure(figsize=[14, 7])
 	title = "Epoch={:05d}, Mean_rank_recon={}, MAP_recon={}, Mean_AUC_recon={}".format(epoch, 
@@ -773,44 +855,92 @@ def plot_disk_embeddings(epoch, edges, poincare_embedding, klein_embedding, labe
 	plt.xlim([-1,1])
 	plt.ylim([-1,1])
 
-	print ("saving plot to {}".format(path))
 	
 	plt.savefig(path)
 	plt.close()
 
-def plot_roc(dists, reconstruction_edges, removed_edges, non_edges, path):
+def plot_precisions_recalls(dists, reconstruction_edges, removed_edges, non_edges, path):
+
+	print ("saving precision recall curves to {}".format(path))
+
 	fig = plt.figure(figsize=[7, 7])
-	title = "Reconstruction ROC curve"
+	title = "Embedding quality precision-recall curve"
 	plt.suptitle(title)
 
 	reconstruction_edges = np.array(reconstruction_edges)
-	non_edges = np.array(non_edges)
-	
+	non_edges = np.array(non_edges) 
+
 	edge_dists = dists[reconstruction_edges[:,0], reconstruction_edges[:,1]]
 	non_edge_dists = dists[non_edges[:,0], non_edges[:,1]]
 
 	targets = np.append(np.ones_like(edge_dists), np.zeros_like(non_edge_dists))
-	dists = np.append(edge_dists, non_edge_dists)
+	_dists = np.append(edge_dists, non_edge_dists)
 
-	fpr, tpr, _ = roc_curve(targets, -dists)
+	precisions, recalls, _ = precision_recall_curve(targets, -_dists)
 
-	plt.plot(fpr, tpr, c="r")
+	plt.plot(recalls, precisions, c="r")
 
 	legend = ["reconstruction"]
 
 	if removed_edges is not None:
 		removed_edges = np.array(removed_edges)
-		removed_edges_dists = dists[removed_edges[:,0], removed_edges[:,1]]
+		removed_edge_dists = dists[removed_edges[:,0], removed_edges[:,1]]
 
 		targets = np.append(np.ones_like(removed_edge_dists), np.zeros_like(non_edge_dists))
-		dists = np.append(removed_edge_dists, non_edge_dists)
+		_dists = np.append(removed_edge_dists, non_edge_dists)
 
-		fpr, tpr, _ = roc_curve(targets, -dists)
+		precisions, recalls, _ = precision_recall_curve(targets, -_dists)
 
-		plt.plot(fpr, tpr, c="b")
+		plt.plot(recalls, precisions, c="b")
 
 		legend += ["link prediction"]
 
+
+	plt.xlabel("recall")
+	plt.ylabel("precision")
+	plt.legend(legend)
+	plt.savefig(path)
+	plt.close()
+
+
+def plot_roc(dists, reconstruction_edges, removed_edges, non_edges, path):
+
+	print ("saving roc plot to {}".format(path))
+
+	fig = plt.figure(figsize=[7, 7])
+	title = "Embedding quality ROC curve"
+	plt.suptitle(title)
+
+	reconstruction_edges = np.array(reconstruction_edges)
+	non_edges = np.array(non_edges) 
+
+	edge_dists = dists[reconstruction_edges[:,0], reconstruction_edges[:,1]]
+	non_edge_dists = dists[non_edges[:,0], non_edges[:,1]]
+
+	targets = np.append(np.ones_like(edge_dists), np.zeros_like(non_edge_dists))
+	_dists = np.append(edge_dists, non_edge_dists)
+
+	fpr, tpr, _ = roc_curve(targets, -_dists)
+	auc = roc_auc_score(targets, -_dists)
+	precisions, recalls, _ = precision_recall_curve(targets, -_dists)
+
+	plt.plot(fpr, tpr, c="r")
+
+	legend = ["reconstruction AUC={}".format(auc)]
+
+	if removed_edges is not None:
+		removed_edges = np.array(removed_edges)
+		removed_edge_dists = dists[removed_edges[:,0], removed_edges[:,1]]
+
+		targets = np.append(np.ones_like(removed_edge_dists), np.zeros_like(non_edge_dists))
+		_dists = np.append(removed_edge_dists, non_edge_dists)
+
+		fpr, tpr, _ = roc_curve(targets, -_dists)
+		auc = roc_auc_score(targets, -_dists)
+
+		plt.plot(fpr, tpr, c="b")
+
+		legend += ["link prediction AUC={}".format(auc)]
 
 	plt.plot([0,1], [0,1], c="k")
 
@@ -821,6 +951,10 @@ def plot_roc(dists, reconstruction_edges, removed_edges, non_edges, path):
 	plt.close()
 
 def plot_classification(label_percentages, f1_micros, f1_macros, path):
+
+	print ("saving classification plot to {}".format(path))
+
+
 	fig = plt.figure(figsize=[7, 7])
 	title = "Node classification"
 	plt.suptitle(title)
@@ -830,6 +964,7 @@ def plot_classification(label_percentages, f1_micros, f1_macros, path):
 	plt.legend(["f1_micros", "f1_macros"])
 	plt.xlabel("label_percentages")
 	plt.ylabel("f1 score")
+	plt.ylim([0,1])
 	plt.savefig(path)
 	plt.close()
 
@@ -860,14 +995,14 @@ def parse_args():
 
 	parser.add_argument("-e", "--num_epochs", dest="num_epochs", type=int, default=50000,
 		help="The number of epochs to train for (default is 50000).")
-	parser.add_argument("-b", "--batch_size", dest="batch_size", type=int, default=128, 
-		help="Batch size for training (default is 128).")
-	parser.add_argument("--nneg", dest="num_negative_samples", type=int, default=5, 
-		help="Number of negative samples for training (default is 5).")
+	parser.add_argument("-b", "--batch_size", dest="batch_size", type=int, default=32, 
+		help="Batch size for training (default is 32).")
+	parser.add_argument("--nneg", dest="num_negative_samples", type=int, default=10, 
+		help="Number of negative samples for training (default is 10).")
 	parser.add_argument("--context-size", dest="context_size", type=int, default=1,
 		help="Context size for generating positive samples (default is 1).")
-	parser.add_argument("--patience", dest="patience", type=int, default=1000,
-		help="The number of epochs of no improvement in validation loss before training is stopped. (Default is 1000)")
+	parser.add_argument("--patience", dest="patience", type=int, default=25,
+		help="The number of epochs of no improvement in validation loss before training is stopped. (Default is 25)")
 
 	parser.add_argument("--plot-freq", dest="plot_freq", type=int, default=1000, 
 		help="Frequency for plotting (default is 1000).")
@@ -1027,12 +1162,26 @@ def configure_paths(args):
 	if not os.path.exists(args.model_path):
 		os.makedirs(args.model_path)
 
+def make_validation_data(edges, non_edge_dict, probs, args):
+
+	edges = np.array(edges)
+	idx = np.random.choice(len(edges), size=args.batch_size, replace=False,)
+	positive_samples = edges[idx]#
+	# non_edge_dict = convert_edgelist_to_dict(non_edges)
+
+	x = get_training_sample(positive_samples, 
+		non_edge_dict, args.num_negative_samples, probs=None)
+	y = np.zeros(list(x.shape)+[1], dtype=np.int64)
+
+	return x, y
+
 def main():
 
 	args = parse_args()
 	args.num_positive_samples = 1
 	args.only_lcc = True
-	# args.evaluate_class_prediction = True
+	if not args.evaluate_link_prediction:
+		args.evaluate_class_prediction = True
 
 	assert not sum([args.multiply_attributes, args.add_attributes, args.jump_prob>0]) > 1
 
@@ -1056,7 +1205,10 @@ def main():
 
 	# original edges for reconstruction
 	reconstruction_edges = topology_graph.edges()
+	print ("determined reconstruction edges")
 	non_edges = list(nx.non_edges(topology_graph))
+	non_edge_dict = convert_edgelist_to_dict(non_edges)
+	print ("determined non edges")
 
 	# edge_dict = convert_edgelist_to_dict(reconstruction_edges)
 
@@ -1071,12 +1223,13 @@ def main():
 		train_edges, val_edges, test_edges = split_edges(reconstruction_edges)
 		topology_graph.remove_edges_from(val_edges + test_edges)
 
-		train_edges = convert_edgelist_to_dict(train_edges)
-		val_edges = convert_edgelist_to_dict(val_edges)
-		test_edges = convert_edgelist_to_dict(test_edges)
+		# train_edges = convert_edgelist_to_dict(train_edges)
+		# val_edges = convert_edgelist_to_dict(val_edges)
+		# test_edges = convert_edgelist_to_dict(test_edges)
 
 	else:
-		train_edges = convert_edgelist_to_dict(reconstruction_edges)
+		train_edges = reconstruction_edges
+		# train_edges = convert_edgelist_to_dict(reconstruction_edges)
 		val_edges = None
 		test_edges = None
 
@@ -1095,7 +1248,7 @@ def main():
 		walk_file = os.path.join(args.walk_path, "no_attributes")
 		g = topology_graph
 	walk_file += "_num_walks={}-walk_len={}-p={}-q={}.walk".format(args.num_walks, 
-	 			args.walk_length, args.p, args.q)
+				args.walk_length, args.p, args.q)
 
 	walks = load_walks(g, walk_file, feature_sim, args)
 
@@ -1104,6 +1257,10 @@ def main():
 	positive_samples, negative_samples, probs =\
 		determine_positive_and_negative_samples(nodes=topology_graph.nodes(), 
 		walks=walks, context_size=args.context_size)
+
+	# negative_samples = pad_negative_samples(negative_samples)
+	# print negative_samples.shape
+	# raise SystemExit
 
 	# for e in topology_graph.edges():
 	# 	assert e in positive_samples, "edge {} is not in positive_samples".format(e)
@@ -1115,10 +1272,9 @@ def main():
 	num_steps = int((len(positive_samples) + args.batch_size - 1) / args.batch_size)
 	# num_steps=10000
 
-	training_gen = training_generator(positive_samples, negative_samples, probs,
-									  num_negative_samples=args.num_negative_samples, 
-									  batch_size=args.batch_size)
-	# with tf.device("/cpu:0"):
+	# training_gen = training_generator(positive_samples, negative_samples, probs,
+	# 								  num_negative_samples=args.num_negative_samples, 
+	# 								  batch_size=args.batch_size)
 
 	model, initial_epoch = build_model(num_nodes, args)
 	optimizer = ExponentialMappingOptimizer(learning_rate=args.lr)
@@ -1136,28 +1292,37 @@ def main():
 	# 	val_in, val_out = training_gen.next()
 	# else:
 	# 	val_in, val_out = training_gen.__next__()
-
-	val_in = get_training_sample(np.array(reconstruction_edges[:100]), 
-		negative_samples, args.num_negative_samples, probs)
-	val_target = np.zeros(list(val_in.shape)+[1], dtype=np.int64)
+	val_in, val_target = make_validation_data(reconstruction_edges, non_edge_dict, probs, args)
+	# val_in = get_training_sample(np.array(reconstruction_edges[:args.batch_size]), 
+	# 	negative_samples, args.num_negative_samples, probs)
+	# val_target = np.zeros(list(val_in.shape)+[1], dtype=np.int64)
+	print ("determined validation data")
 	# model.fit(_in, _out, epochs=1, verbose=args.verbose)
 	# raise SystemExit
 
 	early_stopping = EarlyStopping(monitor="val_loss", patience=args.patience, verbose=1)
-	logger = PeriodicStdoutLogger(reconstruction_edges, val_edges, non_edges, labels, 
+	logger = PeriodicStdoutLogger(reconstruction_edges, val_edges, non_edges, non_edge_dict, labels, 
 				n=args.plot_freq, epoch=initial_epoch, args=args) 
+	print ("created logger")
 	# for epoch in range(initial_epoch, args.num_epochs):
 	# 	for step in range(num_steps):
 	# 		x, y = training_gen.next()
 	# 		model.train_on_batch(x, y)
 	# 	print "COMPLETED EPOCH {}/{}".format(epoch, args.num_epochs)
-	# x = get_training_sample(np.array(positive_samples), negative_samples, args.num_negative_samples, probs)
-	# y = np.zeros(list(x.shape) + [1])
-	# num_steps=1
-	model.fit_generator(training_gen, epochs=args.num_epochs, 
-		workers=0, max_queue_size=100, use_multiprocessing=False,
-		steps_per_epoch=num_steps, verbose=args.verbose, initial_epoch=initial_epoch,
-	# model.fit(x, y, batch_size=args.batch_size, epochs=args.num_epochs,
+	x = get_training_sample(np.array(positive_samples), negative_samples, args.num_negative_samples, probs)
+	y = np.zeros(list(x.shape) + [1])
+	# I = np.identity(len(topology_graph))
+	# x = I[x]
+	# print x.shape
+	# raise SystemExit
+	print ("determined training samples")
+	# model.fit_generator(training_gen, epochs=args.num_epochs, 
+	# 	workers=1, max_queue_size=100, use_multiprocessing=True,
+	# 	steps_per_epoch=num_steps, verbose=args.verbose, initial_epoch=initial_epoch,
+	# print len(positive_samples), len(x), args.batch_size
+	# raise SystemExit
+	model.fit(x, y, batch_size=args.batch_size, epochs=args.num_epochs, 
+		initial_epoch=initial_epoch, verbose=args.verbose,
 		validation_data=[val_in, val_target],
 		callbacks=[
 			TerminateOnNaN(), 
@@ -1177,18 +1342,20 @@ def main():
 		)
 
 	hyperboloid_embedding = model.layers[-1].get_weights()[0]
+	dists = hyperbolic_distance_hyperboloid_pairwise(hyperboloid_embedding, hyperboloid_embedding)
 	print (hyperboloid_embedding)
 	# print minkowski_dot_np(hyperboloid_embedding, hyperboloid_embedding)
 
 	reconstruction_edge_dict = convert_edgelist_to_dict(reconstruction_edges)
 	non_edge_dict = convert_edgelist_to_dict(non_edges)
 	(mean_rank_reconstruction, map_reconstruction, 
-		mean_roc_reconstruction) = evaluate_rank_and_MAP(hyperboloid_embedding, 
+		mean_roc_reconstruction) = evaluate_rank_and_MAP(dists, 
 		reconstruction_edge_dict, non_edge_dict)
 
 	if args.evaluate_link_prediction:
-			(mean_rank_lp, map_lp, 
-			mean_roc_lp) = evaluate_rank_and_MAP(hyperboloid_embedding, test_edges, non_edge_dict)
+		test_edge_dict = convert_edgelist_to_dict(test_edges)	
+		(mean_rank_lp, map_lp, 
+		mean_roc_lp) = evaluate_rank_and_MAP(dists, test_edge_dict, non_edge_dict)
 	else:
 		mean_rank_lp, map_lp, mean_roc_lp = None, None, None 
 
@@ -1198,12 +1365,27 @@ def main():
 	# epoch = early_stopping.stopped_epoch#
 	epoch = logger.epoch
 
+	plot_path = os.path.join(args.plot_path, "epoch_{:05d}_plot_test.png".format(epoch) )
 	plot_disk_embeddings(epoch, reconstruction_edges, 
 		poincare_embedding, klein_embedding,
 		labels, 
 		mean_rank_reconstruction, map_reconstruction, mean_roc_reconstruction,
 		mean_rank_lp, map_lp, mean_roc_lp,
-		args)
+		plot_path)
+
+	roc_path = os.path.join(args.plot_path, "epoch_{:05d}_roc_curve_test.png".format(epoch) )
+	plot_roc(dists, reconstruction_edges, test_edges, non_edges, roc_path)
+
+	precision_recall_path = os.path.join(args.plot_path, 
+		"epoch_{:05d}_precision_recall_curve_test.png".format(epoch) )
+	plot_precisions_recalls(dists, reconstruction_edges, 
+		test_edges, non_edges, precision_recall_path)
+
+	if args.evaluate_class_prediction:
+		label_percentages, f1_micros, f1_macros = evaluate_classification(klein_embedding, labels)
+
+		f1_path = os.path.join(args.plot_path, "epoch_{:05d}_class_prediction_f1_test.png".format(epoch))
+		plot_classification(label_percentages, f1_micros, f1_macros, f1_path)
 
 
 
