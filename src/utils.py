@@ -104,7 +104,7 @@ def load_walks(G, walk_file, feature_sim, args):
 
 	if not os.path.exists(walk_file):
 		node2vec_graph = Graph(nx_G=G, is_directed=False, p=args.p, q=args.q,
-			jump_prob=args.jump_prob, feature_sim=feature_sim)
+			jump_prob=args.jump_prob, feature_sim=feature_sim, seed=args.seed)
 		node2vec_graph.preprocess_transition_probs()
 		walks = node2vec_graph.simulate_walks(num_walks=args.num_walks, walk_length=args.walk_length)
 		save_walks_to_file(walks, walk_file)

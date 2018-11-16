@@ -4,7 +4,7 @@ import networkx as nx
 import random
 
 class Graph():
-	def __init__(self, nx_G, is_directed, p, q, jump_prob=0, feature_sim=None):
+	def __init__(self, nx_G, is_directed, p, q, jump_prob=0, feature_sim=None, seed=0):
 		self.G = nx_G
 		# self.A = nx.adjacency_matrix(nx_G).astype(np.float32)
 		# self.A_with_self_links = self.A + sp.sparse.identity(self.A.shape[0])
@@ -15,6 +15,8 @@ class Graph():
 		self.feature_sim = feature_sim 
 		if self.feature_sim is not None:
 			self.feature_sim /= self.feature_sim.sum(axis=1, keepdims=True)
+		np.random.seed(seed)
+		random.seed(seed)
 
 	def node2vec_walk(self, walk_length, start_node):
 		'''

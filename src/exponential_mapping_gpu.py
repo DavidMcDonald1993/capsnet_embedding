@@ -3,6 +3,7 @@ os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
 import re
 import argparse
+import json
 
 import random
 
@@ -18,11 +19,12 @@ import pandas as pd
 import scipy as sp
 import pickle as pkl
 import networkx as nx
-
+from networkx.readwrite import json_graph
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import average_precision_score, roc_auc_score, f1_score, roc_curve, precision_recall_curve
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.linear_model import LogisticRegression
+from sklearn.multiclass import OneVsRestClassifier
 
 # from node2vec_sampling import Graph
 from utils import load_walks, determine_positive_and_negative_samples
@@ -37,22 +39,14 @@ from tensorflow.python.framework import ops
 from tensorflow.python.ops import math_ops, control_flow_ops
 from tensorflow.python.training import optimizer
 
-# K.clear_session() # ?
 K.set_floatx("float64")
-K.set_epsilon(1e-15)
+K.set_epsilon(1e-32)
 
-# eps = 1e-6
 np.set_printoptions(suppress=True)
 
 
-# Set random seed
-# seed = 0
-# np.random.seed(seed)
-# tf.set_random_seed(seed)
-
 # TensorFlow wizardry
 config = tf.ConfigProto()
-
 
 # Don't pre-allocate memory; allocate as-needed
 config.gpu_options.allow_growth = True
@@ -60,9 +54,7 @@ config.gpu_options.allow_growth = True
 # Only allow a total of half the GPU memory to be allocated
 config.gpu_options.per_process_gpu_memory_fraction = 0.5
 
-# config.allow_soft_placement = True
 config.log_device_placement=False
-
 config.allow_soft_placement=True
 
 # Create a session with the above options specified.
@@ -119,29 +111,9 @@ def load_karate():
 	topology_graph = nx.convert_node_labels_to_integers(topology_graph, label_attribute="original_name")
 	nx.set_edge_attributes(G=topology_graph, name="weight", values=1.)
 
-
-	# node2vec_graph = Graph(nx_G=G, is_directed=False, p=1, q=1)
-	# node2vec_graph.preprocess_transition_probs()
-	# walks = node2vec_graph.simulate_walks(num_walks=10, walk_length=5)
-
 	features = np.genfromtxt("../data/karate/feats.csv", delimiter=",")
-	# feature_graph = create_feature_graph(features)
 
 	return topology_graph, features, labels
-
-	# node2vec_graph = Graph(nx_G=G_att, is_directed=False, p=1, q=1)
-	# node2vec_graph.preprocess_transition_probs()
-	# walks_att = node2vec_graph.simulate_walks(num_walks=1, walk_length=5)
-
-
-	# walks_att = []
-
-
-	# positive_samples, ground_truth_negative_samples =\
-	# # determine_positive_and_ground_truth_negative_samples(G, walks+walks_att, context_size=1)
-	# return (G, assignments, positive_samples, ground_truth_negative_samples)
-
-
 
 def load_labelled_attributed_network(dataset_str, args, scale=False):
 	"""Load data."""
@@ -173,6 +145,7 @@ def load_labelled_attributed_network(dataset_str, args, scale=False):
 	test_idx_range = np.sort(test_idx_reorder)
 
 	if dataset_str == 'citeseer':
+		scale=True
 		# Fix citeseer dataset (there are some isolated nodes in the graph)
 		# Find isolated nodes, add them as zero-vecs into the right position
 		test_idx_range_full = list(range(min(test_idx_reorder), max(test_idx_reorder)+1))
@@ -220,48 +193,72 @@ def load_labelled_attributed_network(dataset_str, args, scale=False):
 
 	return topology_graph, features, labels
 
-	# # node2vec_graph = Graph(nx_G=G_att, is_directed=False, p=1, q=1)
-	# # node2vec_graph.preprocess_transition_probs()
-	# # walks_att = node2vec_graph.simulate_walks(num_walks=10, walk_length=5)
-	
-	# walks_att = []
+def load_ppi(args, normalize=True,):
+    prefix = "../data/ppi/ppi"
+    G_data = json.load(open(prefix + "-G.json"))
+    topology_graph = json_graph.node_link_graph(G_data)
+    if isinstance(topology_graph.nodes()[0], int):
+        conversion = lambda n : int(n)
+    else:
+        conversion = lambda n : n
 
-	# Y = labels
+    if os.path.exists(prefix + "-feats.npy"):
+        features = np.load(prefix + "-feats.npy")
+    else:
+        print("No features present.. Only identity features will be used.")
+        features = None
+    id_map = json.load(open(prefix + "-id_map.json"))
+    id_map = {conversion(k):int(v) for k,v in id_map.items()}
+    class_map = json.load(open(prefix + "-class_map.json"))
+    if isinstance(list(class_map.values())[0], list):
+        lab_conversion = lambda n : n
+    else:
+        lab_conversion = lambda n : int(n)
 
-	# positive_samples, ground_truth_negative_samples =\
-	# determine_positive_and_ground_truth_negative_samples(G, walks+walks_att, context_size=1 )
+    class_map = {conversion(k):lab_conversion(v) for k,v in class_map.items()}
 
-	# return (G, Y.argmax(axis=-1), positive_samples, ground_truth_negative_samples,)
+    ## Remove all nodes that do not have val/test annotations
+    ## (necessary because of networkx weirdness with the Reddit data)
+    broken_count = 0
+    for node in topology_graph.nodes():
+        if not 'val' in topology_graph.node[node] or not 'test' in topology_graph.node[node]:
+            topology_graph.remove_node(node)
+            broken_count += 1
+    print("Removed {:d} nodes that lacked proper annotations due to networkx versioning issues".format(broken_count))
 
+    ## Make sure the graph has edge train_removed annotations
+    ## (some datasets might already have this..)
+    print("Loaded data.. now preprocessing..")
+    for edge in topology_graph.edges():
+        if ( topology_graph.node[edge[0]]['val'] or  topology_graph.node[edge[1]]['val'] or
+             topology_graph.node[edge[0]]['test'] or  topology_graph.node[edge[1]]['test']):
+             topology_graph[edge[0]][edge[1]]['train_removed'] = True
+        else:
+             topology_graph[edge[0]][edge[1]]['train_removed'] = False
 
-# def pad_negative_samples(negative_samples):
-# 	def pad_l(l, len_):
-# 		i = 0
-# 		while len(l) < len_:
-# 			l.append(l[i])
-# 			i += 1 
+    if normalize and not features is None:
+        from sklearn.preprocessing import StandardScaler
+        train_ids = np.array([id_map[n] 
+                              for n in  topology_graph.nodes() 
+                              if not topology_graph.node[n]['val'] 
+                              and not topology_graph.node[n]['test']])
+        train_feats = features[train_ids]
+        scaler = StandardScaler()
+        scaler.fit(train_feats)
+        features = scaler.transform(features)
+        
+    labels = np.array([class_map[n] for n in topology_graph.nodes()])
+    nx.set_edge_attributes(G=topology_graph, name="weight", values=1.)
+    
+    assert args.only_lcc
+    if args.only_lcc:
+        topology_graph = max(nx.connected_component_subgraphs(topology_graph), key=len)
+        features = features[topology_graph.nodes()]
+        labels = labels[topology_graph.nodes()]
+        topology_graph = nx.convert_node_labels_to_integers(topology_graph, label_attribute="original_name")
+        nx.set_edge_attributes(G=topology_graph, name="weight", values=1.)
 
-# 	max_len = 0
-# 	for l in negative_samples.values():
-# 		if len(l) > max_len:
-# 			max_len = len(l)
-	
-# 	for l in negative_samples.values():
-# 		pad_l(l, max_len)
-
-# 	return np.array(negative_samples.values(), dtype=int)
-
-# def get_training_sample(batch_positive_samples, negative_samples, num_negative_samples, probs):
-# 	input_nodes = batch_positive_samples[:,0]
-# 	negative_samples = negative_samples[input_nodes]
-# 	a = np.random.random(negative_samples.shape)
-# 	idx = a.argsort(axis=-1)[:,:num_negative_samples]
-	
-# 	batch_negative_samples = negative_samples[np.arange(negative_samples.shape[0])[:,None],idx]
-
-# 	batch_nodes = np.append(batch_positive_samples, batch_negative_samples, axis=1)
-# 	return batch_nodes
-
+    return topology_graph, features, labels
 
 def get_training_sample(batch_positive_samples, negative_samples, num_negative_samples, probs):
 
@@ -313,10 +310,10 @@ def convert_edgelist_to_dict(edgelist, undirected=True, self_edges=False):
 		else:
 			default = []#set()
 		edge_dict.setdefault(u, default).append(v)
-	for u, v in edgelist:
-		assert v in edge_dict[u]
-		if undirected:
-			assert u in edge_dict[v]
+	# for u, v in edgelist:
+	# 	assert v in edge_dict[u]
+	# 	if undirected:
+	# 		assert u in edge_dict[v]
 	return edge_dict
 
 # def evaluate_rank_and_MAP(dists, edgelist, non_edgelist):
@@ -404,8 +401,6 @@ def evaluate_classification(klein_embedding, labels,
 	f1_macros = []
 
 	classes = sorted(set(labels))
-
-	# print len(classes)
 	idx = idx_shuffle(labels)
 
 	
@@ -413,6 +408,8 @@ def evaluate_classification(klein_embedding, labels,
 		num_labels = int(max(num_nodes * label_percentage, len(classes)))
 		# idx = np.random.permutation(num_nodes)
 		model = LogisticRegression(multi_class="multinomial", solver="newton-cg", random_state=0)
+		if len(labels.shape) > 1:
+			model =  OneVsRestClassifier(LogisticRegression(random_state=0))
 		model.fit(klein_embedding[idx[:num_labels]], labels[idx[:num_labels]])
 		predictions = model.predict(klein_embedding[idx[num_labels:]])
 		f1_micro = f1_score(labels[idx[num_labels:]], predictions, average="micro")
@@ -720,10 +717,11 @@ class PeriodicStdoutLogger(Callback):
 		self.epoch += 1
 
 
-		s = "Completed epoch {}, loss={}".format(self.epoch, logs["loss"])
-		if "val_loss" in logs.keys():
-			s += ", val_loss={}".format(logs["val_loss"])
-		print (s)
+		if self.args.verbose:
+			s = "Completed epoch {}, loss={}".format(self.epoch, logs["loss"])
+			if "val_loss" in logs.keys():
+				s += ", val_loss={}".format(logs["val_loss"])
+			print (s)
 
 		hyperboloid_embedding = self.model.layers[-1].get_weights()[0]
 		# print (hyperboloid_embedding)
@@ -732,7 +730,8 @@ class PeriodicStdoutLogger(Callback):
 
 		# print minkowski_dot_np(hyperboloid_embedding, hyperboloid_embedding)
 
-		print ("reconstruction")
+		if self.args.verbose:
+			print ("reconstruction")
 		(mean_rank_reconstruction, map_reconstruction, 
 			mean_roc_reconstruction) = evaluate_rank_and_MAP(dists, 
 			self.reconstruction_edge_dict, self.non_edge_dict)
@@ -746,7 +745,8 @@ class PeriodicStdoutLogger(Callback):
 
 
 		if self.args.evaluate_link_prediction:
-			print ("link prediction")
+			if self.args.verbose:
+				print ("link prediction")
 			(mean_rank_lp, map_lp, 
 			mean_roc_lp) = evaluate_rank_and_MAP(dists, 
 			self.val_edge_dict, self.non_edge_dict)
@@ -767,6 +767,8 @@ class PeriodicStdoutLogger(Callback):
 
 		if self.args.evaluate_class_prediction:
 			label_percentages, f1_micros, f1_macros = evaluate_classification(klein_embedding, self.labels)
+
+			print (f1_micros)
 
 			for label_percentage, f1_micro, f1_macro in zip(label_percentages, f1_micros, f1_macros):
 				logs.update({"{}_micro".format(label_percentage): f1_micro})
@@ -808,20 +810,28 @@ def build_model(num_nodes, args):
 		if re.match(r"^[0-9][0-9][0-9][0-9]*", f)])
 	initial_epoch = len(saved_models)
 
-	print (model.layers[-1].get_weights()[0])
+	# print (model.layers[-1].get_weights()[0])
 
 	if initial_epoch > 0:
+
+		# if args.no_load:
+		# 	print ("Trained model already exists and no-load flag is raised -- terminating")
+		# 	raise SystemExit
+
 		model_file = os.path.join(args.model_path, saved_models[-1])
 		print ("Loading model from file: {}".format(model_file))
 		model.load_weights(model_file)
 
-		print (model.layers[-1].get_weights()[0])
+		# print (model.layers[-1].get_weights()[0])
 
 	return model, initial_epoch
 
 def plot_disk_embeddings(epoch, edges, poincare_embedding, klein_embedding, labels, 
 	mean_rank_reconstruction, map_reconstruction, mean_roc_reconstruction,
 	mean_rank_lp, map_lp, mean_roc_lp, path):
+
+	if len(labels.shape ) > 1:
+		labels = labels[:,0]
 
 	print ("saving plot to {}".format(path))
 
@@ -1025,6 +1035,8 @@ def parse_args():
 
 	# parser.add_argument("--second-order", action="store_true", 
 	# 	help="Use this flag to use second order topological similarity information.")
+	parser.add_argument("--no-attributes", action="store_true", 
+		help="Use this flag to not use attributes.")
 	parser.add_argument("--add-attributes", action="store_true", 
 		help="Use this flag to add attribute sim to adj.")
 	parser.add_argument("--multiply-attributes", action="store_true", 
@@ -1035,6 +1047,8 @@ def parse_args():
 	parser.add_argument("-v", "--verbose", dest="verbose", action="store_true", 
 		help="Use this flag to set verbosity of training.")
 
+	# parser.add_argument("--distance", dest="distance", action="store_true", 
+	# 	help="Use this flag to use hyperbolic distance loss.")
 	parser.add_argument("--sigmoid", dest="sigmoid", action="store_true", 
 		help="Use this flag to use sigmoid loss.")
 	parser.add_argument("--softmax", dest="softmax", action="store_true", 
@@ -1061,6 +1075,10 @@ def parse_args():
 
 	parser.add_argument('--evaluate-class-prediction', action="store_true", help='flag to evaluate class prediction')
 	parser.add_argument('--evaluate-link-prediction', action="store_true", help='flag to evaluate link prediction')
+
+	parser.add_argument('--just-walks', action="store_true", help='flag to generate walks with given parameters')
+
+	parser.add_argument('--no-load', action="store_true", help='flag to termiante program if trained model exists')
 
 
 	args = parser.parse_args()
@@ -1142,10 +1160,11 @@ def configure_paths(args):
 	args.walk_path = os.path.join(args.walk_path, dataset)
 	if not os.path.exists(args.walk_path):
 		os.makedirs(args.walk_path)
+	args.walk_path += "/seed={}/".format(args.seed)
 	if args.only_lcc:
-		args.walk_path += "/lcc/"
+		args.walk_path += "lcc/"
 	else:
-		args.walk_path += "/all_components/"
+		args.walk_path += "all_components/"
 	if args.evaluate_link_prediction:
 		args.walk_path += "eval_lp/"
 	# elif args.evaluate_class_prediction:
@@ -1179,7 +1198,7 @@ def main():
 
 	args = parse_args()
 	args.num_positive_samples = 1
-	args.only_lcc = True
+	# args.only_lcc = True
 	if not args.evaluate_link_prediction:
 		args.evaluate_class_prediction = True
 
@@ -1189,28 +1208,31 @@ def main():
 	np.random.seed(args.seed)
 	tf.set_random_seed(args.seed)
 
-	# if args.no_gpu:
-	# 	os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-	# if args.combine_attributes:
-	# 	args.use_attributes = True
 	configure_paths(args)
+
+	#####early stop
+	if args.no_load:
+		plots = os.listdir(args.plot_path)
+		if len(plots) > 0 and any(["test.png" in plot for plot in plots]):
+			print ("Training already competed and no-load flag is raised -- terminating")
+			raise SystemExit
 
 	dataset = args.dataset
 	if dataset == "karate":
 		topology_graph, features, labels = load_karate()
 	elif dataset in ["cora", "pubmed", "citeseer"]:
 		topology_graph, features, labels = load_labelled_attributed_network(dataset, args)
+	elif dataset == "ppi":
+		topology_graph, features, labels = load_ppi(args)
 	else:
 		raise Exception
 
 	# original edges for reconstruction
 	reconstruction_edges = topology_graph.edges()
-	print ("determined reconstruction edges")
-	non_edges = list(nx.non_edges(topology_graph))
-	non_edge_dict = convert_edgelist_to_dict(non_edges)
-	print ("determined non edges")
+	if args.verbose:
+		print ("determined reconstruction edges")
+	
 
-	# edge_dict = convert_edgelist_to_dict(reconstruction_edges)
 
 	if features is not None:
 		feature_sim = cosine_similarity(features)
@@ -1223,13 +1245,8 @@ def main():
 		train_edges, val_edges, test_edges = split_edges(reconstruction_edges)
 		topology_graph.remove_edges_from(val_edges + test_edges)
 
-		# train_edges = convert_edgelist_to_dict(train_edges)
-		# val_edges = convert_edgelist_to_dict(val_edges)
-		# test_edges = convert_edgelist_to_dict(test_edges)
-
 	else:
 		train_edges = reconstruction_edges
-		# train_edges = convert_edgelist_to_dict(reconstruction_edges)
 		val_edges = None
 		test_edges = None
 
@@ -1252,25 +1269,16 @@ def main():
 
 	walks = load_walks(g, walk_file, feature_sim, args)
 
+	if args.just_walks:
+		return
 	
 
 	positive_samples, negative_samples, probs =\
 		determine_positive_and_negative_samples(nodes=topology_graph.nodes(), 
 		walks=walks, context_size=args.context_size)
 
-	# negative_samples = pad_negative_samples(negative_samples)
-	# print negative_samples.shape
-	# raise SystemExit
-
-	# for e in topology_graph.edges():
-	# 	assert e in positive_samples, "edge {} is not in positive_samples".format(e)
-	# print "passed"
-	# print "missing {} edges".format(sum([e not in positive_samples for e in topology_graph.edges()]))
-	# raise SystemExit
-
 	num_nodes = len(topology_graph)
 	num_steps = int((len(positive_samples) + args.batch_size - 1) / args.batch_size)
-	# num_steps=10000
 
 	# training_gen = training_generator(positive_samples, negative_samples, probs,
 	# 								  num_negative_samples=args.num_negative_samples, 
@@ -1288,39 +1296,33 @@ def main():
 	model.compile(optimizer=optimizer, loss=loss)
 	model.summary()
 
+
+	non_edges = list(nx.non_edges(topology_graph))
+	non_edge_dict = convert_edgelist_to_dict(non_edges)
+	if args.verbose:
+		print ("determined true non edges")
 	# if sys.version_info[0] == 2:
 	# 	val_in, val_out = training_gen.next()
 	# else:
 	# 	val_in, val_out = training_gen.__next__()
 	val_in, val_target = make_validation_data(reconstruction_edges, non_edge_dict, probs, args)
-	# val_in = get_training_sample(np.array(reconstruction_edges[:args.batch_size]), 
-	# 	negative_samples, args.num_negative_samples, probs)
-	# val_target = np.zeros(list(val_in.shape)+[1], dtype=np.int64)
-	print ("determined validation data")
-	# model.fit(_in, _out, epochs=1, verbose=args.verbose)
-	# raise SystemExit
+	if args.verbose:
+		print ("determined validation data")
 
 	early_stopping = EarlyStopping(monitor="val_loss", patience=args.patience, verbose=1)
 	logger = PeriodicStdoutLogger(reconstruction_edges, val_edges, non_edges, non_edge_dict, labels, 
 				n=args.plot_freq, epoch=initial_epoch, args=args) 
-	print ("created logger")
-	# for epoch in range(initial_epoch, args.num_epochs):
-	# 	for step in range(num_steps):
-	# 		x, y = training_gen.next()
-	# 		model.train_on_batch(x, y)
-	# 	print "COMPLETED EPOCH {}/{}".format(epoch, args.num_epochs)
+	if args.verbose:
+		print ("created logger")
+
 	x = get_training_sample(np.array(positive_samples), negative_samples, args.num_negative_samples, probs)
 	y = np.zeros(list(x.shape) + [1])
-	# I = np.identity(len(topology_graph))
-	# x = I[x]
-	# print x.shape
-	# raise SystemExit
-	print ("determined training samples")
+
+	if args.verbose:
+		print ("determined training samples")
 	# model.fit_generator(training_gen, epochs=args.num_epochs, 
 	# 	workers=1, max_queue_size=100, use_multiprocessing=True,
 	# 	steps_per_epoch=num_steps, verbose=args.verbose, initial_epoch=initial_epoch,
-	# print len(positive_samples), len(x), args.batch_size
-	# raise SystemExit
 	model.fit(x, y, batch_size=args.batch_size, epochs=args.num_epochs, 
 		initial_epoch=initial_epoch, verbose=args.verbose,
 		validation_data=[val_in, val_target],
@@ -1362,7 +1364,6 @@ def main():
 	poincare_embedding = hyperboloid_to_poincare_ball(hyperboloid_embedding)
 	klein_embedding = hyperboloid_to_klein(hyperboloid_embedding)
 
-	# epoch = early_stopping.stopped_epoch#
 	epoch = logger.epoch
 
 	plot_path = os.path.join(args.plot_path, "epoch_{:05d}_plot_test.png".format(epoch) )
